@@ -3,48 +3,164 @@
 
 <head>
   <meta charset="utf-8">
-  <title>ru :: tcp 16-20</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RU :: TCP 16-20 DPI Checker</title>
   <style>
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #f5f7fa;
+      color: #333;
+      line-height: 1.6;
+    }
+
+    h2 {
+      font-size: 1.8em;
+      margin-bottom: 1em;
+      color: #1a1a1a;
+    }
+
+    #status {
+      font-weight: 600;
+    }
+
+    .status-ready { color: #28a745; }
+    .status-checking { color: #007bff; }
+    .status-error { color: #dc3545; }
+
+    #start {
+      font-size: 1.2em;
+      padding: 0.8em 1.5em;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background-color 0.3s, transform 0.1s;
+    }
+
+    #start:hover {
+      background-color: #0056b3;
+      transform: translateY(-2px);
+    }
+
+    #start:disabled {
+      background-color: #6c757d;
+      cursor: not-allowed;
+    }
+
+    hr {
+      border: none;
+      border-top: 1px solid #e0e0e0;
+      margin: 20px 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background-color: white;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    th, td {
+      padding: 12px 15px;
+      text-align: left;
+      border-bottom: 1px solid #e0e0e0;
+    }
+
+    th {
+      background-color: #007bff;
+      color: white;
+      font-weight: 600;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
     .ok {
-      color: green;
+      color: #28a745;
+      font-weight: 500;
     }
 
     .bad {
-      color: red;
+      color: #dc3545;
+      font-weight: 500;
     }
 
-    #start {
-      font-size: 1.5em;
-      padding: 0.5em 1em;
+    #log {
+      background-color: #1a1a1a;
+      color: #d4d4d4;
+      padding: 15px;
+      border-radius: 6px;
+      font-family: 'Fira Code', monospace;
+      font-size: 0.9em;
+      max-height: 300px;
+      overflow-y: auto;
+      margin: 20px 0;
     }
 
-    table,
-    th,
-    td {
-      border: 1px solid black;
-      border-collapse: collapse;
-      padding: 0.3em 0.3em;
+    .footer {
+      margin-top: 20px;
+      font-size: 0.9em;
+      color: #555;
+    }
+
+    .footer a {
+      color: #007bff;
+      text-decoration: none;
+    }
+
+    .footer a:hover {
+      text-decoration: underline;
+    }
+
+    @media (max-width: 600px) {
+      body {
+        padding: 15px;
+      }
+
+      h2 {
+        font-size: 1.5em;
+      }
+
+      #start {
+        width: 100%;
+        font-size: 1em;
+      }
+
+      table {
+        font-size: 0.9em;
+      }
+
+      th, td {
+        padding: 8px;
+      }
     }
   </style>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Fira+Code&display=swap">
 </head>
 
 <body>
-  <h2>Status: <span id="status">Ready ⚡</span></h2>
+  <h2>Status: <span id="status" class="status-ready">Ready ⚡</span></h2>
   <button id="start">Start</button>
   <hr>
   <table id="results">
     <tr>
       <th>#</th>
       <th>Provider</th>
-      <th>DPI[tcp 16-20] status</th>
+      <th>DPI[tcp 16-20] Status</th>
     </tr>
   </table>
   <pre id="log"></pre>
-  <div>💡DPI[tcp 16-20] /
+  <div class="footer">
+    💡 DPI[tcp 16-20] /
     See <b><a href="https://github.com/net4people/bbs/issues/490" target="_blank">here</a></b> for more details.<br>
-    This checker (and others) are available in <b><a href="https://github.com/hyperion-cs/dpi-checkers"
-        target="_blank">this</a></b>
-    repository, open source.
+    This checker (and others) are available in <b><a href="https://github.com/hyperion-cs/dpi-checkers" target="_blank">this</a></b> open-source repository.
   </div>
 
   <script>
@@ -58,22 +174,13 @@
       { id: "OVH-01", provider: "OVH", times: 1, url: "https://eu.api.ovh.com/console/rapidoc-min.js" },
     ];
 
-    // add custom test suite if provided
     (function appendCustomTestFromQuery() {
       const params = new URLSearchParams(window.location.search);
       const url = params.get("url");
-
       if (url) {
         const provider = params.get("provider") || "Custom";
         const times = parseInt(params.get("times")) || 1;
-
-        const newTest = {
-          id: `CUST-01`,
-          provider: provider,
-          times: times,
-          url: url,
-        };
-
+        const newTest = { id: `CUST-01`, provider, times, url };
         TEST_SUITE.push(newTest);
         console.log("Custom test added:", newTest);
       }
@@ -82,16 +189,14 @@
     const TIMEOUT_MS = 5000;
     const OK_THRESHOLD_BYTES = 64 * 1024;
 
-    const fetchOpt = ctrl => {
-      return {
-        method: "GET",
-        credentials: "omit",
-        cache: "no-store",
-        signal: ctrl.signal,
-        redirect: "manual",
-        keepalive: true
-      };
-    };
+    const fetchOpt = ctrl => ({
+      method: "GET",
+      credentials: "omit",
+      cache: "no-store",
+      signal: ctrl.signal,
+      redirect: "manual",
+      keepalive: true
+    });
 
     const startButton = document.getElementById("start");
     const status = document.getElementById("status");
@@ -103,31 +208,32 @@
     const toggleUI = (locked) => {
       startButton.disabled = locked;
       startButton.textContent = locked ? "..." : "Start";
+      status.className = locked ? "status-checking" : "status-ready";
     };
 
     const setStatus = (col, text, cls) => {
       col.textContent = text;
       col.className = cls;
+      if (cls === "bad") status.className = "status-error";
     };
 
     const logPush = (level, prefix, msg) => {
       const now = new Date();
       const ts = now.toLocaleTimeString([], { hour12: false }) + "." + now.getMilliseconds().toString().padStart(3, "0");
       log.textContent += `[${ts}] ${prefix}/${level}: ${msg}\n`;
+      log.scrollTop = log.scrollHeight;
     };
 
     const timeElapsed = t0 => `${(performance.now() - t0).toFixed(1)} ms`;
     const getHttpStatus = id => httpCodes[id];
 
     const getUniqueUrl = url => {
-      if (url.includes('?')) {
-        return url + "&t=" + Math.random();
-      }
-      return url + "?t=" + Math.random();
-    }
+      return url.includes('?') ? `${url}&t=${Math.random()}` : `${url}?t=${Math.random()}`;
+    };
 
     const checkNetwork = async () => {
       status.textContent = "Checking ⏰";
+      status.className = "status-checking";
       for (let i = results.rows.length - 1; i > 0; i--) {
         results.deleteRow(i);
       }
@@ -152,9 +258,11 @@
 
         await Promise.all(tasks);
         status.textContent = "Ready ⚡";
+        status.className = "status-ready";
       } catch {
         logPush("ERR", prefix, `FAILED (${timeElapsed(t0)})`);
         status.textContent = "No internet access ⚠️";
+        status.className = "status-error";
       }
       toggleUI(false);
     };
@@ -176,7 +284,7 @@
 
       try {
         const r = await fetch(getUniqueUrl(url), fetchOpt(ctrl));
-        logPush("INFO", prefix, "HTTP " + r.status);
+        logPush("INFO", prefix, `HTTP ${r.status}`);
         httpCodes[id] = r.status;
         const reader = r.body.getReader();
         let received = 0, ok = false;
@@ -186,12 +294,10 @@
           if (done) {
             clearTimeout(timeoutId);
             logPush("INFO", prefix, `Stream complete without timeout (${timeElapsed(t0)})`);
-
             if (!ok) {
               logPush("WARN", prefix, `Stream ended but data is too small`);
               setStatus(statusCell, "Possibly detected ⚠️", "");
             }
-
             break;
           }
 
@@ -202,10 +308,8 @@
             clearTimeout(timeoutId);
             await reader.cancel();
             ok = true;
-
             logPush("INFO", prefix, `Early complete (${timeElapsed(t0)})`);
             setStatus(statusCell, "Not detected ✅", "ok");
-
             break;
           }
         }
@@ -226,13 +330,10 @@
     startButton.onclick = () => {
       log.textContent = "";
       toggleUI(true);
-
       localStorage.clear();
       sessionStorage.clear();
-
       checkNetwork();
     };
-
   </script>
 </body>
 
