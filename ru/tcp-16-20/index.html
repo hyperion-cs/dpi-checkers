@@ -6,141 +6,109 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>RU :: TCP 16-20 DPI Checker</title>
   <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 20px;
-      background-color: #f5f7fa;
-      color: #333;
-      line-height: 1.6;
-    }
+  body {
+    font: 1em/1.6 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+    background: #f5f7fa;
+    color: #333;
+  }
 
-    h2 {
-      font-size: 1.8em;
-      margin-bottom: 1em;
-      color: #1a1a1a;
-    }
+  h2 {
+    font-size: 1.8em;
+    margin: 0 0 1em;
+    color: #1a1a1a;
+  }
 
-    #status {
-      font-weight: 600;
-    }
+  #status { font-weight: 600; }
+  .status-ready { color: #28a745; }
+  .status-checking { color: #007bff; }
+  .status-error { color: #dc3545; }
 
-    .status-ready { color: #28a745; }
-    .status-checking { color: #007bff; }
-    .status-error { color: #dc3545; }
+  #start {
+    font-size: 1.2em;
+    padding: .8em 1.5em;
+    background: #007bff;
+    color: #fff;
+    border: 0;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background .3s, transform .1s;
+  }
 
-    #start {
-      font-size: 1.2em;
-      padding: 0.8em 1.5em;
-      background-color: #007bff;
-      color: white;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      transition: background-color 0.3s, transform 0.1s;
-    }
+  #start:hover {
+    background: #0056b3;
+    transform: translateY(-2px);
+  }
 
-    #start:hover {
-      background-color: #0056b3;
-      transform: translateY(-2px);
-    }
+  #start:disabled {
+    background: #6c757d;
+    cursor: not-allowed;
+  }
 
-    #start:disabled {
-      background-color: #6c757d;
-      cursor: not-allowed;
-    }
+  hr {
+    border-top: 1px solid #e0e0e0;
+    margin: 20px 0;
+  }
 
-    hr {
-      border: none;
-      border-top: 1px solid #e0e0e0;
-      margin: 20px 0;
-    }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #fff;
+    box-shadow: 0 2px 4px rgba(0,0,0,.1);
+    border-radius: 8px;
+    overflow: hidden;
+  }
 
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      background-color: white;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-      border-radius: 8px;
-      overflow: hidden;
-    }
+  th, td {
+    padding: 12px 15px;
+    text-align: left;
+    border-bottom: 1px solid #e0e0e0;
+  }
 
-    th, td {
-      padding: 12px 15px;
-      text-align: left;
-      border-bottom: 1px solid #e0e0e0;
-    }
+  th {
+    background: #007bff;
+    color: #fff;
+    font-weight: 600;
+  }
 
-    th {
-      background-color: #007bff;
-      color: white;
-      font-weight: 600;
-    }
+  tr:last-child td { border-bottom: 0; }
 
-    tr:last-child td {
-      border-bottom: none;
-    }
+  .ok { color: #28a745; font-weight: 500; }
+  .bad { color: #dc3545; font-weight: 500; }
 
-    .ok {
-      color: #28a745;
-      font-weight: 500;
-    }
+  #log {
+    background: #1a1a1a;
+    color: #d4d4d4;
+    padding: 15px;
+    border-radius: 6px;
+    font: .9em 'Courier New', Courier, monospace;
+    max-height: 300px;
+    overflow-y: auto;
+    margin: 20px 0;
+  }
 
-    .bad {
-      color: #dc3545;
-      font-weight: 500;
-    }
+  .footer {
+    margin-top: 20px;
+    font-size: .9em;
+    color: #555;
+  }
 
-    #log {
-      background-color: #1a1a1a;
-      color: #d4d4d4;
-      padding: 15px;
-      border-radius: 6px;
-      font-family: 'Courier New', Courier, monospace;
-      font-size: 0.9em;
-      max-height: 300px;
-      overflow-y: auto;
-      margin: 20px 0;
-    }
+  .footer a {
+    color: #007bff;
+    text-decoration: none;
+  }
 
-    .footer {
-      margin-top: 20px;
-      font-size: 0.9em;
-      color: #555;
-    }
+  .footer a:hover { text-decoration: underline; }
 
-    .footer a {
-      color: #007bff;
-      text-decoration: none;
-    }
-
-    .footer a:hover {
-      text-decoration: underline;
-    }
-
-    @media (max-width: 600px) {
-      body {
-        padding: 15px;
-      }
-
-      h2 {
-        font-size: 1.5em;
-      }
-
-      #start {
-        width: 100%;
-        font-size: 1em;
-      }
-
-      table {
-        font-size: 0.9em;
-      }
-
-      th, td {
-        padding: 8px;
-      }
-    }
+  @media (max-width: 600px) {
+    body { padding: 15px; }
+    h2 { font-size: 1.5em; }
+    #start { width: 100%; font-size: 1em; }
+    table { font-size: .9em; }
+    th, td { padding: 8px; }
+  }
   </style>
 </head>
 
