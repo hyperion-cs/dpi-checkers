@@ -41,7 +41,7 @@ It can be seen that there is a correlation between these properties (which is ge
    dd if=/dev/urandom of=/var/www/html/1MB.bin bs=1M count=1
    ```
    \* Don't forget to open https (443) port.
-3. Finally, on your local machine (must have Python 3 and the `curl` utility installed) with internet access through an ISP with DPI using the TCP 16-20 blocking method, you can run the script. It is recommended to use a POSIX-compatible OS (Linix, macOS, etc). The script has the following parameters:
+3. Finally, on your local machine (must have Python 3 and the `curl` utility installed) with internet access through an ISP with DPI using the TCP 16-20 blocking method, you can run the script. It is recommended to use a POSIX-compatible OS (Linux, macOS, etc). The script has the following parameters:
 
    | Parametr | Default | Required | Desc |
    | :-: | :-: | :-: | - |
