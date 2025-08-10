@@ -88,7 +88,7 @@
     max-height: 300px;
     overflow-y: auto;
     margin: 0.5em 0;
-    text-wrap: wrap;
+    overflow-wrap: anywhere;
   }
 
   .footer {
@@ -165,7 +165,7 @@
         TEST_SUITE.push(newTest);
       }
 
-      TIMEOUT_MS = parseInt(params.get("timeout")) || TIMEOUT_MS
+      TIMEOUT_MS = parseInt(params.get("timeout")) || TIMEOUT_MS;
     })();
 
     const fetchOpt = ctrl => ({
@@ -230,7 +230,7 @@
         status.className = "status-ready";
       } catch (e) {
         status.textContent = "Unexpected error ⚠️";
-        logPush("ERR", prefix, `Unexpected error => ${e}`);
+        logPush("ERR", null, `Unexpected error => ${e}`);
         status.className = "status-error";
       }
       logPush("INFO", null, "Done.");
@@ -286,10 +286,10 @@
       } catch (e) {
         clearTimeout(timeoutId);
         if (e.name === "AbortError") {
-          const status = getHttpStatus(id);
-          let reason = status ? "READ" : "CONN";
+          const statusCode = getHttpStatus(id);
+          let reason = statusCode ? "READ" : "CONN";
           logPush("ERR", prefix, `${reason} timeout reached (${timeElapsed(t0)})`);
-          setStatus(statusCell, status ? "Detected❗️" : "Detected*❗️", "bad");
+          setStatus(statusCell, statusCode ? "Detected❗️" : "Detected*❗️", "bad");
         } else {
           logPush("ERR", prefix, `Fetch/read error => ${e}`);
           setStatus(statusCell, "Failed to complete detection ⚠️", "");
