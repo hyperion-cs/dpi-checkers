@@ -138,6 +138,7 @@
 
   <script>
     const TEST_SUITE = [
+      { id: "CF-01", provider: "Cloudflare", times: 1, url: "https://cdn.cookielaw.org/scripttemplates/202501.2.0/otBannerSdk.js" },
       { id: "CF-02", provider: "Cloudflare", times: 1, url: "https://genshin.jmp.blue/characters/all#" },
       { id: "CF-03", provider: "Cloudflare", times: 1, url: "https://api.frankfurter.dev/v1/2000-01-01..2002-12-31" },
       { id: "DO-01", provider: "DigitalOcean", times: 2, url: "https://genderize.io/" },
@@ -149,6 +150,12 @@
       { id: "OVH-01", provider: "OVH", times: 1, url: "https://eu.api.ovh.com/console/rapidoc-min.js" },
       { id: "OVH-02", provider: "OVH", times: 1, url: "https://ovh.sfx.ovh/10M.bin" },
       { id: "OR-01", provider: "Oracle", times: 1, url: "https://oracle.sfx.ovh/10M.bin" },
+      { id: "AWS-01", provider: "AWS", times: 1, url: "https://tms.delta.com/delta/dl_anderson/Bootstrap.js" },
+      { id: "AWS-02", provider: "AWS", times: 1, url: "https://corp.kaltura.com/wp-content/cache/min/1/wp-content/themes/airfleet/dist/styles/theme.css" },
+      { id: "FST-01", provider: "Fastly", times: 1, url: "https://www.graco.com/content/dam/graco/emea/images/diy/DIY_th.jpg/jcr:content/renditions/600x600.jpeg" },
+      { id: "FST-02", provider: "Fastly", times: 1, url: "https://www.juniper.net/etc.clientlibs/juniper/clientlibs/clientlib-site/resources/fonts/lato/Lato-Regular.woff2" },
+      { id: "AKM-01", provider: "Akamai", times: 1, url: "https://www.lg.com/lg5-common-gp/library/jquery.min.js" },
+      { id: "AKM-02", provider: "Akamai", times: 1, url: "https://media-assets.stryker.com/is/image/stryker/gateway_1?$max_width_1410$" },
     ];
 
     const OK_THRESHOLD_BYTES = 64 * 1024;
