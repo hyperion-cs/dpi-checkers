@@ -6,112 +6,160 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>RU :: TCP 16-20 DPI Checker</title>
   <style>
-  body {
-    font: 1em/1.6 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 20px;
-    background: #f5f7fa;
-    color: #333;
-  }
+    body {
+      font: 1em/1.6 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #f5f7fa;
+      color: #333;
+    }
 
-  .header {
-    font-size: 1.2em;
-    margin: 0 0.5em 0;
-    color: #1a1a1a;
-  }
+    .header {
+      font-size: 1.2em;
+      margin: 0 0.5em 0;
+      color: #1a1a1a;
+    }
 
-  #status { font-weight: 600; }
-  .status-ready { color: #28a745; }
-  .status-checking { color: #007bff; }
-  .status-error { color: #dc3545; }
+    #status {
+      font-weight: 600;
+    }
 
-  #start {
-    font-size: 1.2em;
-    padding: .8em 1.5em;
-    background: #ff008b;
-    color: #fff;
-    border: 0;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: background .3s, transform .1s;
-  }
+    .status-ready {
+      color: #28a745;
+    }
 
-  #start:hover {
-    background: #d40074;
-    transform: translateY(-2px);
-  }
+    .status-checking {
+      color: #007bff;
+    }
 
-  #start:disabled {
-    background: #6c757d;
-    cursor: not-allowed;
-  }
+    .status-error {
+      color: #dc3545;
+    }
 
-  hr {
-    border-top: 1px solid #e0e0e0;
-    margin: 20px 0;
-  }
+    #start {
+      font-size: 1.2em;
+      padding: .8em 1.5em;
+      background: #ff008b;
+      color: #fff;
+      border: 0;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background .3s, transform .1s;
+    }
 
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    background: #fff;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, .1);
-    border-radius: 8px;
-    overflow: hidden;
-    margin-top: 0.5em;
-  }
+    #start:hover {
+      background: #d40074;
+      transform: translateY(-2px);
+    }
 
-  th, td {
-    padding: 4px 15px;
-    text-align: left;
-    border-bottom: 1px solid #e0e0e0;
-  }
+    #start:disabled {
+      background: #6c757d;
+      cursor: not-allowed;
+    }
 
-  th {
-    background: #007bff;
-    color: #fff;
-    font-weight: 600;
-  }
+    hr {
+      border-top: 1px solid #e0e0e0;
+      margin: 20px 0;
+    }
 
-  tr:last-child td { border-bottom: 0; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, .1);
+      border-radius: 8px;
+      overflow: hidden;
+      margin-top: 0.2em;
+    }
 
-  .ok { color: #28a745; font-weight: 500; }
-  .bad { color: #dc3545; font-weight: 500; }
+    th,
+    td {
+      padding: 4px 15px;
+      text-align: left;
+      border-bottom: 1px solid #e0e0e0;
+    }
 
-  #log {
-    background: #1a1a1a;
-    color: #d4d4d4;
-    padding: 15px;
-    border-radius: 6px;
-    font: .9em 'Courier New', Courier, monospace;
-    max-height: 300px;
-    overflow-y: auto;
-    margin: 0.5em 0;
-    overflow-wrap: anywhere;
-  }
+    th {
+      background: #007bff;
+      color: #fff;
+      font-weight: 600;
+    }
 
-  .footer {
-    margin-top: 20px;
-    font-size: .9em;
-    color: #555;
-  }
+    tr:last-child td {
+      border-bottom: 0;
+    }
 
-  a {
-    color: #007bff;
-    text-decoration: none;
-  }
+    .ok {
+      color: #28a745;
+      font-weight: 500;
+    }
 
-  a:hover { text-decoration: underline; }
+    .bad {
+      color: #dc3545;
+      font-weight: 500;
+    }
 
-  @media (max-width: 600px) {
-    body { padding: 10px; }
-    .header { font-size: 1em; }
-    #start { width: 50%; font-size: 1em; }
-    table { font-size: .9em; }
-    th, td { padding: 3px 8px; }
-    #log { padding: 7px; }
-  }
+    #log {
+      background: #1a1a1a;
+      color: #d4d4d4;
+      padding: 15px;
+      border-radius: 6px;
+      font: .9em 'Courier New', Courier, monospace;
+      max-height: 300px;
+      overflow-y: auto;
+      margin: 0.5em 0;
+      overflow-wrap: anywhere;
+    }
+
+    #asn {
+      margin-top: 0.2em;
+      font-size: .9em;
+      color: #555;
+    }
+
+    .footer {
+      margin-top: 20px;
+      font-size: .9em;
+      color: #555;
+    }
+
+    a {
+      color: #007bff;
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    @media (max-width: 600px) {
+      body {
+        padding: 10px;
+      }
+
+      .header {
+        font-size: 1em;
+      }
+
+      #start {
+        width: 50%;
+        font-size: 1em;
+      }
+
+      table {
+        font-size: .9em;
+      }
+
+      th,
+      td {
+        padding: 3px 8px;
+      }
+
+      #log {
+        padding: 7px;
+      }
+    }
   </style>
 </head>
 
@@ -134,7 +182,8 @@
   <div class="footer">
     💡 DPI[tcp 16-20] /
     See <b><a href="https://github.com/net4people/bbs/issues/490" target="_blank">here</a></b> for more details.<br>
-    This checker (and others) are available in <b><a href="https://github.com/hyperion-cs/dpi-checkers" target="_blank">this</a></b> open-source repository.
+    This checker (and others) are available in <b><a href="https://github.com/hyperion-cs/dpi-checkers"
+        target="_blank">this</a></b> open-source repository.
   </div>
 
   <script>
@@ -224,7 +273,7 @@
       for (let i = results.rows.length - 1; i > 0; i--) {
         results.deleteRow(i);
       }
-      
+
       try {
         const tasks = [];
         for (let t of TEST_SUITE) {
@@ -313,19 +362,19 @@
       startOrchestrator();
     };
 
-  const fetchAsn = async () => {
-    try {
-      const data = await (await fetch("https://api.2ip.io/")).json();
-      const el = document.getElementById("asn");
-      el.innerHTML = `ASN: <a href="https://bgp.he.net/AS${data.asn.id}" target="_blank">AS${data.asn.id}</a> (<i>${data.asn.name}</i>) • ${data.code}, ${data.region}, ${data.city}`;
-    } catch (err) {
-      console.error("Fetch ASN err:", err);
-    }
-  };
+    const fetchAsn = async () => {
+      try {
+        const data = await (await fetch("https://api.2ip.io/")).json();
+        const el = document.getElementById("asn");
+        el.innerHTML = `ASN: <a href="https://bgp.he.net/AS${data.asn.id}" target="_blank">AS${data.asn.id}</a> (<i>${data.asn.name}</i>) • ${data.code}, ${data.region}, ${data.city}`;
+      } catch (err) {
+        console.error("Fetch ASN err:", err);
+      }
+    };
 
-  document.addEventListener("DOMContentLoaded", async () => {
-    await fetchAsn();
-  });
+    document.addEventListener("DOMContentLoaded", async () => {
+      await fetchAsn();
+    });
   </script>
 </body>
 
