@@ -97,12 +97,12 @@
     color: #555;
   }
 
-  .footer a {
+  a {
     color: #007bff;
     text-decoration: none;
   }
 
-  .footer a:hover { text-decoration: underline; }
+  a:hover { text-decoration: underline; }
 
   @media (max-width: 600px) {
     body { padding: 10px; }
@@ -122,6 +122,7 @@
       Status: <span id="status" class="status-ready">Ready ⚡</span>
     </span>
   </div>
+  <div id="asn"></div>
   <table id="results">
     <tr>
       <th>#</th>
@@ -311,6 +312,20 @@
       sessionStorage.clear();
       startOrchestrator();
     };
+
+  const fetchAsn = async () => {
+    try {
+      const data = await (await fetch("https://api.2ip.io/")).json();
+      const el = document.getElementById("asn");
+      el.innerHTML = `ASN: <a href="https://bgp.he.net/AS${data.asn.id}" target="_blank">AS${data.asn.id}</a> (<i>${data.asn.name}</i>) • ${data.code}, ${data.region}, ${data.city}`;
+    } catch (err) {
+      console.error("Fetch ASN err:", err);
+    }
+  };
+
+  document.addEventListener("DOMContentLoaded", async () => {
+    await fetchAsn();
+  });
   </script>
 </body>
 
