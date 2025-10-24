@@ -133,6 +133,10 @@
       text-decoration: underline;
     }
 
+    .asn-br::after {
+      content: " • ";
+    }
+
     @media (max-width: 600px) {
       body {
         padding: 10px;
@@ -158,6 +162,11 @@
 
       #log {
         padding: 7px;
+      }
+
+      .asn-br::after {
+        content: "\A";
+        white-space: pre;
       }
     }
   </style>
@@ -366,7 +375,7 @@
       try {
         const data = await (await fetch("https://api.2ip.io/")).json();
         const el = document.getElementById("asn");
-        el.innerHTML = `ASN: <a href="https://bgp.he.net/AS${data.asn.id}" target="_blank">AS${data.asn.id}</a> (<i>${data.asn.name}</i>) • ${data.code}, ${data.region}, ${data.city}`;
+        el.innerHTML = `ASN: <a href="https://bgp.he.net/AS${data.asn.id}" target="_blank">AS${data.asn.id}</a> (<i>${data.asn.name}</i>)<span class="asn-br"></span>${data.code}, ${data.region}, ${data.city}`;
       } catch (err) {
         console.error("Fetch ASN err:", err);
       }
