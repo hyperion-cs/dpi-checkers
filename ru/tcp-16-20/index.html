@@ -196,6 +196,7 @@
   </div>
 
   <script>
+    // Where possible, we should use stable endpoints (with the same response size every time, with a long-lived URL, without versions, etc.)
     const TEST_SUITE = [
       { id: "CF-01", provider: "Cloudflare", times: 1, url: "https://cdn.cookielaw.org/scripttemplates/202501.2.0/otBannerSdk.js" },
       { id: "CF-02", provider: "Cloudflare", times: 1, url: "https://genshin.jmp.blue/characters/all#" },
@@ -374,9 +375,12 @@
 
     const fetchAsn = async () => {
       try {
-        const data = await (await fetch("https://api.2ip.io/")).json();
+        const RIPE_API_URL = "https://stat.ripe.net/data/";
+        const ip = (await (await fetch(RIPE_API_URL + "whats-my-ip/data.json")).json()).data.ip;
+        const asn = (await (await fetch(RIPE_API_URL + "prefix-overview/data.json?resource=" + ip)).json()).data.asns[0];
+        const geo = (await (await fetch(RIPE_API_URL + "maxmind-geo-lite/data.json?resource=" + ip)).json()).data.located_resources[0].locations[0];
         const el = document.getElementById("asn");
-        el.innerHTML = `ASN: <a href="https://bgp.he.net/AS${data.asn.id}" target="_blank">AS${data.asn.id}</a> (<i>${data.asn.name}</i>)<span class="asn-br"></span>${data.code}, ${data.region}, ${data.city}`;
+        el.innerHTML = `ASN: <a href="https://bgp.he.net/AS${asn.asn}" target="_blank">AS${asn.asn}</a> (<i>${asn.holder}</i>)<span class="asn-br"></span>${geo.country}, ${geo.city}`;
       } catch (err) {
         console.error("Fetch ASN err:", err);
       }
