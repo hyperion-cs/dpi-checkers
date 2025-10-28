@@ -198,25 +198,25 @@
   <script>
     // Where possible, we should use stable endpoints (with the same response size every time, with a long-lived URL, without versions, etc.)
     const TEST_SUITE = [
-      { id: "CF-01", provider: "Cloudflare", times: 1, url: "https://cdn.cookielaw.org/scripttemplates/202501.2.0/otBannerSdk.js" },
-      { id: "CF-02", provider: "Cloudflare", times: 1, url: "https://genshin.jmp.blue/characters/all#" },
-      { id: "CF-03", provider: "Cloudflare", times: 1, url: "https://api.frankfurter.dev/v1/2000-01-01..2002-12-31" },
-      { id: "DO-01", provider: "DigitalOcean", times: 2, url: "https://genderize.io/" },
-      { id: "HE-01", provider: "Hetzner", times: 1, url: "https://j.dejure.org/jcg/doctrine/doctrine_banner.webp" },
-      { id: "HE-02", provider: "Hetzner", times: 1, url: "https://tcp1620-01.dubybot.live/1MB.bin" },
-      { id: "HE-03", provider: "Hetzner", times: 1, url: "https://tcp1620-02.dubybot.live/1MB.bin" },
-      { id: "HE-04", provider: "Hetzner", times: 1, url: "https://tcp1620-05.dubybot.live/1MB.bin" },
-      { id: "HE-05", provider: "Hetzner", times: 1, url: "https://tcp1620-06.dubybot.live/1MB.bin" },
-      { id: "OVH-01", provider: "OVH", times: 1, url: "https://eu.api.ovh.com/console/rapidoc-min.js" },
-      { id: "OVH-02", provider: "OVH", times: 1, url: "https://ovh.sfx.ovh/10M.bin" },
-      { id: "OR-01", provider: "Oracle", times: 1, url: "https://oracle.sfx.ovh/10M.bin" },
-      { id: "AWS-01", provider: "AWS", times: 1, url: "https://tms.delta.com/delta/dl_anderson/Bootstrap.js" },
-      { id: "AWS-02", provider: "AWS", times: 1, url: "https://corp.kaltura.com/wp-content/cache/min/1/wp-content/themes/airfleet/dist/styles/theme.css" },
-      { id: "GC-01", provider: "Google Cloud", times: 1, url: "https://api.usercentrics.eu/gvl/v3/en.json" },
-      { id: "FST-01", provider: "Fastly", times: 1, url: "https://openoffice.apache.org/images/blog/rejected.png" },
-      { id: "FST-02", provider: "Fastly", times: 1, url: "https://www.juniper.net/etc.clientlibs/juniper/clientlibs/clientlib-site/resources/fonts/lato/Lato-Regular.woff2" },
-      { id: "AKM-01", provider: "Akamai", times: 1, url: "https://www.lg.com/lg5-common-gp/library/jquery.min.js" },
-      { id: "AKM-02", provider: "Akamai", times: 1, url: "https://media-assets.stryker.com/is/image/stryker/gateway_1?$max_width_1410$" },
+      { id: "US.CF-01", provider: "🇺🇸 Cloudflare", times: 1, url: "https://cdn.cookielaw.org/scripttemplates/202501.2.0/otBannerSdk.js" },
+      { id: "US.CF-02", provider: "🇺🇸 Cloudflare", times: 1, url: "https://genshin.jmp.blue/characters/all#" },
+      { id: "US.CF-03", provider: "🇺🇸 Cloudflare", times: 1, url: "https://api.frankfurter.dev/v1/2000-01-01..2002-12-31" },
+      { id: "US.DO-01", provider: "🇺🇸 DigitalOcean", times: 2, url: "https://genderize.io/" },
+      { id: "DE.HE-01", provider: "🇩🇪 Hetzner", times: 1, url: "https://j.dejure.org/jcg/doctrine/doctrine_banner.webp" },
+      { id: "FI.HE-01", provider: "🇫🇮 Hetzner", times: 1, url: "https://tcp1620-01.dubybot.live/1MB.bin" },
+      { id: "FI.HE-02", provider: "🇫🇮 Hetzner", times: 1, url: "https://tcp1620-02.dubybot.live/1MB.bin" },
+      { id: "FI.HE-03", provider: "🇫🇮 Hetzner", times: 1, url: "https://tcp1620-05.dubybot.live/1MB.bin" },
+      { id: "FI.HE-04", provider: "🇫🇮 Hetzner", times: 1, url: "https://tcp1620-06.dubybot.live/1MB.bin" },
+      { id: "FR.OVH-01", provider: "🇫🇷 OVH", times: 1, url: "https://eu.api.ovh.com/console/rapidoc-min.js" },
+      { id: "FR.OVH-02", provider: "🇫🇷 OVH", times: 1, url: "https://ovh.sfx.ovh/10M.bin" },
+      { id: "SE.OR-01", provider: "🇸🇪 Oracle", times: 1, url: "https://oracle.sfx.ovh/10M.bin" },
+      { id: "DE.AWS-01", provider: "🇩🇪 AWS", times: 1, url: "https://tms.delta.com/delta/dl_anderson/Bootstrap.js" },
+      { id: "US.AWS-01", provider: "🇺🇸 AWS", times: 1, url: "https://corp.kaltura.com/wp-content/cache/min/1/wp-content/themes/airfleet/dist/styles/theme.css" },
+      { id: "US.GC-01", provider: "🇺🇸 Google Cloud", times: 1, url: "https://api.usercentrics.eu/gvl/v3/en.json" },
+      { id: "US.FST-01", provider: "🇺🇸 Fastly", times: 1, url: "https://openoffice.apache.org/images/blog/rejected.png" },
+      { id: "US.FST-02", provider: "🇺🇸 Fastly", times: 1, url: "https://www.juniper.net/etc.clientlibs/juniper/clientlibs/clientlib-site/resources/fonts/lato/Lato-Regular.woff2" },
+      { id: "PL.AKM-01", provider: "🇵🇱 Akamai", times: 1, url: "https://www.lg.com/lg5-common-gp/library/jquery.min.js" },
+      { id: "PL.AKM-02", provider: "🇵🇱 Akamai", times: 1, url: "https://media-assets.stryker.com/is/image/stryker/gateway_1?$max_width_1410$" },
     ];
 
     const OK_THRESHOLD_BYTES = 64 * 1024;
@@ -289,7 +289,7 @@
         const tasks = [];
         for (let t of TEST_SUITE) {
           for (let i = 0; i < t.times; i++) {
-            tasks.push(checkDpi(t.times > 1 ? `${t.id}/${i}` : t.id, t.provider, t.url));
+            tasks.push(checkDpi(t.times > 1 ? `${t.id}@${i}` : t.id, t.provider, t.url));
           }
         }
 
