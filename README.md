@@ -13,7 +13,7 @@
   | name | type |	default	| description |
   |:-:|:-:|:-:|-|
   | timeout | int | `5000` | Timeout for connecting/fetching data from endpoint (in ms). |
-  | url | string | — | A custom endpoint to check in addition to the default ones (e.g. your steal-oneself server). The testing endpoint should allow cross-origin requests and provide at least 64KB of data (over the network, including compression, etc.). When not specified, the `times` and `provider` options are ignored. |
+  | url | string | — | A custom endpoint to check in addition to the default ones (e.g. your steal-oneself server). The testing endpoint should allow [cross-origin requests](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS) and provide at least 64KB of data (over the network, including compression, etc.). When not specified, the `times` and `provider` options are ignored. |
   | times | int | `1` | How many times to access the endpoint in a single HTTP connection (_keep-alived_). |
   | provider | string | _Custom_ | Provider name (you can set any name). |
 
