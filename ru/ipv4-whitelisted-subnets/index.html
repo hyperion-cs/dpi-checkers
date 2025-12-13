@@ -21,6 +21,10 @@
       color: #1a1a1a;
     }
 
+    .status-br::after {
+      content: "";
+    }
+
     #status {
       font-weight: 600;
     }
@@ -49,6 +53,7 @@
       border: 0;
       border-radius: 6px;
       cursor: pointer;
+      line-height: 1;
       transition: background .3s, transform .1s;
     }
 
@@ -156,18 +161,32 @@
       #log {
         padding: 7px;
       }
+
+      .status-br::after {
+        content: "\A";
+        white-space: pre;
+      }
+
+      .container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
     }
   </style>
 </head>
 
 <body>
-  <div>
-    <button id="cache-subnets-btn" class="btn">Cache</button>
-    <button id="check-subnets-btn" class="btn" disabled>Check 🔥</button>
-    <button id="save-btn" class="btn" disabled>💾</button>
-    <span class="header">
-      Status: <span id="status" class="status-non-cached">Ready (non-cached ⚠️)</span>
-    </span>
+  <div class="container">
+    <div>
+      <button id="cache-subnets-btn" class="btn">Cache</button>
+      <button id="check-subnets-btn" class="btn" disabled>Check 🔥</button>
+      <button id="save-btn" class="btn" disabled>💾</button>
+      <span class="status-br"></span>
+      <span class="header">
+        Status: <span id="status" class="status-non-cached">Ready (non-cached ⚠️)</span>
+      </span>
+    </div>
   </div>
   <table id="results">
     <tr>
