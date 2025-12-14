@@ -23,7 +23,7 @@
 
   :warning: There are some nuances to be noted:
   - Not all subnets on the _Internet_ are tested, only those _AS_ subnets that could potentially be on the whitelist and that could potentially be available to the "customer";
-  - There may be _false negative_ results, as selective checks are used for performance reasons + a test HTTP HEAD request is sent to port `80` for selected hosts in each subnet;
+  - There may be _false negative_ results, as selective checks are used for performance reasons + a test HTTP(S) HEAD request is sent to port `443` for selected hosts in each subnet;
   - This checker will not work if a censor, in addition to subnet restrictions, also restricts [TLS SNI](https://en.wikipedia.org/wiki/Server_Name_Indication) (_unfortunately, the browser sandbox is unable to spoof this parameter_);
   - If you are using mobile internet, don't worry about large traffic usage (_it will use a couple of megabytes at maximum_);
   - It is prohibited to minimize the browser or lock the screen on phones during the check (_however, you can share Wi-Fi from your phone to your computer — this is more convenient_);

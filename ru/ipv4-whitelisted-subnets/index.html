@@ -427,7 +427,7 @@
       try {
         logPush("INFO", prefix, `Started`);
 
-        await fetch(getUniqueUrl(`http://${ip}/`), fetchOpt(abortSignals));
+        await fetch(getUniqueUrl(`https://${ip}/`), fetchOpt(abortSignals));
       } catch (e) {
         if (e.name === "AbortError") result = false;
       } finally {
