@@ -309,7 +309,6 @@
       cacheSubnetsButton.disabled = true;
       saveButton.disabled = true;
       checkSubnetsButton.textContent = "...";
-
       status.className = "status-working";
 
       for (const [provider, subnets] of Object.entries(cachedSubnets)) {
@@ -487,7 +486,8 @@
     }
 
     const saveResults = () => {
-      const blob = new Blob(["provider;cidr;aliveCount\n" + resultsData.map(x => `${x.provider};${x.cidr};${x.aliveCount}\n`)], {
+      const content = "provider;cidr;aliveCount\n" + resultsData.map(x => `${x.provider};${x.cidr};${x.aliveCount}`).join("\n");
+      const blob = new Blob([content], {
         type: "text/csv;charset=utf-8"
       });
 
