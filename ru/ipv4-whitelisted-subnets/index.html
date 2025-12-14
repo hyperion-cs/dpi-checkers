@@ -357,23 +357,23 @@
         }
 
         console.log("cached subnets", cachedSubnets);
+        localStorage.setItem("ipv4-whitelisted-subnets_cachedSubnets", JSON.stringify(cachedSubnets));
 
-        status.textContent = "Ready (cached ⚡)";
+        checkSubnetsButton.disabled = false;
+        cacheSubnetsButton.disabled = false;
+        cacheSubnetsButton.textContent = "Cache";
         status.className = "status-ready";
+        status.textContent = "Ready (cached ⚡)";
+
+        logPush("INFO", prefix, `Cached in ${timeElapsed(t0)}.`);
       } catch (e) {
-        status.textContent = "Unexpected error ⚠️";
-        logPush("ERR", prefix, `Unexpected error => ${e}`);
+        checkSubnetsButton.disabled = true;
+        cacheSubnetsButton.disabled = false;
+        cacheSubnetsButton.textContent = "Cache";
+        status.textContent = "Unexpected caching error ⚠️";
         status.className = "status-error";
+        logPush("ERR", prefix, `Unexpected caching error => ${e}`);
       }
-
-      localStorage.setItem("ipv4-whitelisted-subnets_cachedSubnets", JSON.stringify(cachedSubnets));
-
-      cacheSubnetsButton.disabled = false;
-      cacheSubnetsButton.textContent = "Cache";
-      status.className = "status-ready";
-      checkSubnetsButton.disabled = false;
-
-      logPush("INFO", prefix, `Cached in ${timeElapsed(t0)}.`);
     };
 
     // Returns N random unique hosts from a subnet based on CIDR.
@@ -461,7 +461,7 @@
         logPush("INFO", prefix, `Done (total: ${prefixes.length}).`);
         return prefixes;
       } catch (err) {
-        console.error(`${prefix} err:`, err);
+        throw prefix + err;
       }
     }
 
