@@ -8,7 +8,7 @@
 
 ## Checkers list
 - **RU :: IPv4 Whitelisted Subnets** => [https://hyperion-cs.github.io/dpi-checkers/ru/ipv4-whitelisted-subnets](https://hyperion-cs.github.io/dpi-checkers/ru/ipv4-whitelisted-subnets)<br>
-  Allows to detect [IPv4 subnets](https://en.wikipedia.org/wiki/Subnet) from the so-called "white list" in cases where a censor restricts TCP/UDP connections by subnets (sometimes referred to as [CIDR](https://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing) censorship). There are three control buttons:<br>
+  Allows to detect [IPv4 subnets](https://en.wikipedia.org/wiki/Subnet) from the so-called "whitelist" in cases where a censor restricts TCP/UDP/etc connections by IP subnets (aka [CIDR](https://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing) censorship). There are three control buttons:<br>
   - _Cache_ — fetch and cache suitable IPv4 subnets in the client browser (_local storage_) for further tests. They are saved even after reloading the checker's web page, exiting a browser, etc. This process uses services that are almost certainly not on the whitelist, so it is wise to run it when your provider does not use whitelists (e.g., your "home" ISP's Wi-Fi). This process can only be repeated when you want to update the list of testable subnets of suitable [ASes](https://en.wikipedia.org/wiki/Autonomous_system_(Internet)) (and they change quite rarely);
   - _Check_ — check suitable subnets if they are on the whitelist;
   - _Save_ — save the check results to a _.csv_ file.
