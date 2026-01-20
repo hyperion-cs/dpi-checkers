@@ -137,6 +137,12 @@
       content: " • ";
     }
 
+    .asn-link {
+      font-size: 0.85em;
+      color: #666;
+      margin-left: 4px;
+    }
+
     @media (max-width: 600px) {
       body {
         padding: 10px;
@@ -257,6 +263,7 @@
     const results = document.getElementById("results");
 
     const httpCodes = {};
+    const asnCache = {};
 
     const toggleUI = (locked) => {
       startButton.disabled = locked;
@@ -282,6 +289,94 @@
 
     const getUniqueUrl = url => {
       return url.includes('?') ? `${url}&t=${Math.random()}` : `${url}?t=${Math.random()}`;
+    };
+
+    const resolveDomain = async (domain, dnsProvider = 'cloudflare') => {
+      const providers = {
+        cloudflare: 'https://cloudflare-dns.com/dns-query',
+        google: 'https://dns.google/resolve'
+      };
+
+      try {
+        const baseUrl = providers[dnsProvider];
+
+        // Try A record first
+        let url = `${baseUrl}?name=${encodeURIComponent(domain)}&type=A`;
+        let response = await fetch(url, {
+          headers: { 'Accept': 'application/dns-json' }
+        });
+        let data = await response.json();
+        let ips = data.Answer?.filter(r => r.type === 1).map(record => record.data) || [];
+
+        if (ips.length > 0) {
+          return ips;
+        }
+
+        // Fallback to CNAME if no A records
+        url = `${baseUrl}?name=${encodeURIComponent(domain)}&type=CNAME`;
+        response = await fetch(url, {
+          headers: { 'Accept': 'application/dns-json' }
+        });
+        data = await response.json();
+        const cname = data.Answer?.find(r => r.type === 5)?.data;
+
+        if (cname) {
+          // Resolve the CNAME target to A record
+          const cnameTarget = cname.endsWith('.') ? cname.slice(0, -1) : cname;
+          url = `${baseUrl}?name=${encodeURIComponent(cnameTarget)}&type=A`;
+          response = await fetch(url, {
+            headers: { 'Accept': 'application/dns-json' }
+          });
+          data = await response.json();
+          ips = data.Answer?.filter(r => r.type === 1).map(record => record.data) || [];
+          return ips;
+        }
+
+        return [];
+      } catch (err) {
+        console.error(`Failed to resolve ${domain} via ${dnsProvider}:`, err);
+
+        // Fallback to Google DNS if Cloudflare fails
+        if (dnsProvider === 'cloudflare') {
+          console.log(`Trying Google DNS as fallback for ${domain}`);
+          return resolveDomain(domain, 'google');
+        }
+
+        return [];
+      }
+    };
+
+    const getAsnForIp = async (ip) => {
+      if (asnCache[ip]) {
+        return asnCache[ip];
+      }
+
+      try {
+        const RIPE_API_URL = "https://stat.ripe.net/data/";
+        const asnData = (await (await fetch(RIPE_API_URL + "prefix-overview/data.json?resource=" + ip)).json()).data.asns[0];
+        const result = `AS${asnData.asn}`;
+        asnCache[ip] = result;
+        return result;
+      } catch (err) {
+        console.error(`Failed to get ASN for ${ip}:`, err);
+        return null;
+      }
+    };
+
+    const getAsnForUrl = async (url) => {
+      try {
+        const urlObj = new URL(url);
+        const domain = urlObj.hostname;
+        const ips = await resolveDomain(domain);
+
+        if (ips.length > 0) {
+          const asn = await getAsnForIp(ips[0]);
+          return asn;
+        }
+      } catch (err) {
+        console.error(`Failed to get ASN for URL ${url}:`, err);
+      }
+      return null;
     };
 
     const startOrchestrator = async () => {
@@ -323,8 +418,17 @@
       const statusCell = row.insertCell();
 
       numCell.textContent = id;
-      providerCell.textContent = provider;
+      providerCell.textContent = provider + " ...";
       setStatus(statusCell, "Checking ⏰", "");
+
+      // Resolve ASN in background
+      getAsnForUrl(url).then(asn => {
+        if (asn) {
+          providerCell.innerHTML = `${provider} <a href="https://bgp.he.net/${asn}" target="_blank" class="asn-link">${asn}</a>`;
+        } else {
+          providerCell.textContent = provider;
+        }
+      });
 
       try {
         const r = await fetch(getUniqueUrl(url), fetchOpt(ctrl));
