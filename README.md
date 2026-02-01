@@ -46,6 +46,6 @@
   A list of domains is required as input. Also requires _Python 3_, the _curl_ utility, and a specially configured server on "limited" networks. See [here](ru/tcp-16-20_dwc) for details (ready-to-use results are also available for download there).
 
 ## Contributing
-We would be happy if you could help us improve our checkers through PR or by creating issues.
+We would be happy if you could help us improve our checkers through PR or by creating issues (please use only English for international communication).
 Also you can star the repository so you don't lose the checkers.
 The repository is available [here](https://github.com/hyperion-cs/dpi-checkers).
