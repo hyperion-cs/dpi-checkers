@@ -238,7 +238,8 @@
       if (url) {
         const provider = params.get("provider") || "Custom";
         const times = parseInt(params.get("times")) || 1;
-        const newTest = { id: `CUST-01`, provider, times, url };
+        const thresholdBytes = parseInt(params.get("thrBytes")) || BIN_THR_BYTES;
+        const newTest = { id: `CUST-01`, provider, times, url, thresholdBytes };
         TEST_SUITE.push(newTest);
       }
 
