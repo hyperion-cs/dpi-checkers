@@ -174,7 +174,7 @@
 
 <body>
   <div>
-    <button id="start">Start</button>
+    <button id="start" disabled>Start</button>
     <span class="header">
       Status: <span id="status" class="status-ready">Ready ⚡</span>
     </span>
@@ -201,39 +201,7 @@
     // Where possible, we should use stable endpoints (with the same response size every time, with a long-lived URL, without versions, etc).
     // The `thresholdBytes` is evaluated by utils/http_compression_prober.py (in the repo) and should be set to the max value from all compressors.
     // This way, we ensure that more incoming data than the "tcp 16-20" limit has passed through the network.
-    const TEST_SUITE = [
-      { id: "US.CF-01", provider: "🇺🇸 Cloudflare", thresholdBytes: BIN_THR_BYTES, times: 1, url: "https://img.wzstats.gg/cleaver/gunFullDisplay" },
-      { id: "US.CF-02", provider: "🇺🇸 Cloudflare", thresholdBytes: 104319, times: 1, url: "https://genshin.jmp.blue/characters/all#" },
-      { id: "US.CF-03", provider: "🇺🇸 Cloudflare", thresholdBytes: 109863, times: 1, url: "https://api.frankfurter.dev/v1/2000-01-01..2002-12-31" },
-      { id: "CA.CF-01", provider: "🇨🇦 Cloudflare", thresholdBytes: 79655, times: 1, url: "https://www.bigcartel.com/" },
-      { id: "US.DO-01", provider: "🇺🇸 DigitalOcean", thresholdBytes: BIN_THR_BYTES, times: 1, url: "https://carishealthcare.com/content/uploads/2025/04/Rectangle-105.jpg" },
-      { id: "US.DO-02", provider: "🇺🇸 DigitalOcean", thresholdBytes: BIN_THR_BYTES, times: 1, url: "https://bohnlawllc.com/wp-content/uploads/sites/27/2024/01/Trusts.jpg" },
-      { id: "US.DO-03", provider: "🇺🇸 DigitalOcean", thresholdBytes: BIN_THR_BYTES, times: 1, url: "https://ecomstal.com/Images/amazon-rank.png" },
-      { id: "DE.HE-01", provider: "🇩🇪 Hetzner", thresholdBytes: BIN_THR_BYTES, times: 1, url: "https://j.dejure.org/jcg/doctrine/doctrine_banner.webp" },
-      { id: "DE.HE-02", provider: "🇩🇪 Hetzner", thresholdBytes: 162646, times: 1, url: "https://accesorioscelular.com/tienda/css/plugins.css" },
-      { id: "FI.HE-01", provider: "🇫🇮 Hetzner", thresholdBytes: BIN_THR_BYTES, times: 1, url: "https://251b5cd9.nip.io/1MB.bin" },
-      { id: "FI.HE-02", provider: "🇫🇮 Hetzner", thresholdBytes: BIN_THR_BYTES, times: 1, url: "https://nioges.com/libs/fontawesome/webfonts/fa-solid-900.woff2" },
-      { id: "FI.HE-03", provider: "🇫🇮 Hetzner", thresholdBytes: BIN_THR_BYTES, times: 1, url: "https://5fd8bdae.nip.io/1MB.bin" },
-      { id: "FI.HE-04", provider: "🇫🇮 Hetzner", thresholdBytes: BIN_THR_BYTES, times: 1, url: "https://5fd8bca5.nip.io/1MB.bin" },
-      { id: "FR.OVH-01", provider: "🇫🇷 OVH", thresholdBytes: BIN_THR_BYTES, times: 1, url: "https://app.symarobot.com/content/images/logo.png" },
-      { id: "FR.OVH-02", provider: "🇫🇷 OVH", thresholdBytes: 86572, times: 1, url: "https://traccar.chpg.29ter.com/ol.js" },
-      { id: "SE.OR-01", provider: "🇸🇪 Oracle", thresholdBytes: BIN_THR_BYTES, times: 1, url: "https://oracle.sfx.ovh/10M.bin" },
-      { id: "DE.AWS-01", provider: "🇩🇪 AWS", thresholdBytes: BIN_THR_BYTES, times: 1, url: "https://www.getscope.com/assets/fonts/fa-solid-900.woff2" },
-      { id: "US.AWS-01", provider: "🇺🇸 AWS", thresholdBytes: 215419, times: 1, url: "https://corp.kaltura.com/wp-content/cache/min/1/wp-content/themes/airfleet/dist/styles/theme.css" },
-      { id: "US.GC-01", provider: "🇺🇸 Google Cloud", thresholdBytes: 176277, times: 1, url: "https://api.usercentrics.eu/gvl/v3/en.json" },
-      { id: "US.FST-01", provider: "🇺🇸 Fastly", thresholdBytes: 77597, times: 1, url: "https://www.jetblue.com/footer/footer-element-es2015.js" },
-      { id: "CA.FST-01", provider: "🇨🇦 Fastly", thresholdBytes: 84086, times: 1, url: "https://ssl.p.jwpcdn.com/player/v/8.40.5/bidding.js" },
-      { id: "US.AKM-01", provider: "🇺🇸 Akamai", thresholdBytes: BIN_THR_BYTES, times: 1, url: "https://www.roxio.com/static/roxio/images/products/creator/nxt9/call-action-footer-bg.jpg" },
-      { id: "PL.AKM-01", provider: "🇵🇱 Akamai", thresholdBytes: BIN_THR_BYTES, times: 1, url: "https://media-assets.stryker.com/is/image/stryker/gateway_1?$max_width_1410$" },
-      { id: "US.CDN77-01", provider: "🇺🇸 CDN77", thresholdBytes: BIN_THR_BYTES, times: 1, url: "https://cdn.eso.org/images/banner1920/eso2520a.jpg" },
-      { id: "FR.CNTB-01", provider: "🇫🇷 Contabo", thresholdBytes: BIN_THR_BYTES, times: 1, url: "https://xdmarineshop.gr/index.php?route=index" },
-      { id: "NL.SW-01", provider: "🇳🇱 Scaleway", thresholdBytes: BIN_THR_BYTES, times: 1, url: "https://www.velivole.fr/img/header.jpg" },
-      { id: "US.VLTR-01", provider: "🇺🇸 Vultr", thresholdBytes: BIN_THR_BYTES, times: 1, url: "https://cdn.xuansiwei.com/common/lib/font-awesome/4.7.0/fontawesome-webfont.woff2?v=4.7.0" },
-      { id: "DE.VLTR-01", provider: "🇩🇪 Vultr", thresholdBytes: 84152, times: 1, url: "https://static-cdn.play.date/static/js/model-viewer.min.js" },
-      { id: "US.MBCOM-01", provider: "🇺🇸 Melbicom", thresholdBytes: BIN_THR_BYTES, times: 1, url: "https://twin.mentat.su/assets/fonts/Inter-SemiBold.woff2" },
-      { id: "NL.GCORE-01", provider: "🇳🇱 Gcore", thresholdBytes: 61816, times: 1, url: "https://bizora.kz/assets/index.CUgnHoYH.js" },
-    ];
-
+    let TEST_SUITE = [];
     let TIMEOUT_MS = 5000;
 
     (function getParamsHandler() {
@@ -304,7 +272,7 @@
         const tasks = [];
         for (let t of TEST_SUITE) {
           for (let i = 0; i < t.times; i++) {
-            tasks.push(checkDpi(t.times > 1 ? `${t.id}@${i}` : t.id, t.provider, t.url, t.thresholdBytes));
+            tasks.push(checkDpi(t.times > 1 ? `${t.id}@${i}` : t.id, t.provider, t.url, t.thresholdBytes, t.country));
           }
         }
 
@@ -320,7 +288,7 @@
       toggleUI(false);
     };
 
-    const checkDpi = async (id, provider, url, thresholdBytes) => {
+    const checkDpi = async (id, provider, url, thresholdBytes, country) => {
       const prefix = `DPI checking(#${id})`;
       const t0 = performance.now();
       const ctrl = new AbortController();
@@ -332,7 +300,7 @@
       const statusCell = row.insertCell();
 
       numCell.textContent = id;
-      providerCell.textContent = provider;
+      providerCell.textContent = `${country} ${provider}`;
       setStatus(statusCell, "Checking ⏰", "");
 
       try {
@@ -401,7 +369,17 @@
       }
     };
 
+    const fetchSuite = async () => {
+      try {
+        TEST_SUITE = await (await fetch("./suite.json")).json();
+        startButton.disabled = false;
+      } catch {
+        logPush("ERR", null, `Fetch suite failed. Probably a CORS issue (running locally?).`);
+      }
+    };
+
     document.addEventListener("DOMContentLoaded", async () => {
+      await fetchSuite();
       await fetchAsn();
     });
   </script>
