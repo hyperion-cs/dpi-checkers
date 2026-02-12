@@ -26,6 +26,7 @@
     { "id": "FR.CNTB-01", "provider": "Contabo", "country": "🇫🇷", "thresholdBytes": 24576, "times": 1, "url": "https://xdmarineshop.gr/index.php?route=index" },
     { "id": "NL.SW-01", "provider": "Scaleway", "country": "🇳🇱", "thresholdBytes": 24576, "times": 1, "url": "https://www.velivole.fr/img/header.jpg" },
     { "id": "US.VLTR-01", "provider": "Vultr", "country": "🇺🇸", "thresholdBytes": 24576, "times": 1, "url": "https://cdn.xuansiwei.com/common/lib/font-awesome/4.7.0/fontawesome-webfont.woff2?v=4.7.0" },
+    { "id": "DE.VLTR-01", "provider": "Vultr", "country": "🇩🇪", "thresholdBytes": 84152, "times": 1, "url": "https://static-cdn.play.date/static/js/model-viewer.min.js" },
     { "id": "US.MBCOM-01", "provider": "Melbicom", "country": "🇺🇸", "thresholdBytes": 24576, "times": 1, "url": "https://twin.mentat.su/assets/fonts/Inter-SemiBold.woff2" },
     { "id": "NL.GCORE-01", "provider": "Gcore", "country": "🇳🇱", "thresholdBytes": 61816, "times": 1, "url": "https://bizora.kz/assets/index.CUgnHoYH.js" }
 ]
