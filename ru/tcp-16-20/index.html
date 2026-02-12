@@ -184,7 +184,7 @@
     <tr>
       <th>#</th>
       <th>Provider</th>
-      <th>DPI[tcp 16-20] Status</th>
+      <th>Status</th>
     </tr>
   </table>
   <pre id="log"></pre>
@@ -370,7 +370,7 @@
           const statusCode = getHttpStatus(id);
           let reason = statusCode ? "READ" : "CONN";
           logPush("ERR", prefix, `${reason} timeout reached (${timeElapsed(t0)})`);
-          setStatus(statusCell, statusCode ? "Detected❗️" : "Detected*❗️", "bad");
+          setStatus(statusCell, statusCode ? "Detected❗️" : "Conn timeout❗️", "bad");
         } else {
           logPush("ERR", prefix, `Fetch/read error => ${e}`);
           setStatus(statusCell, "Failed to complete detection ⚠️", "");
