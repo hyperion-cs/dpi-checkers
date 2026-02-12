@@ -1,0 +1,167 @@
+ body {
+   font: 1em/1.6 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+   max-width: 1200px;
+   margin: 0 auto;
+   padding: 20px;
+   background: #f5f7fa;
+   color: #333;
+ }
+
+ .header {
+   font-size: 1.2em;
+   margin: 0 0.5em 0;
+   color: #1a1a1a;
+ }
+
+ .status-br::after {
+   content: "";
+ }
+
+ #status {
+   font-weight: 600;
+ }
+
+ .status-non-cached {
+   color: #1a1a1a;
+ }
+
+ .status-ready {
+   color: #28a745;
+ }
+
+ .status-working {
+   color: #9200ff;
+ }
+
+ .status-error {
+   color: #dc3545;
+ }
+
+ .btn {
+   font-size: 1.2em;
+   padding: .8em 1em;
+   background: #1a1a1a;
+   color: #fff;
+   border: 0;
+   border-radius: 6px;
+   cursor: pointer;
+   line-height: 1;
+   transition: background .3s, transform .1s;
+ }
+
+ .btn:hover {
+   background: #6c757d;
+   transform: translateY(-2px);
+ }
+
+ .btn:disabled {
+   background: #6c757d;
+   cursor: not-allowed;
+ }
+
+ hr {
+   border-top: 1px solid #e0e0e0;
+   margin: 20px 0;
+ }
+
+ table {
+   width: 100%;
+   border-collapse: collapse;
+   background: #fff;
+   box-shadow: 0 2px 4px rgba(0, 0, 0, .1);
+   border-radius: 8px;
+   overflow: hidden;
+   margin-top: 0.2em;
+ }
+
+ th,
+ td {
+   padding: 4px 15px;
+   text-align: left;
+   border-bottom: 1px solid #e0e0e0;
+ }
+
+ th {
+   background: #9200ff;
+   color: #fff;
+   font-weight: 600;
+ }
+
+ tr:last-child td {
+   border-bottom: 0;
+ }
+
+ .ok {
+   color: #28a745;
+   font-weight: 500;
+ }
+
+ .bad {
+   color: #dc3545;
+   font-weight: 500;
+ }
+
+ #log {
+   background: #1a1a1a;
+   color: #d4d4d4;
+   padding: 15px;
+   border-radius: 6px;
+   font: .9em 'Courier New', Courier, monospace;
+   max-height: 300px;
+   overflow-y: auto;
+   margin: 0.5em 0;
+   overflow-wrap: anywhere;
+ }
+
+ .footer {
+   margin-top: 20px;
+   font-size: .9em;
+   color: #555;
+ }
+
+ a {
+   color: #9200ff;
+   text-decoration: none;
+ }
+
+ a:hover {
+   text-decoration: underline;
+ }
+
+ @media (max-width: 600px) {
+   body {
+     padding: 10px;
+   }
+
+   .header {
+     font-size: 1em;
+   }
+
+   .btn {
+     font-size: 1em;
+   }
+
+   table {
+     font-size: .9em;
+   }
+
+   th,
+   td {
+     padding: 3px 8px;
+   }
+
+   #log {
+     padding: 7px;
+   }
+
+   .status-br::after {
+     content: "\A";
+     white-space: pre;
+   }
+
+   .container {
+     display: flex;
+     justify-content: center;
+     align-items: center;
+   }
+ }
