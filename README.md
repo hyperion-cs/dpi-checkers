@@ -37,7 +37,7 @@
   |:-:|:-:|:-:|-|
   | timeout | int | `5000` | Timeout for connecting/fetching data from endpoint (in ms). |
   | url | string | — | A custom endpoint to check in addition to the default ones (e.g. your steal-oneself server). The testing endpoint should allow [cross-origin requests](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS) and provide at least 24KB of data (over the network, including compression, etc.). When not specified, the `thrBytes`, `times` and `provider` options are ignored. |
-  | thrBytes | int | `24576` | The minimum number of bytes in an uncompressed response from a server for marking an endpoint as "not detected". It is estimated using the [http compression prober](https://github.com/hyperion-cs/dpi-checkers/blob/main/utils/http_compression_prober.py) utility in the current repo (you should take the max `decompr` value from there). Please note that the default value is only suitable for endpoints with binary data (without network compression). |
+  | thrBytes | int | `65536` | The minimum number of bytes in an uncompressed response from a server for marking an endpoint as "not detected". It is estimated using the [http compression prober](https://github.com/hyperion-cs/dpi-checkers/blob/main/utils/http_compression_prober.py) utility in the current repo (you should take the max `decompr` value from there). Please note that the default value is only suitable for endpoints with binary data (without network compression). |
   | times | int | `1` | How many times to access the endpoint in a single HTTP connection (_keep-alived_). |
   | provider | string | _Custom_ | Provider name (you can set any name). |
 

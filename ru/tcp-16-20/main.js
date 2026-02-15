@@ -3,8 +3,8 @@
 // The `thresholdBytes` is evaluated by utils/http_compression_prober.py (in the repo) and should be set to the max value from all compressors.
 // This way, we ensure that more incoming data than the "tcp 16-20" limit has passed through the network.
 let TEST_SUITE = []; // Fetched from ./suite.json
-let TIMEOUT_MS = 10000;
-const BIN_THR_BYTES = 24 * 1024;
+let TIMEOUT_MS = 15000;
+const BIN_THR_BYTES = 64 * 1024;
 
 (function getParamsHandler() {
   const params = new URLSearchParams(window.location.search);

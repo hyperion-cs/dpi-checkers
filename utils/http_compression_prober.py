@@ -74,8 +74,8 @@ p.add_argument(
     "--min",
     metavar=":min",
     type=int,
-    default=24 * 1024,
-    help="minimum compressed data in bytes (no limit if -1; def: 24KB)",
+    default=64 * 1024,
+    help="minimum compressed data in bytes (no limit if -1; def: 64KB)",
 )
 
 p.add_argument(
