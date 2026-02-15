@@ -14,7 +14,7 @@ const BIN_THR_BYTES = 64 * 1024;
     const provider = params.get("provider") || "Custom";
     const times = parseInt(params.get("times")) || 1;
     const thresholdBytes = parseInt(params.get("thrBytes")) || BIN_THR_BYTES;
-    const newTest = { id: `CUST-01`, provider, times, url, thresholdBytes };
+    const newTest = { id: `CUSTOM-01`, provider, times, url, thresholdBytes };
     TEST_SUITE.push(newTest);
   }
 
