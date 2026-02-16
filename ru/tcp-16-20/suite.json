@@ -1,6 +1,6 @@
 [
   { "id": "SE.AKM-01", "provider": "Akamai", "country": "🇸🇪", "thresholdBytes": 65536, "times": 1, "url": "https://media.miele.com/images/2000015/200001503/20000150334.png" },
-  { "id": "US.AKM-01", "provider": "Akamai", "country": "🇺🇸", "thresholdBytes": 65536, "times": 1, "url": "https://www.roxio.com/static/roxio/images/products/creator/nxt9/call-action-footer-bg.jpg" },
+  { "id": "US.AKM-01", "provider": "Akamai", "country": "🇺🇸", "thresholdBytes": 65536, "times": 1, "url": "https://www.roxio.com/static/roxio/videos/products/nxt9/lamp-magic.mp4" },
   { "id": "DE.AWS-01", "provider": "AWS", "country": "🇩🇪", "thresholdBytes": 65536, "times": 1, "url": "https://www.getscope.com/assets/fonts/fa-solid-900.woff2" },
   { "id": "US.AWS-01", "provider": "AWS", "country": "🇺🇸", "thresholdBytes": 491276, "times": 1, "url": "https://corp.kaltura.com/wp-content/cache/min/1/wp-content/themes/airfleet/dist/styles/theme.css" },
   { "id": "US.CDN77-01", "provider": "CDN77", "country": "🇺🇸", "thresholdBytes": 65536, "times": 1, "url": "https://cdn.eso.org/images/banner1920/eso2520a.jpg" },
