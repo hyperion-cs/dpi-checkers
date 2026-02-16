@@ -28,34 +28,41 @@ def get_decompr(name):
     return ValueError(name)
 
 
-def probe_url(url, decompr_name, user_agent, compr_min, decompr_chunk):
+def probe_url(url, decompr_name, user_agent, compr_min, decompr_chunk, timeout):
     cl, dl = 0, 0
 
-    r = requests.get(
-        url,
-        headers={"Accept-Encoding": decompr_name, "User-Agent": user_agent},
-        stream=True,
-        allow_redirects=False,
-        verify=False,
-    )
-    r.raw.decode_content = False
+    try:
+        r = requests.get(
+            url,
+            headers={"Accept-Encoding": decompr_name, "User-Agent": user_agent},
+            stream=True,
+            allow_redirects=False,
+            verify=False,
+            timeout=timeout,
+        )
+        r.raw.decode_content = False
 
-    if "Content-Encoding" not in r.headers:
-        print(f"{decompr_name}: not supported by endpoint")
-        return
+        if "Content-Encoding" not in r.headers:
+            print(f"{decompr_name}: not supported by endpoint, status={r.status_code}")
+            return
 
-    decompress, flush = get_decompr(decompr_name)
-    while cl < compr_min or compr_min == -1:
-        b = r.raw.read(decompr_chunk)
-        if not b:
-            if compr_min != -1:
-                print(f"{decompr_name}: EOF before :min")
-            break
-        cl += len(b)
-        dl += len(decompress(b))
+        decompress, flush = get_decompr(decompr_name)
+        while cl < compr_min or compr_min == -1:
+            b = r.raw.read(decompr_chunk)
+            if not b:
+                if compr_min != -1:
+                    print(f"{decompr_name}: EOF before :min")
+                break
+            cl += len(b)
+            dl += len(decompress(b))
 
-    dl += len(flush())
-    print(f"{decompr_name}: compr={cl} decompr={dl} (x{(dl / cl):.2f})")
+        dl += len(flush())
+        print(
+            f"{decompr_name}: compr={cl} decompr={dl} (x{(dl / cl):.2f}), status={r.status_code}"
+        )
+
+    except (requests.exceptions.Timeout, urllib3.exceptions.TimeoutError):
+        print(f"{decompr_name}: request timeout")
 
 
 p = argparse.ArgumentParser(
@@ -86,6 +93,15 @@ p.add_argument(
     help="chunk size in http stream (def: 1KB)",
 )
 
+p.add_argument(
+    "-t",
+    "--timeout",
+    metavar=":t",
+    type=int,
+    default=15,
+    help="request timeout in sec (def: 15 sec)",
+)
+
 a = p.parse_args()
 for decompr in ("gzip", "deflate", "br", "zstd"):
-    probe_url(a.url, decompr, a.ua, a.min, a.chunk)
+    probe_url(a.url, decompr, a.ua, a.min, a.chunk, a.timeout)
