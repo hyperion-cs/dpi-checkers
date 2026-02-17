@@ -18,7 +18,7 @@
   { "id": "NL.GCORE-01", "provider": "Gcore", "country": "🇳🇱", "thresholdBytes": 177768, "times": 1, "url": "https://bizora.kz/assets/index.CUgnHoYH.js" },
   { "id": "US.GC-01", "provider": "Google Cloud", "country": "🇺🇸", "thresholdBytes": 521495, "times": 1, "url": "https://api.usercentrics.eu/gvl/v3/en.json" },
   { "id": "US.GC-02", "provider": "Google Cloud", "country": "🇺🇸", "thresholdBytes": 65536, "times": 1, "url": "https://widgets.reputation.com/fonts/Inter-Light.ttf" },
-  { "id": "DE.HE-01", "provider": "Hetzner", "country": "🇩🇪", "thresholdBytes": 65536, "times": 1, "url": "https://qrimp.net/js/jquery-1.6.4.min.js" },
+  { "id": "DE.HE-01", "provider": "Hetzner", "country": "🇩🇪", "thresholdBytes": 65536, "times": 1, "url": "https://apiwhatsapp-1000.zapipro.com/libs/bootstrap/dist/css/bootstrap.min.css" },
   { "id": "DE.HE-02", "provider": "Hetzner", "country": "🇩🇪", "thresholdBytes": 65536, "times": 1, "url": "https://www.industrialport.net/wp-content/uploads/custom-fonts/2022/10/Lato-Bold.ttf" },
   { "id": "FI.HE-01", "provider": "Hetzner", "country": "🇫🇮", "thresholdBytes": 65536, "times": 1, "url": "https://251b5cd9.nip.io/1MB.bin" },
   { "id": "FI.HE-02", "provider": "Hetzner", "country": "🇫🇮", "thresholdBytes": 65536, "times": 1, "url": "https://nioges.com/libs/fontawesome/webfonts/fa-solid-900.woff2" },
