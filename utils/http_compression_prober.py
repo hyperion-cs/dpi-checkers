@@ -2,10 +2,23 @@
 
 import argparse
 import requests
+from http import HTTPStatus
 import urllib3
 import zlib, brotli, zstandard
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+VERDICT = "verdict"
+VERDICT__OK = "ok"
+VERDICT__NOT_SUPPORTED = "not supported"
+VERDICT__EOF_BEFORE_MIN = "eof before min"
+VERDICT__TIMEOUT = "timeout"
+VERDICT__CONN_ERR = "connection error"
+VERDICT__INTERNAL_ERR = "internal error"
+HTTP_STATUS = "http status"
+COMPR = "compr"
+DECOMPR = "decompr"
+NAME = "name"
 
 
 def get_decompr(name):
@@ -29,10 +42,10 @@ def get_decompr(name):
 
 
 def probe_url(url, decompr_name, user_agent, compr_min, decompr_chunk, timeout):
-    cl, dl = 0, 0
+    rslt = {NAME: decompr_name, COMPR: 0, DECOMPR: 0}
 
     try:
-        r = requests.get(
+        resp = requests.get(
             url,
             headers={"Accept-Encoding": decompr_name, "User-Agent": user_agent},
             stream=True,
@@ -40,29 +53,97 @@ def probe_url(url, decompr_name, user_agent, compr_min, decompr_chunk, timeout):
             verify=False,
             timeout=timeout,
         )
-        r.raw.decode_content = False
+        resp.raw.decode_content = False
+        rslt[HTTP_STATUS] = resp.status_code
 
-        if "Content-Encoding" not in r.headers:
-            print(f"{decompr_name}: not supported by endpoint, status={r.status_code}")
-            return
+        if "Content-Encoding" not in resp.headers:
+            rslt[VERDICT] = VERDICT__NOT_SUPPORTED
+            return rslt
 
         decompress, flush = get_decompr(decompr_name)
-        while cl < compr_min or compr_min == -1:
-            b = r.raw.read(decompr_chunk)
+        while rslt[COMPR] < compr_min or compr_min == -1:
+            b = resp.raw.read(decompr_chunk)
             if not b:
                 if compr_min != -1:
-                    print(f"{decompr_name}: EOF before :min")
+                    rslt[VERDICT] = VERDICT__EOF_BEFORE_MIN
                 break
-            cl += len(b)
-            dl += len(decompress(b))
 
-        dl += len(flush())
-        print(
-            f"{decompr_name}: compr={cl} decompr={dl} (x{(dl / cl):.2f}), status={r.status_code}"
-        )
+            rslt[COMPR] += len(b)
+            rslt[DECOMPR] += len(decompress(b))
+
+        rslt[DECOMPR] += len(flush())
+        rslt[VERDICT] = VERDICT__OK
 
     except (requests.exceptions.Timeout, urllib3.exceptions.TimeoutError):
-        print(f"{decompr_name}: request timeout")
+        rslt[VERDICT] = VERDICT__TIMEOUT
+
+    except (requests.exceptions.ConnectionError, urllib3.exceptions.ConnectionError):
+        rslt[VERDICT] = VERDICT__CONN_ERR
+
+    except:
+        rslt[VERDICT] = VERDICT__INTERNAL_ERR
+
+    return rslt
+
+
+def start(a):
+    bestCompr = None
+    netErrs = False
+    internalErrs = False
+    notHttpOks = False
+
+    for decompr in ("gzip", "deflate", "br", "zstd"):
+        r = probe_url(a.url, decompr, a.ua, a.min, a.chunk, a.timeout)
+
+        if r[VERDICT] == VERDICT__TIMEOUT:
+            netErrs = True
+            print(f"{decompr}: request timeout")
+            continue
+
+        if r[VERDICT] == VERDICT__CONN_ERR:
+            netErrs = True
+            print(f"{decompr}: connection error")
+            continue
+
+        if r[VERDICT] == VERDICT__INTERNAL_ERR:
+            internalErrs = True
+            print(f"{decompr}: internal error")
+            continue
+
+        if r[HTTP_STATUS] != HTTPStatus.OK:
+            notHttpOks = True
+
+        if r[VERDICT] == VERDICT__NOT_SUPPORTED:
+            print(f"{decompr}: not supported by endpoint, http status={r[HTTP_STATUS]}")
+            continue
+
+        if r[VERDICT] in (VERDICT__OK, VERDICT__EOF_BEFORE_MIN):
+            if bestCompr is None or r[DECOMPR] > bestCompr[DECOMPR]:
+                bestCompr = r
+
+            if r[VERDICT] == VERDICT__EOF_BEFORE_MIN:
+                print(f"{decompr}: EOF before :min")
+
+            print(
+                f"{decompr}: compr={r[COMPR]}, decompr={r[DECOMPR]} (x{(r[DECOMPR] / r[COMPR]):.2f}), http status={r[HTTP_STATUS]}"
+            )
+
+    print()
+
+    if netErrs:
+        print("* network error detected")
+
+    if internalErrs:
+        print("* internal error detected")
+
+    if notHttpOks:
+        print("* a response other than HTTP OK (200) is detected")
+
+    if bestCompr is None:
+        print("* no compression methods detected")
+
+    if bestCompr is not None:
+        print(f"* best compression: {bestCompr[NAME]}")
 
 
 p = argparse.ArgumentParser(
@@ -102,6 +183,4 @@ p.add_argument(
     help="request timeout in sec (def: 15 sec)",
 )
 
-a = p.parse_args()
-for decompr in ("gzip", "deflate", "br", "zstd"):
-    probe_url(a.url, decompr, a.ua, a.min, a.chunk, a.timeout)
+start(p.parse_args())
