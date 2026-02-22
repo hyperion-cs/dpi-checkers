@@ -159,26 +159,28 @@ const checkDpi = async (id, provider, host, country) => {
     console.log(e)
     if (e.name === "AbortError") {
       if (alive) {
+        // alive — ok, push — timeout
         logPush("INFO", prefix, `tcp 16-20: detected❗️`);
         setStatus(dpiStatusCell, "Detected❗️", "bad");
         return;
       }
 
-      // It is unknown if he is alive, but timeout now
+      // alive — instant error, push — timeout
       logPush("INFO", prefix, `tcp 16-20: probably detected ⚠️, reqtime: ${timeElapsed(t0)}`);
-      setStatus(dpiStatusCell, "Probably ⚠️", "skip");
+      setStatus(dpiStatusCell, "Probably ❗️", "skip");
+      return;
     }
 
     if (alive) {
-      // Alive ok, but instant error now (not timeout)
+      // alive — ok, push — instant error
       logPush("INFO", prefix, `tcp 16-20: possible detected ⚠️, reqtime: ${timeElapsed(t0)}`);
       setStatus(dpiStatusCell, "Possible ⚠️", "skip");
       return;
     }
 
-    // Two times in a row instant error (not timeout)
-    logPush("INFO", prefix, `tcp 16-20: unknown ⚠️, reqtime: ${timeElapsed(t0)}`);
-    setStatus(dpiStatusCell, "Unknown ⚠️", "skip");
+    // alive — instant error, push — instant error
+    logPush("INFO", prefix, `tcp 16-20: unlikely ⚠️, reqtime: ${timeElapsed(t0)}`);
+    setStatus(dpiStatusCell, "Unlikely ⚠️", "skip");
   }
 };
 
