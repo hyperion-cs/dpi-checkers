@@ -1,11 +1,16 @@
  body {
    font: 1em/1.6 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-   min-width: 460px;
    max-width: 1200px;
    margin: 0 auto;
    padding: 20px;
    background: #f5f7fa;
    color: #333;
+ }
+
+ *,
+ *::before,
+ *::after {
+   box-sizing: border-box;
  }
 
  .header {
