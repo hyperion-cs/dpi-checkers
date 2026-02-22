@@ -1,3 +1,6 @@
 .DS_Store
-.vscode/*
-utils/data/*
+.vscode/
+utils/data/
+ru/dpi-ch/bin/
+debug*
+lab/

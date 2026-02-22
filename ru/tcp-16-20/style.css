@@ -1,5 +1,6 @@
  body {
    font: 1em/1.6 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+   min-width: 460px;
    max-width: 1200px;
    margin: 0 auto;
    padding: 20px;
@@ -31,7 +32,7 @@
 
  #start {
    font-size: 1.2em;
-   padding: .8em 1.5em;
+   padding: .8em 2.5em;
    background: #ff008b;
    color: #fff;
    border: 0;
@@ -68,14 +69,15 @@
  th,
  td {
    padding: 4px 15px;
-   text-align: left;
+   text-align: center;
    border-bottom: 1px solid #e0e0e0;
+   font-weight: 500;
  }
 
  th {
    background: #007bff;
    color: #fff;
-   font-weight: 600;
+   font-weight: 600 !important;
  }
 
  tr:last-child td {
@@ -84,12 +86,14 @@
 
  .ok {
    color: #28a745;
-   font-weight: 500;
+ }
+
+ .skip {
+   color: #1a1a1a;
  }
 
  .bad {
    color: #dc3545;
-   font-weight: 500;
  }
 
  #log {
@@ -131,7 +135,7 @@
 
  @media (max-width: 600px) {
    body {
-     padding: 10px;
+     padding: 5px;
    }
 
    .header {
@@ -149,7 +153,7 @@
 
    th,
    td {
-     padding: 3px 8px;
+     padding: 3px 2px;
    }
 
    #log {

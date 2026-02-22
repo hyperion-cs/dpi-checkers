@@ -5,7 +5,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>RU :: TCP 16-20 DPI Checker</title>
-  <link rel="stylesheet" href="./style.css">
+  <link rel="stylesheet" href="./style.css?v=22cc370">
 </head>
 
 <body>
@@ -20,18 +20,23 @@
     <tr>
       <th>#</th>
       <th>Provider</th>
-      <th>Status</th>
+      <th>Alive</th>
+      <th>TCP 16-20</th>
     </tr>
   </table>
   <pre id="log"></pre>
   <div class="footer">
-    💡 DPI[tcp 16-20] /
+    ❗️ In the browser sandbox, tcp connections cannot be reset — repeated tests may bias the results.
+    It is recommended to use a separate incognito mode or manually reset the connection for <b>each test</b>
+    (e.g., in Chrome at <a href="chrome://net-internals/#sockets">chrome://net-internals/#sockets</a>).<br><br>
+    💡 DPI (method tcp 16-20) and host alive checker /
     See <b><a href="https://github.com/net4people/bbs/issues/490" target="_blank">here</a></b> for more details.<br>
     This checker (and others) are available in <b><a href="https://github.com/hyperion-cs/dpi-checkers"
         target="_blank">this</a></b> open-source repository.
+
   </div>
 
-  <script src="main.js?v=fe043f6"></script>
+  <script src="main.js?v=22cc370"></script>
 </body>
 
 </html>
