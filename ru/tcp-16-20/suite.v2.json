@@ -1,7 +1,7 @@
 [
   { "id": "US.GH-HPRN", "provider": "Self check", "country": "🧠", "host": "hyperion-cs.github.io" },
-  { "id": "SE.AKM-01", "provider": "Akamai", "country": "🇸🇪", "host": "oldsaybrookvw.com" },
-  { "id": "US.AKM-01", "provider": "Akamai", "country": "🇺🇸", "host": "www.roxio.com" },
+  { "id": "PL.AKM-01", "provider": "Akamai", "country": "🇵🇱", "host": "www.mobil.com.se" },
+  { "id": "SE.AKM-01", "provider": "Akamai", "country": "🇸🇪", "host": "www.roxio.com" },
   { "id": "DE.AWS-01", "provider": "AWS", "country": "🇩🇪", "host": "vibersporocila.akton.si" },
   { "id": "US.AWS-01", "provider": "AWS", "country": "🇺🇸", "host": "corp.kaltura.com" },
   { "id": "US.CDN77-01", "provider": "CDN77", "country": "🇺🇸", "host": "cdn.eso.org" },
