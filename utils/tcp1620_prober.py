@@ -13,6 +13,7 @@ THR_BYTES = 64 * 1024
 RECV_BUF = 8 * 1024
 FAKE_DOMAIN_LEN = 15  # without TLD
 REQ_TIMEOUT = 15
+SERVER_WAITS_CHECK_TIMEOUT = 5
 DELAY_PER_TASK = 0.15
 DNS_FETCH_DEPTH = 10
 
@@ -30,7 +31,7 @@ def update_stat(tx=0, rx=0, cc=0):
         checks_count += cc
 
 
-def prepare_http_raw_payload(type, host_header, body_bytes):
+def prepare_http_reqline_and_headers(type, host_header, content_len):
     host_header_raw = b""
     if host_header is not None:
         if len(host_header) > 0:
@@ -38,19 +39,17 @@ def prepare_http_raw_payload(type, host_header, body_bytes):
         else:
             host_header_raw = b"Host: \r\n"
 
-    payload = (
+    reqline_and_headers = (
         type.encode()
         + b" / HTTP/1.1\r\n"
         + host_header_raw
         + (
-            b"Content-Length: " + str(len(body_bytes)).encode() + b"\r\n"
+            b"Content-Length: " + str(content_len).encode() + b"\r\n"
             b"Connection: close\r\n\r\n"
         )
-        + body_bytes
     )
 
-    update_stat(len(payload), 0)
-    return payload
+    return reqline_and_headers
 
 
 def incoming_stream_to_vacuum(s):
@@ -65,28 +64,75 @@ def incoming_stream_to_vacuum(s):
 
 
 def do_http_request(ip, port, type, http_host_header, body_bytes, read=False):
-    sock = socket.create_connection((ip, port), timeout=REQ_TIMEOUT)
-    sock.sendall(prepare_http_raw_payload(type, http_host_header, body_bytes))
-    if read:
-        incoming_stream_to_vacuum(sock)
+    waits = False
+    err = None
+    try:
+        sock = socket.create_connection((ip, port), timeout=REQ_TIMEOUT)
+        reqline_and_headers = prepare_http_reqline_and_headers(
+            type, http_host_header, len(body_bytes)
+        )
+        sock.sendall(reqline_and_headers)
+        update_stat(len(reqline_and_headers), 0)
+        waits = is_server_waits(sock)
+        sock.sendall(body_bytes)
+        update_stat(len(body_bytes), 0)
+        if read:
+            incoming_stream_to_vacuum(sock)
+
+    except Exception as e:
+        err = e
+
     sock.close()
+    return (waits, err)
+
+
+# determine if the server waits for the body before returning a response
+def is_server_waits(s):
+    waits = False
+    buf = 1
+    try:
+        s.settimeout(SERVER_WAITS_CHECK_TIMEOUT)
+        s.recv(buf)
+    except Exception as e:
+        waits = True
+    finally:
+        s.settimeout(REQ_TIMEOUT)
+
+    return waits
 
 
 def do_https_request(
     ip, port, type, http_host_header, sni, tls_v, body_bytes, read=False
 ):
-    ctx = ssl.create_default_context()
-    ctx.check_hostname = False
-    ctx.verify_mode = ssl.CERT_NONE
-    ctx.minimum_version = tls_v
-    ctx.maximum_version = tls_v
+    waits = False
+    err = None
 
-    sock = socket.create_connection((ip, port), timeout=REQ_TIMEOUT)
-    tls = ctx.wrap_socket(sock, server_hostname=sni)
-    tls.sendall(prepare_http_raw_payload(type, http_host_header, body_bytes))
-    if read:
-        incoming_stream_to_vacuum(tls)
+    try:
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        ctx.minimum_version = tls_v
+        ctx.maximum_version = tls_v
+
+        sock = socket.create_connection((ip, port), timeout=REQ_TIMEOUT)
+        tls = ctx.wrap_socket(sock, server_hostname=sni)
+
+        reqline_and_headers = prepare_http_reqline_and_headers(
+            type, http_host_header, len(body_bytes)
+        )
+        tls.sendall(reqline_and_headers)
+        update_stat(len(reqline_and_headers), 0)
+        waits = is_server_waits(tls)
+        tls.sendall(body_bytes)
+        update_stat(len(body_bytes), 0)
+        if read:
+            incoming_stream_to_vacuum(tls)
+
+    except Exception as e:
+        err = e
+
     tls.close()
+    return (waits, err)
 
 
 def handle_err(err):
@@ -109,6 +155,7 @@ def do_head_post_seq(ip, port, http_host_header, tls=False, sni=None, tls_v=None
         alive_err=None,
         dpi_detected=False,
         dpi_err=None,
+        is_server_waits=False,
     )
 
     try:
@@ -129,11 +176,19 @@ def do_head_post_seq(ip, port, http_host_header, tls=False, sni=None, tls_v=None
         try:
             body_bytes = os.urandom(THR_BYTES)
             if tls:
-                do_https_request(
+                res.is_server_waits, err = do_https_request(
                     ip, port, "POST", http_host_header, sni, tls_v, body_bytes, True
                 )
+                if err:
+                    raise err
+
             else:
-                do_http_request(ip, port, "POST", http_host_header, body_bytes, True)
+                res.is_server_waits, err = do_http_request(
+                    ip, port, "POST", http_host_header, body_bytes, True
+                )
+                if err:
+                    raise err
+
             res.dpi_detected = False
         except socket.timeout:
             res.dpi_detected = True
@@ -168,7 +223,7 @@ def run_tasks(ip, host, fake_domain, progress_msg):
     tls_v_opts = [ssl.TLSVersion.TLSv1_2, ssl.TLSVersion.TLSv1_3]
     sni_opts = [host, fake_domain, None] if host != ip else [fake_domain, None]
     http_host_header_opts = (
-        [host, ip, fake_domain, "", None] if host != ip else [ip, fake_domain, "", None]
+        [host, ip, fake_domain, None] if host != ip else [ip, fake_domain, None]
     )
     with ThreadPoolExecutor() as ex:
         for http_host_header in http_host_header_opts:
@@ -215,6 +270,7 @@ def probe(a):
     print(
         f"host: {a.host}\n{dns_records}lookup ip: {ip}\nfake domain: {fake_domain}\n\n"
         + "* http host header in https mode is only important for server (censor cannot see it)\n"
+        + '* "wfb" table header — did server wait for request body to be transmitted before response?\n'
     )
 
     progress_msg = lambda p: print(f"\rchecking... progress: {p}%", end="", flush=True)
@@ -271,6 +327,10 @@ def pretty_proto(x):
     return "http"
 
 
+def pretty_waits(x):
+    return "[color(82)]yes[/]" if x.is_server_waits else "[color(135)]no[/]"
+
+
 def set_color_if(s, c):
     for color, cond in c:
         if cond(s):
@@ -280,11 +340,6 @@ def set_color_if(s, c):
 
 
 def pretty_item_to_row(x, host, sorting=False):
-    tls_v_str = {
-        ssl.TLSVersion.TLSv1_2: "v1.2",
-        ssl.TLSVersion.TLSv1_3: "v1.3",
-    }
-
     proto = pretty_proto(x)
     port = str(x.port)
     if sorting:
@@ -304,6 +359,7 @@ def pretty_item_to_row(x, host, sorting=False):
         ),
         set_color_if(pretty_v(x.http_host_header), [(39, lambda o: o == host)]),
         pretty_alive(x),
+        pretty_waits(x),
         pretty_dpi(x),
     )
 
@@ -317,6 +373,7 @@ def view_results(res, host):
     table.add_column("sni", justify="center")
     table.add_column("http host header", justify="center")
     table.add_column("alive", justify="center")
+    table.add_column("wfb", justify="center")
     table.add_column("dpi", justify="center")
 
     for x in res:

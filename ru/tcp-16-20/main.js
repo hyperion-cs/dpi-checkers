@@ -1,5 +1,13 @@
 const DEBUG = true;
 const DPI_THR_BYTES = 64 * 1024;
+const MAX_URI_X_SIZE = 7 * 1024;
+
+const DPI_METHOD_NOT_DETECTED = 0;
+const DPI_METHOD_DETECTED = 1;
+const DPI_METHOD_PROBABLY = 2;
+const DPI_METHOD_POSSIBLE = 3;
+const DPI_METHOD_UNLIKELY = 4;
+
 let TEST_SUITE = []; // Fetched from ./suite.v2.json
 let TIMEOUT_MS = 15000;
 
@@ -68,7 +76,14 @@ const getRandomData = size => {
     crypto.getRandomValues(data.subarray(offset, offset + grvMax));
   }
   return data;
-}
+};
+
+const getRandomSafeData = (n) => {
+  const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+  return Array.from({ length: n }, () =>
+    chars[Math.floor(Math.random() * chars.length)]
+  ).join("");
+};
 
 const startOrchestrator = async () => {
   statusEl.textContent = "Checking ⏰";
@@ -96,14 +111,56 @@ const startOrchestrator = async () => {
   toggleUI(false);
 };
 
+const handleDpiMethodErr = (alive, e) => {
+  if (e.name === "AbortError") {
+    if (alive) {
+      return DPI_METHOD_DETECTED; // alive — ok, push — timeout
+    }
+    return DPI_METHOD_PROBABLY; // alive — instant error, push — timeout
+  }
+  if (alive) {
+    return DPI_METHOD_POSSIBLE; // alive — ok, push — instant error
+  }
+  return DPI_METHOD_UNLIKELY; // alive — instant error, push — instant error
+};
+
+const dpiHugeBodyPostMethod = async (alive, host) => {
+  try {
+    const dpiCtrl = new AbortController();
+    const dpiTimeoutId = setTimeout(() => dpiCtrl.abort(), TIMEOUT_MS);
+    const opt = getDefaultFetchOpt(dpiCtrl, "POST")
+    opt.body = getRandomData(DPI_THR_BYTES)
+    const url = `https://${host}/`;
+    await fetch(getUniqueUrl(url), opt);
+    clearTimeout(dpiTimeoutId);
+  } catch (e) {
+    return handleDpiMethodErr(alive, e);
+  }
+
+  return DPI_METHOD_NOT_DETECTED;
+};
+
+const dpiHugeReqlineHeadMethod = async (alive, host) => {
+  try {
+    const times = DPI_THR_BYTES / MAX_URI_X_SIZE;
+    const dpiCtrl = new AbortController();
+    const dpiTimeoutId = setTimeout(() => dpiCtrl.abort(), TIMEOUT_MS);
+    for (let i = 0; i < times; i++) {
+      const opt = getDefaultFetchOpt(dpiCtrl, "HEAD") // HEAD seems to be stable keep-alived 
+      const url = `https://${host}/?x=${getRandomSafeData(MAX_URI_X_SIZE)}`
+      await fetch(getUniqueUrl(url), opt);
+    }
+    clearTimeout(dpiTimeoutId);
+  } catch (e) {
+    return handleDpiMethodErr(alive, e);
+  }
+
+  return DPI_METHOD_NOT_DETECTED;
+};
+
 const checkDpi = async (id, provider, host, country) => {
   const prefix = `DPI checking(#${id})`;
   let t0 = performance.now();
-
-  const aliveCtrl = new AbortController();
-  const aliveTimeoutId = setTimeout(() => aliveCtrl.abort(), TIMEOUT_MS);
-  const dpiCtrl = new AbortController();
-  const dpiTimeoutId = setTimeout(() => dpiCtrl.abort(), TIMEOUT_MS);
 
   const row = resultsEl.insertRow();
   const idCell = row.insertCell();
@@ -119,9 +176,12 @@ const checkDpi = async (id, provider, host, country) => {
   setStatus(aliveStatusCell, "Checking ⏰", "");
   setStatus(dpiStatusCell, "Waiting ⏰", "");
 
-  const url = `https://${host}/`
   try {
-    const r = await fetch(getUniqueUrl(url), getDefaultFetchOpt(aliveCtrl, "HEAD"));
+    // alive check
+    const aliveCtrl = new AbortController();
+    const aliveTimeoutId = setTimeout(() => aliveCtrl.abort(), TIMEOUT_MS);
+    const url = `https://${host}/`
+    await fetch(getUniqueUrl(url), getDefaultFetchOpt(aliveCtrl, "HEAD"));
     clearTimeout(aliveTimeoutId);
     logPush("INFO", prefix, `alived: yes 🟢, reqtime: ${timeElapsed(t0)}`);
     setStatus(aliveStatusCell, "Yes 🟢", "ok");
@@ -145,44 +205,43 @@ const checkDpi = async (id, provider, host, country) => {
     return;
   }
 
-  t0 = performance.now();
+  // dpi check
   setStatus(dpiStatusCell, "Checking ⏰", "");
-  try {
-    let opt = getDefaultFetchOpt(dpiCtrl, "POST")
-    opt.body = getRandomData(DPI_THR_BYTES)
-    console.log(opt.body.length)
-    const r = await fetch(getUniqueUrl(url), opt);
-    clearTimeout(dpiTimeoutId);
-    logPush("INFO", prefix, `tcp 16-20: not detected ✅, reqtime: ${timeElapsed(t0)}`);
-    setStatus(dpiStatusCell, "No ✅", "ok");
+  const m1 = await dpiHugeBodyPostMethod(alive, host);
+  if (m1 == DPI_METHOD_DETECTED) {
+    logPush("INFO", prefix, `tcp 16-20: detected❗️, method: 1`);
+    setStatus(dpiStatusCell, "Detected❗️", "bad");
+    return;
   }
-  catch (e) {
-    console.log(e)
-    if (e.name === "AbortError") {
-      if (alive) {
-        // alive — ok, push — timeout
-        logPush("INFO", prefix, `tcp 16-20: detected❗️`);
-        setStatus(dpiStatusCell, "Detected❗️", "bad");
-        return;
-      }
 
-      // alive — instant error, push — timeout
-      logPush("INFO", prefix, `tcp 16-20: probably detected ⚠️, reqtime: ${timeElapsed(t0)}`);
-      setStatus(dpiStatusCell, "Probably ❗️", "skip");
-      return;
-    }
+  t0 = performance.now();
+  const m2 = await dpiHugeReqlineHeadMethod(alive, host);
+  if (m2 == DPI_METHOD_DETECTED) {
+    logPush("INFO", prefix, `tcp 16-20: detected❗️, method: 2`);
+    setStatus(dpiStatusCell, "Detected❗️", "bad");
+    return;
+  }
 
-    if (alive) {
-      // alive — ok, push — instant error
-      logPush("INFO", prefix, `tcp 16-20: possible detected ⚠️, reqtime: ${timeElapsed(t0)}`);
-      setStatus(dpiStatusCell, "Possible ⚠️", "skip");
-      return;
-    }
+  if (m2 == DPI_METHOD_PROBABLY) {
+    logPush("INFO", prefix, `tcp 16-20: probably detected ⚠️, reqtime: ${timeElapsed(t0)}`);
+    setStatus(dpiStatusCell, "Probably ❗️", "skip");
+    return;
+  }
 
-    // alive — instant error, push — instant error
+  if (m2 == DPI_METHOD_POSSIBLE) {
+    logPush("INFO", prefix, `tcp 16-20: possible detected ⚠️, reqtime: ${timeElapsed(t0)}`);
+    setStatus(dpiStatusCell, "Possible ⚠️", "skip");
+    return;
+  }
+
+  if (m2 == DPI_METHOD_UNLIKELY) {
     logPush("INFO", prefix, `tcp 16-20: unlikely ⚠️, reqtime: ${timeElapsed(t0)}`);
     setStatus(dpiStatusCell, "Unlikely ⚠️", "skip");
+    return;
   }
+
+  logPush("INFO", prefix, `tcp 16-20: not detected ✅, reqtime: ${timeElapsed(t0)}`);
+  setStatus(dpiStatusCell, "No ✅", "ok");
 };
 
 const insertDebugRow = () => {
