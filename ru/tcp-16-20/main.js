@@ -1,9 +1,9 @@
-const DEBUG = false;
+const DEBUG = true;
 const DPI_THR_BYTES = 64 * 1024;
 let TEST_SUITE = []; // Fetched from ./suite.v2.json
 let TIMEOUT_MS = 15000;
 
-(function getParamsHandler() {
+const getParamsHandler = () => {
   const params = new URLSearchParams(window.location.search);
 
   const host = params.get("host");
@@ -14,7 +14,7 @@ let TIMEOUT_MS = 15000;
   }
 
   TIMEOUT_MS = parseInt(params.get("timeout")) || TIMEOUT_MS;
-})();
+};
 
 const getDefaultFetchOpt = (ctrl, method = "GET",) => ({
   method,
@@ -29,6 +29,7 @@ const getDefaultFetchOpt = (ctrl, method = "GET",) => ({
   keepalive: false
 });
 
+const headerEl = document.getElementById("header");
 const startButtonEl = document.getElementById("start");
 const statusEl = document.getElementById("status");
 const logEl = document.getElementById("log");
@@ -230,9 +231,33 @@ const fetchSuite = async () => {
 document.addEventListener("DOMContentLoaded", async () => {
   if (DEBUG) {
     console.log("debug mode: on")
-    insertDebugRow();
+    //insertDebugRow();
+
+    const buf = Uint8Array.fromBase64("iDFcRKmNsJcpmp1lGTz67wKA8gAAwtg", { alphabet: "base64url" });
+
+    // коммит мы так получаем:
+    const h = await import('./share/helpers.js');
+    const commitHex = h.getCommitHex(buf);
+    console.log("в пайлоаде из get обнаружили коммит: ", commitHex)
+
+    // по идее, здесь мы должны разобрать взять версию коммита, и вызвать соотв. фукнцию, но пока кидаем напрямую
+    // при этом энкодер всегда берем актуальный (поэтому он уже подключен в index.html)...
+    const { decodeShare } = await import('./share/decoder.js');
+    await decodeShare(buf);
+    //await encodeShare();
+    return;
   }
 
-  await fetchSuite();
+  /*
+  if (tryHandleShare()) {
+    headerEl.hidden = true;
+    logEl.hidden = true;
+    await fetchAsn(); // должен быть свой
+    return;
+  }
+    */
+
+  getParamsHandler();
   await fetchAsn();
+  await fetchSuite();
 });
