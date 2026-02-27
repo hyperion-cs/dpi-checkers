@@ -8,20 +8,22 @@ const decodeItem = (aliveCardinality, state) => {
   return { alive, dpi };
 }
 
-export const decodeShare = async (buf, count) => {
-  // короче, эта функция у каждого коммита своя...
-  // тут подключаем свою версию хелперов (глядя в хедер), т.е. пусть надо будет заменить на иной
-  const h = await import('./helpers.js');
-  const commit = h.readBits(buf, 0, h.COMMIT_BITS)
-  const commitHex = commit.toString(16);
+export const decodeShare = async (repo, commitHex, buf) => {
+  let helpersUrl = `https://raw.githubusercontent.com/${repo}/${commitHex}/ru/tcp-16-20/share/helpers.js`;
+  let endpointsUrl = `https://raw.githubusercontent.com/${repo}/${commitHex}/ru/tcp-16-20/suite.v2.json`;
+
+  if (DEBUG) {
+    helpersUrl = "./helpers.js";
+    endpointsUrl = "./suite.v2.json"
+  }
+  const h = await import(helpersUrl);
+
   const tsRaw = h.readBits(buf, h.COMMIT_BITS, h.TIMESTAMP_BITS);
   const ts = _numToUtcNow(tsRaw, h.EPOCH_MS);
   const asn = Number(h.readBits(buf, h.COMMIT_BITS + h.TIMESTAMP_BITS, h.ASN_BITS));
 
-  // тут мы читаем архивный файл сьюитов, на основе коммита. но пока и так сойдет.
-  const endpoints = await (await fetch("./suite.v2.json")).json();
-  // его надо обязательно сортировать по id
-  endpoints.sort((a, b) => a.id < b.id ? -1 : (a.id > b.id ? 1 : 0));
+  const endpoints = await (await fetch(endpointsUrl)).json();
+  endpoints.sort((a, b) => a.id < b.id ? -1 : (a.id > b.id ? 1 : 0)); // guaranteed order of sequence
 
   const items = []
   let itemOffset = h.COMMIT_BITS + h.TIMESTAMP_BITS + h.ASN_BITS;
@@ -32,6 +34,8 @@ export const decodeShare = async (buf, count) => {
     itemOffset += h.ENDPOINT_STATE_BITS;
   }
 
+  // does not affect decoding
+  // just so it's roughly the same as the original
   const sortFunc = (a, b) => {
     if (a.id == h.SELFCHECK_ID) return -1;
     const aprovider = a.provider.toLowerCase();

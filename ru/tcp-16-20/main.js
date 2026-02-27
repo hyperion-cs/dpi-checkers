@@ -387,7 +387,7 @@ const tryHandleShare = async () => {
         decoderUrl = "./" + relPath;
       }
       const { decodeShare } = await import(decoderUrl);
-      const decoded = await decodeShare(buf);
+      const decoded = await decodeShare(h.REPO, commitHex, buf);
       fetchAsnBasic(decoded.asn);
       renderShare(decoded);
       resultsEl.hidden = false;
