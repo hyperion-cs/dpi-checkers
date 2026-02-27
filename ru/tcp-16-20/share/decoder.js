@@ -1,7 +1,6 @@
 
 const _numToUtcNow = (v, epoch) => new Date(epoch + Number(v) * 60000);
 
-
 const decodeItem = (aliveCardinality, state) => {
   const alive = state % aliveCardinality;
   const dpi = Math.floor(state / aliveCardinality);

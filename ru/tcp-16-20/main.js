@@ -262,37 +262,6 @@ const insertDebugRow = () => {
   dpiStatusCell.textContent = "Checking ⏰"
 }
 
-startButtonEl.onclick = () => {
-  logEl.textContent = "";
-  toggleUI(true);
-  localStorage.clear();
-  sessionStorage.clear();
-  startOrchestrator();
-};
-
-shareButtonEl.onclick = async () => {
-  const prevContent = shareButtonEl.textContent;
-  shareButtonEl.textContent = "🔗 ..."
-  shareButtonEl.disabled = true;
-
-  try {
-    const encoded = await encodeShare(clientAsn, resultItems);
-    const url = `${window.location.origin + window.location.pathname}?share=${encoded}`;
-    try {
-      await navigator.clipboard.writeText(url);
-      alert("Link to results copied to clipboard.");
-    } catch {
-      alert("Error writing to clipboard. Permissions granted?");
-    }
-  }
-  catch {
-    alert("Error when encoding results.");
-  }
-
-  shareButtonEl.textContent = prevContent
-  shareButtonEl.disabled = false;
-};
-
 const fetchAsnBasic = async (asn) => {
   const holder = (await (await fetch(RIPE_API_URL + "as-overview/data.json?resource=" + asn)).json()).data.holder;
   asnEl.innerHTML = `ASN: <a href="https://bgp.he.net/AS${asn}" target="_blank">AS${asn}</a> (<i>${holder}</i>)`;
@@ -401,6 +370,37 @@ const tryHandleShare = async () => {
     return true;
   }
   return false;
+};
+
+startButtonEl.onclick = () => {
+  logEl.textContent = "";
+  toggleUI(true);
+  localStorage.clear();
+  sessionStorage.clear();
+  startOrchestrator();
+};
+
+shareButtonEl.onclick = async () => {
+  const prevContent = shareButtonEl.textContent;
+  shareButtonEl.textContent = "🔗 ..."
+  shareButtonEl.disabled = true;
+
+  try {
+    const encoded = await encodeShare(clientAsn, resultItems);
+    const url = `${window.location.origin + window.location.pathname}?share=${encoded}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      alert("Link to results copied to clipboard.");
+    } catch {
+      alert("Error writing to clipboard. Permissions granted?");
+    }
+  }
+  catch {
+    alert("Error when encoding results.");
+  }
+
+  shareButtonEl.textContent = prevContent
+  shareButtonEl.disabled = false;
 };
 
 document.addEventListener("DOMContentLoaded", async () => {
