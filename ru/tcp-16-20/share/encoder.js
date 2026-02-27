@@ -1,33 +1,37 @@
-/*
-const tryHandleShare = () => {
-  const params = new URLSearchParams(window.location.search);
-  const result = params.get("share");
-  if (result) {
-    const base64 = Uint8Array.fromBase64(result, { alphabet: "base64url" });
-    console.log(base64);
-    return true;
-  }
-  return false;
+const nowUtcToBigint = (epoch) => BigInt(Math.floor((Date.now() - epoch) / 60000));
+
+const encodeItem = (aliveCardinality, alive, dpi) => {
+  return BigInt(alive + aliveCardinality * dpi)
 };
-*/
 
-const nowUtcToNum = (epoch) => BigInt(Math.floor((Date.now() - epoch) / 60000));
-
-const encodeShare = async () => {
-  // экодер всегда актуальный, поэтому он берет штатный файл helpers.js
+const encodeShare = async (clientAsn, items) => {
+  console.log("собираемся кодировать:", clientAsn, items);
+  // encoder always takes latest file
   const h = await import('./helpers.js');
 
-
+  // тут мы должны сходить в гит и вычислить крайний коммит
   const commitHex = "88315c44a98db097299a9d65193cfaef";
   const commit = BigInt("0x" + commitHex);
-  const ts = nowUtcToNum(h.EPOCH_MS);
-  const asn = BigInt(24940)
+  const ts = nowUtcToBigint(h.EPOCH_MS);
+  const asn = BigInt(clientAsn)
 
-  const bufSize = Math.ceil((h.COMMIT_BITS + h.TIMESTAMP_BITS + h.ASN_BITS) / 8)
+  const sortedItems = Object.keys(items).sort().map(k => items[k]);
+  const itemsTotalBits = h.ENDPOINT_STATE_BITS * sortedItems.length;
+  const bufSize = Math.ceil((h.COMMIT_BITS + h.TIMESTAMP_BITS + h.ASN_BITS + itemsTotalBits) / 8)
   const buf = new Uint8Array(bufSize);
+
   h.writeBits(buf, 0, h.COMMIT_BITS, commit);
   h.writeBits(buf, h.COMMIT_BITS, h.TIMESTAMP_BITS, ts);
   h.writeBits(buf, h.COMMIT_BITS + h.TIMESTAMP_BITS, h.ASN_BITS, asn);
+
+  let itemOffset = h.COMMIT_BITS + h.TIMESTAMP_BITS + h.ASN_BITS;
+  for (const x of sortedItems) {
+    const encodedItem = encodeItem(h.ALIVE_CARDINALITY, x.alive, x.dpi);
+    h.writeBits(buf, itemOffset, h.ENDPOINT_STATE_BITS, encodedItem);
+    itemOffset += h.ENDPOINT_STATE_BITS;
+  }
+
   const base64 = buf.toBase64({ alphabet: "base64url", omitPadding: true })
   console.log("encoded:", base64)
+  return base64;
 }

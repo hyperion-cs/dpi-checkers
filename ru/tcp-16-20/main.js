@@ -1,15 +1,24 @@
-const DEBUG = true;
+const DEBUG = false;
 const DPI_THR_BYTES = 64 * 1024;
 const MAX_URI_X_SIZE = 7 * 1024;
+const RIPE_API_URL = "https://stat.ripe.net/data/";
 
+const ALIVE_KEY = "alive";
+const ALIVE_NO = 0;
+const ALIVE_YES = 1;
+const ALIVE_UNKNOWN = 2;
+
+const DPI_METHOD_KEY = "dpi";
 const DPI_METHOD_NOT_DETECTED = 0;
 const DPI_METHOD_DETECTED = 1;
 const DPI_METHOD_PROBABLY = 2;
 const DPI_METHOD_POSSIBLE = 3;
 const DPI_METHOD_UNLIKELY = 4;
 
-let TEST_SUITE = []; // Fetched from ./suite.v2.json
-let TIMEOUT_MS = 15000;
+let testSuite = []; // Fetched from ./suite.v2.json
+let timeoutMs = 15000;
+let clientAsn = 0;
+let resultItems = {};
 
 const getParamsHandler = () => {
   const params = new URLSearchParams(window.location.search);
@@ -18,10 +27,10 @@ const getParamsHandler = () => {
   if (host) {
     const provider = params.get("provider") || "Custom";
     const newTest = { id: `CUSTOM-01`, provider, host };
-    TEST_SUITE.push(newTest);
+    testSuite.push(newTest);
   }
 
-  TIMEOUT_MS = parseInt(params.get("timeout")) || TIMEOUT_MS;
+  timeoutMs = parseInt(params.get("timeout")) || timeoutMs;
 };
 
 const getDefaultFetchOpt = (ctrl, method = "GET",) => ({
@@ -38,14 +47,18 @@ const getDefaultFetchOpt = (ctrl, method = "GET",) => ({
 });
 
 const headerEl = document.getElementById("header");
-const startButtonEl = document.getElementById("start");
+const startButtonEl = document.getElementById("start-btn");
+const shareButtonEl = document.getElementById("share-btn");
 const statusEl = document.getElementById("status");
 const logEl = document.getElementById("log");
 const resultsEl = document.getElementById("results");
+const shareTsEl = document.getElementById("shareTs");
+const asnEl = document.getElementById("asn");
 
 const toggleUI = (locked) => {
+  shareButtonEl.disabled = locked;
   startButtonEl.disabled = locked;
-  startButtonEl.textContent = locked ? "..." : "Start";
+  startButtonEl.textContent = locked ? "🔍 ..." : "🔍 Start";
   statusEl.className = locked ? "status-checking" : "status-ready";
 };
 
@@ -93,9 +106,11 @@ const startOrchestrator = async () => {
     resultsEl.deleteRow(i);
   }
 
+  resultItems = {};
+
   try {
     const tasks = [];
-    for (let t of TEST_SUITE) {
+    for (let t of testSuite) {
       tasks.push(checkDpi(t.id, t.provider, t.host, t.country));
     }
 
@@ -127,7 +142,7 @@ const handleDpiMethodErr = (alive, e) => {
 const dpiHugeBodyPostMethod = async (alive, host) => {
   try {
     const dpiCtrl = new AbortController();
-    const dpiTimeoutId = setTimeout(() => dpiCtrl.abort(), TIMEOUT_MS);
+    const dpiTimeoutId = setTimeout(() => dpiCtrl.abort(), timeoutMs);
     const opt = getDefaultFetchOpt(dpiCtrl, "POST")
     opt.body = getRandomData(DPI_THR_BYTES)
     const url = `https://${host}/`;
@@ -144,7 +159,7 @@ const dpiHugeReqlineHeadMethod = async (alive, host) => {
   try {
     const times = DPI_THR_BYTES / MAX_URI_X_SIZE;
     const dpiCtrl = new AbortController();
-    const dpiTimeoutId = setTimeout(() => dpiCtrl.abort(), TIMEOUT_MS);
+    const dpiTimeoutId = setTimeout(() => dpiCtrl.abort(), timeoutMs);
     for (let i = 0; i < times; i++) {
       const opt = getDefaultFetchOpt(dpiCtrl, "HEAD") // HEAD seems to be stable keep-alived 
       const url = `https://${host}/?x=${getRandomSafeData(MAX_URI_X_SIZE)}`
@@ -172,19 +187,21 @@ const checkDpi = async (id, provider, host, country) => {
   let possibleAlive = false;
 
   idCell.textContent = id;
-  providerCell.textContent = `${country} ${provider}`;
+  resultItems[id] = {};
+  providerCell.textContent = setPrettyProvider(provider, country);
   setStatus(aliveStatusCell, "Checking ⏰", "");
   setStatus(dpiStatusCell, "Waiting ⏰", "");
 
   try {
     // alive check
     const aliveCtrl = new AbortController();
-    const aliveTimeoutId = setTimeout(() => aliveCtrl.abort(), TIMEOUT_MS);
+    const aliveTimeoutId = setTimeout(() => aliveCtrl.abort(), timeoutMs);
     const url = `https://${host}/`
     await fetch(getUniqueUrl(url), getDefaultFetchOpt(aliveCtrl, "HEAD"));
     clearTimeout(aliveTimeoutId);
     logPush("INFO", prefix, `alived: yes 🟢, reqtime: ${timeElapsed(t0)}`);
     setStatus(aliveStatusCell, "Yes 🟢", "ok");
+    resultItems[id][ALIVE_KEY] = ALIVE_YES;
     alive = true;
     possibleAlive = true;
   }
@@ -193,15 +210,18 @@ const checkDpi = async (id, provider, host, country) => {
     if (e.name === "AbortError") {
       logPush("INFO", prefix, `alived: no 🔴, reqtime: ${timeElapsed(t0)}`);
       setStatus(aliveStatusCell, "No 🔴", "bad");
+      resultItems[id][ALIVE_KEY] = ALIVE_NO;
     } else {
       logPush("INFO", prefix, `alived: unknown ⚠️, reqtime: ${timeElapsed(t0)}`);
       setStatus(aliveStatusCell, "Unknown ⚠️", "skip");
+      resultItems[id][ALIVE_KEY] = ALIVE_UNKNOWN;
       possibleAlive = true;
     }
   }
 
   if (!alive && !possibleAlive) {
     setStatus(dpiStatusCell, "Skip ⚠️", "skip");
+    resultItems[id][DPI_METHOD_KEY] = DPI_METHOD_NOT_DETECTED; // default value
     return;
   }
 
@@ -211,11 +231,13 @@ const checkDpi = async (id, provider, host, country) => {
   if (m1 == DPI_METHOD_DETECTED) {
     logPush("INFO", prefix, `tcp 16-20: detected❗️, method: 1`);
     setStatus(dpiStatusCell, "Detected❗️", "bad");
+    resultItems[id][DPI_METHOD_KEY] = DPI_METHOD_DETECTED;
     return;
   }
 
   t0 = performance.now();
   const m2 = await dpiHugeReqlineHeadMethod(alive, host);
+  resultItems[id][DPI_METHOD_KEY] = m2;
   if (m2 == DPI_METHOD_DETECTED) {
     logPush("INFO", prefix, `tcp 16-20: detected❗️, method: 2`);
     setStatus(dpiStatusCell, "Detected❗️", "bad");
@@ -242,6 +264,7 @@ const checkDpi = async (id, provider, host, country) => {
 
   logPush("INFO", prefix, `tcp 16-20: not detected ✅, reqtime: ${timeElapsed(t0)}`);
   setStatus(dpiStatusCell, "No ✅", "ok");
+  resultItems[id][DPI_METHOD_KEY] = DPI_METHOD_NOT_DETECTED;
 };
 
 const insertDebugRow = () => {
@@ -265,14 +288,24 @@ startButtonEl.onclick = () => {
   startOrchestrator();
 };
 
+shareButtonEl.onclick = async () => {
+  await encodeShare(clientAsn, resultItems);
+  alert("Link to results copied to clipboard.");
+};
+
+const fetchAsnBasic = async (asn) => {
+  const holder = (await (await fetch(RIPE_API_URL + "as-overview/data.json?resource=" + asn)).json()).data.holder;
+  asnEl.innerHTML = `ASN: <a href="https://bgp.he.net/AS${asn}" target="_blank">AS${asn}</a> (<i>${holder}</i>)`;
+};
+
 const fetchAsn = async () => {
   try {
-    const RIPE_API_URL = "https://stat.ripe.net/data/";
+
     const ip = (await (await fetch(RIPE_API_URL + "whats-my-ip/data.json")).json()).data.ip;
     const asn = (await (await fetch(RIPE_API_URL + "prefix-overview/data.json?resource=" + ip)).json()).data.asns[0];
+    clientAsn = Number(asn.asn);
     const geo = (await (await fetch(RIPE_API_URL + "maxmind-geo-lite/data.json?resource=" + ip)).json()).data.located_resources[0].locations[0];
-    const el = document.getElementById("asn");
-    el.innerHTML = `ASN: <a href="https://bgp.he.net/AS${asn.asn}" target="_blank">AS${asn.asn}</a> (<i>${asn.holder}</i>)<span class="asn-br"></span>${geo.country}, ${geo.city || "—"}`;
+    asnEl.innerHTML = `ASN: <a href="https://bgp.he.net/AS${asn.asn}" target="_blank">AS${asn.asn}</a> (<i>${asn.holder}</i>)<span class="asn-br"></span>${geo.country}, ${geo.city || "—"}`;
   } catch (err) {
     console.error("Fetch ASN err:", err);
   }
@@ -280,43 +313,109 @@ const fetchAsn = async () => {
 
 const fetchSuite = async () => {
   try {
-    TEST_SUITE = await (await fetch(getUniqueUrl("./suite.v2.json"))).json();
+    testSuite = await (await fetch(getUniqueUrl("./suite.v2.json"))).json();
     startButtonEl.disabled = false;
   } catch {
     logPush("ERR", null, `Fetch suite failed. Probably a CORS issue (running locally?).`);
   }
 };
 
+const prettyTs = (ts) => {
+  return ts.toISOString().slice(0, 16).replace('T', ' ');
+}
+
+const setPrettyProvider = (el, provider, country) => {
+  el.textContent = `${country} ${provider}`;
+};
+
+const setPrettyDpi = (el, alive, dpi) => {
+  if (alive == ALIVE_NO) {
+    setStatus(el, "Skip ⚠️", "skip");
+    return;
+  }
+  const m = {
+    [DPI_METHOD_NOT_DETECTED]: () => setStatus(el, "No ✅", "ok"),
+    [DPI_METHOD_DETECTED]: () => setStatus(el, "Detected❗️", "bad"),
+    [DPI_METHOD_PROBABLY]: () => setStatus(el, "Probably ❗️", "skip"),
+    [DPI_METHOD_POSSIBLE]: () => setStatus(el, "Possible ⚠️", "skip"),
+    [DPI_METHOD_UNLIKELY]: () => setStatus(el, "Unlikely ⚠️", "skip"),
+  };
+  m[dpi]();
+};
+
+const setPrettyAlive = (el, alive) => {
+  const m = {
+    [ALIVE_NO]: () => setStatus(el, "No 🔴", "bad"),
+    [ALIVE_YES]: () => setStatus(el, "Yes 🟢", "ok"),
+    [ALIVE_UNKNOWN]: () => setStatus(el, "Unknown ⚠️", "skip"),
+  }
+  m[alive]();
+};
+
+const renderShare = (share) => {
+  shareTsEl.textContent = `Test timestamp: ${prettyTs(share.ts)}`;
+  for (let v of share.items) {
+    const row = resultsEl.insertRow();
+    const idCell = row.insertCell();
+    const providerCell = row.insertCell();
+    const aliveStatusCell = row.insertCell();
+    const dpiStatusCell = row.insertCell();
+
+    idCell.textContent = v.id;
+    setPrettyProvider(providerCell, v.provider, v.country);
+    setPrettyAlive(aliveStatusCell, v.alive);
+    setPrettyDpi(dpiStatusCell, v.alive, v.dpi);
+  }
+};
+
+const tryHandleShare = async () => {
+  const params = new URLSearchParams(window.location.search);
+  const share = params.get("share");
+  if (share) {
+    const link = location.pathname;
+    headerEl.innerHTML = `Want to try it too? Click <a href="${link}">here</a> ⚡`;
+    headerEl.hidden = false;
+
+    try {
+      resultsEl.hidden = true;
+      logEl.hidden = true;
+      const buf = Uint8Array.fromBase64(share, { alphabet: "base64url" });
+
+      // коммит мы так получаем:
+      const h = await import('./share/helpers.js');
+      const commitHex = h.getCommitHex(buf);
+
+      // по идее, здесь мы должны разобрать взять версию коммита, и вызвать соотв. фукнцию, но пока кидаем напрямую
+      // при этом энкодер всегда берем актуальный (поэтому он уже подключен в index.html)...
+      const { decodeShare } = await import('./share/decoder.js');
+      const decoded = await decodeShare(buf);
+      fetchAsnBasic(decoded.asn);
+      renderShare(decoded);
+      resultsEl.hidden = false;
+    }
+    catch (e) {
+      console.log(e);
+      shareTsEl.hidden = true;
+      asnEl.hidden = true;
+      alert("The results are out of date.");
+    }
+    return true;
+  }
+
+  return false;
+};
+
 document.addEventListener("DOMContentLoaded", async () => {
   if (DEBUG) {
     console.log("debug mode: on")
-    //insertDebugRow();
-
-    const buf = Uint8Array.fromBase64("iDFcRKmNsJcpmp1lGTz67wKA8gAAwtg", { alphabet: "base64url" });
-
-    // коммит мы так получаем:
-    const h = await import('./share/helpers.js');
-    const commitHex = h.getCommitHex(buf);
-    console.log("в пайлоаде из get обнаружили коммит: ", commitHex)
-
-    // по идее, здесь мы должны разобрать взять версию коммита, и вызвать соотв. фукнцию, но пока кидаем напрямую
-    // при этом энкодер всегда берем актуальный (поэтому он уже подключен в index.html)...
-    const { decodeShare } = await import('./share/decoder.js');
-    await decodeShare(buf);
-    //await encodeShare();
-    return;
+    insertDebugRow();
   }
 
-  /*
-  if (tryHandleShare()) {
-    headerEl.hidden = true;
-    logEl.hidden = true;
-    await fetchAsn(); // должен быть свой
+  if (await tryHandleShare()) {
     return;
   }
-    */
 
   getParamsHandler();
-  await fetchAsn();
+  fetchAsn();
   await fetchSuite();
 });

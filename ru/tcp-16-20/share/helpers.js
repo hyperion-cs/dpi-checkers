@@ -3,6 +3,12 @@ export const TIMESTAMP_BITS = 23;
 export const ASN_BITS = 32;
 export const EPOCH_MS = Date.UTC(2026, 0, 1);
 
+export const ENDPOINT_STATE_BITS = 4;
+export const ALIVE_CARDINALITY = 3;
+export const DPI_CARDINALITY = 5;
+
+export const SELFCHECK_ID = "US.GH-HPRN";
+
 export const getCommitHex = (buf) => {
   const commit = readBits(buf, 0, COMMIT_BITS)
   return commit.toString(16);
