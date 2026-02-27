@@ -5,16 +5,20 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>RU :: TCP 16-20 DPI Checker</title>
-  <link rel="stylesheet" href="./style.css?v=fc12a66">
+  <link rel="stylesheet" href="./style.css?v=88315c4">
+  <link rel="preconnect" href="https://api.github.com" />
+  <link rel="preconnect" href="https://stat.ripe.net" />
 </head>
 
 <body>
-  <div>
-    <button id="start" disabled>🔍 Start</button>
-    <span class="header">
+  <div id="header">
+    <button id="start-btn" class="btn" disabled>🔍 Start</button>
+    <button id="share-btn" class="btn" disabled>🔗 Share</button>
+    <span class="header-status">
       Status: <span id="status" class="status-ready">Ready ⚡</span>
     </span>
   </div>
+  <div id="shareTs"></div>
   <div id="asn"></div>
   <table id="results">
     <tr>
@@ -35,8 +39,8 @@
         target="_blank">this</a></b> open-source repository.
 
   </div>
-
-  <script src="main.js?v=3a0040f"></script>
+  <script src="main.js?v=88315c4"></script>
+  <script src="share/encoder.js?v=88315c4"></script>
 </body>
 
 </html>
