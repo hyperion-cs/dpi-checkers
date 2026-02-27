@@ -127,11 +127,11 @@ def do_https_request(
         update_stat(len(body_bytes), 0)
         if read:
             incoming_stream_to_vacuum(tls)
+        tls.close()
 
     except Exception as e:
         err = e
 
-    tls.close()
     return (waits, err)
 
 
