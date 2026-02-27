@@ -379,14 +379,14 @@ const tryHandleShare = async () => {
       resultsEl.hidden = true;
       logEl.hidden = true;
       const buf = Uint8Array.fromBase64(share, { alphabet: "base64url" });
-
-      // коммит мы так получаем:
-      const h = await import('./share/helpers.js');
+      const h = await import('./share/helpers.js'); // only for commit hex
       const commitHex = h.getCommitHex(buf);
-
-      // по идее, здесь мы должны разобрать взять версию коммита, и вызвать соотв. фукнцию, но пока кидаем напрямую
-      // при этом энкодер всегда берем актуальный (поэтому он уже подключен в index.html)...
-      const { decodeShare } = await import('./share/decoder.js');
+      const relPath = "share/decoder.js"
+      let decoderUrl = `https://raw.githubusercontent.com/${h.REPO}/${commitHex}/ru/tcp-16-20/${relPath}`;
+      if (DEBUG) {
+        decoderUrl = "./" + relPath;
+      }
+      const { decodeShare } = await import(decoderUrl);
       const decoded = await decodeShare(buf);
       fetchAsnBasic(decoded.asn);
       renderShare(decoded);
@@ -396,11 +396,10 @@ const tryHandleShare = async () => {
       console.log(e);
       shareTsEl.hidden = true;
       asnEl.hidden = true;
-      alert("The results are out of date.");
+      alert("The results are out of date or internal error.");
     }
     return true;
   }
-
   return false;
 };
 
