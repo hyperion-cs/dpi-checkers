@@ -188,7 +188,7 @@ const checkDpi = async (id, provider, host, country) => {
 
   idCell.textContent = id;
   resultItems[id] = {};
-  providerCell.textContent = setPrettyProvider(provider, country);
+  setPrettyProvider(providerCell, provider, country);
   setStatus(aliveStatusCell, "Checking ⏰", "");
   setStatus(dpiStatusCell, "Waiting ⏰", "");
 
@@ -200,7 +200,6 @@ const checkDpi = async (id, provider, host, country) => {
     await fetch(getUniqueUrl(url), getDefaultFetchOpt(aliveCtrl, "HEAD"));
     clearTimeout(aliveTimeoutId);
     logPush("INFO", prefix, `alived: yes 🟢, reqtime: ${timeElapsed(t0)}`);
-    setStatus(aliveStatusCell, "Yes 🟢", "ok");
     resultItems[id][ALIVE_KEY] = ALIVE_YES;
     alive = true;
     possibleAlive = true;
@@ -209,18 +208,17 @@ const checkDpi = async (id, provider, host, country) => {
     console.log(e);
     if (e.name === "AbortError") {
       logPush("INFO", prefix, `alived: no 🔴, reqtime: ${timeElapsed(t0)}`);
-      setStatus(aliveStatusCell, "No 🔴", "bad");
       resultItems[id][ALIVE_KEY] = ALIVE_NO;
     } else {
       logPush("INFO", prefix, `alived: unknown ⚠️, reqtime: ${timeElapsed(t0)}`);
-      setStatus(aliveStatusCell, "Unknown ⚠️", "skip");
       resultItems[id][ALIVE_KEY] = ALIVE_UNKNOWN;
       possibleAlive = true;
     }
   }
 
+  setPrettyAlive(aliveStatusCell, resultItems[id][ALIVE_KEY]);
   if (!alive && !possibleAlive) {
-    setStatus(dpiStatusCell, "Skip ⚠️", "skip");
+    setPrettyDpi(dpiStatusCell, ALIVE_NO, null); // -> skip
     resultItems[id][DPI_METHOD_KEY] = DPI_METHOD_NOT_DETECTED; // default value
     return;
   }
@@ -230,7 +228,7 @@ const checkDpi = async (id, provider, host, country) => {
   const m1 = await dpiHugeBodyPostMethod(alive, host);
   if (m1 == DPI_METHOD_DETECTED) {
     logPush("INFO", prefix, `tcp 16-20: detected❗️, method: 1`);
-    setStatus(dpiStatusCell, "Detected❗️", "bad");
+    setPrettyDpi(dpiStatusCell, resultItems[id][ALIVE_KEY], m1);
     resultItems[id][DPI_METHOD_KEY] = DPI_METHOD_DETECTED;
     return;
   }
@@ -238,33 +236,17 @@ const checkDpi = async (id, provider, host, country) => {
   t0 = performance.now();
   const m2 = await dpiHugeReqlineHeadMethod(alive, host);
   resultItems[id][DPI_METHOD_KEY] = m2;
-  if (m2 == DPI_METHOD_DETECTED) {
-    logPush("INFO", prefix, `tcp 16-20: detected❗️, method: 2`);
-    setStatus(dpiStatusCell, "Detected❗️", "bad");
-    return;
+  setPrettyDpi(dpiStatusCell, resultItems[id][ALIVE_KEY], m2);
+
+  const logDpiMap = {
+    [DPI_METHOD_DETECTED]: `tcp 16-20: detected❗️, method: 2`,
+    [DPI_METHOD_PROBABLY]: `tcp 16-20: probably detected ⚠️, reqtime: ${timeElapsed(t0)}`,
+    [DPI_METHOD_POSSIBLE]: `tcp 16-20: possible detected ⚠️, reqtime: ${timeElapsed(t0)}`,
+    [DPI_METHOD_UNLIKELY]: `tcp 16-20: unlikely ⚠️, reqtime: ${timeElapsed(t0)}`,
+    [DPI_METHOD_NOT_DETECTED]: `tcp 16-20: not detected ✅, reqtime: ${timeElapsed(t0)}`,
   }
 
-  if (m2 == DPI_METHOD_PROBABLY) {
-    logPush("INFO", prefix, `tcp 16-20: probably detected ⚠️, reqtime: ${timeElapsed(t0)}`);
-    setStatus(dpiStatusCell, "Probably ❗️", "skip");
-    return;
-  }
-
-  if (m2 == DPI_METHOD_POSSIBLE) {
-    logPush("INFO", prefix, `tcp 16-20: possible detected ⚠️, reqtime: ${timeElapsed(t0)}`);
-    setStatus(dpiStatusCell, "Possible ⚠️", "skip");
-    return;
-  }
-
-  if (m2 == DPI_METHOD_UNLIKELY) {
-    logPush("INFO", prefix, `tcp 16-20: unlikely ⚠️, reqtime: ${timeElapsed(t0)}`);
-    setStatus(dpiStatusCell, "Unlikely ⚠️", "skip");
-    return;
-  }
-
-  logPush("INFO", prefix, `tcp 16-20: not detected ✅, reqtime: ${timeElapsed(t0)}`);
-  setStatus(dpiStatusCell, "No ✅", "ok");
-  resultItems[id][DPI_METHOD_KEY] = DPI_METHOD_NOT_DETECTED;
+  logPush("INFO", prefix, logDpiMap[m2]);
 };
 
 const insertDebugRow = () => {
@@ -289,8 +271,14 @@ startButtonEl.onclick = () => {
 };
 
 shareButtonEl.onclick = async () => {
-  await encodeShare(clientAsn, resultItems);
-  alert("Link to results copied to clipboard.");
+  const encoded = await encodeShare(clientAsn, resultItems);
+  const url = `${window.location.origin + window.location.pathname}?share=${encoded}`;
+  try {
+    await navigator.clipboard.writeText(url);
+    alert("Link to results copied to clipboard.");
+  } catch {
+    alert("Error writing to clipboard. Permissions granted?");
+  }
 };
 
 const fetchAsnBasic = async (asn) => {
@@ -300,7 +288,6 @@ const fetchAsnBasic = async (asn) => {
 
 const fetchAsn = async () => {
   try {
-
     const ip = (await (await fetch(RIPE_API_URL + "whats-my-ip/data.json")).json()).data.ip;
     const asn = (await (await fetch(RIPE_API_URL + "prefix-overview/data.json?resource=" + ip)).json()).data.asns[0];
     clientAsn = Number(asn.asn);
@@ -336,7 +323,7 @@ const setPrettyDpi = (el, alive, dpi) => {
   const m = {
     [DPI_METHOD_NOT_DETECTED]: () => setStatus(el, "No ✅", "ok"),
     [DPI_METHOD_DETECTED]: () => setStatus(el, "Detected❗️", "bad"),
-    [DPI_METHOD_PROBABLY]: () => setStatus(el, "Probably ❗️", "skip"),
+    [DPI_METHOD_PROBABLY]: () => setStatus(el, "Probably❗️", "skip"),
     [DPI_METHOD_POSSIBLE]: () => setStatus(el, "Possible ⚠️", "skip"),
     [DPI_METHOD_UNLIKELY]: () => setStatus(el, "Unlikely ⚠️", "skip"),
   };

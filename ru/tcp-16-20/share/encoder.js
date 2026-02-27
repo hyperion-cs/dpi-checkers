@@ -5,7 +5,6 @@ const encodeItem = (aliveCardinality, alive, dpi) => {
 };
 
 const encodeShare = async (clientAsn, items) => {
-  console.log("собираемся кодировать:", clientAsn, items);
   // encoder always takes latest file
   const h = await import('./helpers.js');
 
@@ -32,6 +31,6 @@ const encodeShare = async (clientAsn, items) => {
   }
 
   const base64 = buf.toBase64({ alphabet: "base64url", omitPadding: true })
-  console.log("encoded:", base64)
+  console.log("encoded share:", base64)
   return base64;
 }

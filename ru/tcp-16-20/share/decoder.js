@@ -32,6 +32,15 @@ export const decodeShare = async (buf, count) => {
     itemOffset += h.ENDPOINT_STATE_BITS;
   }
 
-  items.sort((a, b) => (a.id == h.SELFCHECK_ID || a.provider < b.provider) ? -1 : (a.provider > b.provider ? 1 : 0));
+  const sortFunc = (a, b) => {
+    if (a.id == h.SELFCHECK_ID) return -1;
+    const aprovider = a.provider.toLowerCase();
+    const bprovider = b.provider.toLowerCase();
+    if (aprovider < bprovider) return -1;
+    if (aprovider > bprovider) return 1;
+    return 0;
+  };
+
+  items.sort(sortFunc);
   return { commitHex, ts, asn, items };
 };
