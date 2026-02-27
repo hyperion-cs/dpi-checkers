@@ -7,10 +7,7 @@ const encodeItem = (aliveCardinality, alive, dpi) => {
 const encodeShare = async (clientAsn, items) => {
   // encoder always takes latest file
   const h = await import('./helpers.js');
-
-  // тут мы должны сходить в гит и вычислить крайний коммит
-  const commitHex = "88315c44a98db097299a9d65193cfaef";
-  const commit = BigInt("0x" + commitHex);
+  const commit = await h.getLastCommitBigint();
   const ts = nowUtcToBigint(h.EPOCH_MS);
   const asn = BigInt(clientAsn)
 

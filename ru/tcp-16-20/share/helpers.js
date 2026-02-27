@@ -7,12 +7,21 @@ export const ENDPOINT_STATE_BITS = 4;
 export const ALIVE_CARDINALITY = 3;
 export const DPI_CARDINALITY = 5;
 
+export const REPO = "hyperion-cs/dpi-checkers"
 export const SELFCHECK_ID = "US.GH-HPRN";
 
 export const getCommitHex = (buf) => {
   const commit = readBits(buf, 0, COMMIT_BITS)
   return commit.toString(16);
 }
+
+export const getLastCommitBigint = async () => {
+  const truncSize = 32;
+  const url = `https://api.github.com/repos/${REPO}/commits?per_page=1`;
+  const sha = (await (await fetch(url)).json())[0].sha;
+  console.log("last commit sha", sha);
+  return BigInt("0x" + sha.slice(0, truncSize));
+};
 
 // Write BigInt to Uint8Array
 export const writeBits = (buf, bitOffset, bitLength, value) => {

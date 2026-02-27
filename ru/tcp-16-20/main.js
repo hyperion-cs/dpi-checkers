@@ -271,14 +271,26 @@ startButtonEl.onclick = () => {
 };
 
 shareButtonEl.onclick = async () => {
-  const encoded = await encodeShare(clientAsn, resultItems);
-  const url = `${window.location.origin + window.location.pathname}?share=${encoded}`;
+  const prevContent = shareButtonEl.textContent;
+  shareButtonEl.textContent = "🔗 ..."
+  shareButtonEl.disabled = true;
+
   try {
-    await navigator.clipboard.writeText(url);
-    alert("Link to results copied to clipboard.");
-  } catch {
-    alert("Error writing to clipboard. Permissions granted?");
+    const encoded = await encodeShare(clientAsn, resultItems);
+    const url = `${window.location.origin + window.location.pathname}?share=${encoded}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      alert("Link to results copied to clipboard.");
+    } catch {
+      alert("Error writing to clipboard. Permissions granted?");
+    }
   }
+  catch {
+    alert("Error when encoding results.");
+  }
+
+  shareButtonEl.textContent = prevContent
+  shareButtonEl.disabled = false;
 };
 
 const fetchAsnBasic = async (asn) => {
