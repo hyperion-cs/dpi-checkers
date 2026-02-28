@@ -1,0 +1,13 @@
+network,autonomous_system_number,autonomous_system_organization
+34.0.128.0/19,15169,"Google LLC"
+193.186.4.0/24,15169,"Google LLC"
+1.179.112.0/20,15169,"Google Cloud Platform"
+2.56.250.0/24,15169,"Google Cloud Platform"
+1.0.0.0/24,13335,"Cloudflare, Inc."
+152.114.0.0/17,13335,"Cloudflare, Inc."
+23.141.168.0/24,209242,"Cloudflare BYOIP Customers"
+68.169.48.0/20,209242,"Cloudflare BYOIP Customers"
+31.44.8.0/21,200350,"Yandex.Cloud LLC"
+31.44.8.0/24,200351,"Yandex.Cloud LLC"
+5.45.192.0/18,13238,"YANDEX LLC"
+37.9.64.0/24,13238,"YANDEX LLC"
