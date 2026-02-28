@@ -1,59 +1,73 @@
 package webhostfarm
 
 import (
+	"crypto/tls"
 	"iter"
 	"math/rand/v2"
 	"net"
 	"net/netip"
+	"strconv"
 	"time"
 
 	"go4.org/netipx"
 )
 
 type FarmOpt struct {
-	Subnets   *netipx.IPSet
-	HttpsOnly bool
-	Count     int
+	Subnets *netipx.IPSet
+	Count   int
 }
 
 type FarmItem struct {
-	Ip    netip.Addr
-	Port  int
-	Https bool
+	Ip   netip.Addr
+	Port int
 }
 
 // Randomly scans ip addresses from the specified subnets until
 // it finds count hosts accessible as a web service.
+// Currently, only https with forced tls handshake verification is supported.
 func Farm(opt FarmOpt) []FarmItem {
-	if !opt.HttpsOnly {
-		panic("plain http farming is not yet supported")
-	}
+	const port = 443
 	items := []FarmItem{}
 	found := 0
 	for ip := range randomIpsIter(opt.Subnets) {
 		if found >= opt.Count {
 			break
 		}
-		if isPortOpen(ip.String(), "443", time.Second) {
+		if tryTlsHandshake(ip, port, time.Second) {
 			found++
-			items = append(items, FarmItem{Ip: ip, Port: 443, Https: true})
+			items = append(items, FarmItem{Ip: ip, Port: port})
 			continue
 		}
 	}
 	return items
 }
 
-func isPortOpen(ip string, port string, timeout time.Duration) bool {
-	conn, err := net.DialTimeout("tcp", net.JoinHostPort(ip, port), timeout)
+func tryTlsHandshake(ip netip.Addr, port int, timeout time.Duration) bool {
+	d := net.Dialer{Timeout: timeout}
+	addr := net.JoinHostPort(ip.String(), strconv.Itoa(port))
+
+	tcpConn, err := d.Dial("tcp", addr)
 	if err != nil {
 		return false
 	}
-	conn.Close()
+	defer tcpConn.Close()
+
+	// without sni
+	tlsConn := tls.Client(tcpConn, &tls.Config{
+		InsecureSkipVerify: true,
+	})
+	defer tlsConn.Close()
+
+	tlsConn.SetDeadline(time.Now().Add(timeout))
+	if err := tlsConn.Handshake(); err != nil {
+		return false
+	}
+
 	return true
 }
 
 // Returns an infinite sequence of ip addresses from a set of subnets, considering their size.
-// Currently, only ipv4 is available and no guarantee of uniqueness.
+// Currently, only ipv4 is supported and no guarantee of uniqueness.
 func randomIpsIter(subnets *netipx.IPSet) iter.Seq[netip.Addr] {
 	total := ipsetTotal(subnets)
 	if total == 0 {
@@ -83,7 +97,7 @@ func randomIpsIter(subnets *netipx.IPSet) iter.Seq[netip.Addr] {
 }
 
 // Returns the total number of ip from a set of subnets.
-// Currently, only ipv4 is available.
+// Currently, only ipv4 is supported.
 func ipsetTotal(subnets *netipx.IPSet) (total uint64) {
 	for _, r := range subnets.Ranges() {
 		if r.From().Is4() {
@@ -94,7 +108,7 @@ func ipsetTotal(subnets *netipx.IPSet) (total uint64) {
 }
 
 // Returns the total number of ip from a subnet.
-// Currently, only ipv4 is available.
+// Currently, only ipv4 is supported.
 func iprangeTotal(r netipx.IPRange) uint64 {
 	return uint64(ip4u32(r.To())-ip4u32(r.From())) + 1
 }
