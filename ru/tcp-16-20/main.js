@@ -358,9 +358,9 @@ const tryHandleShare = async () => {
       resultsEl.hidden = true;
       logEl.hidden = true;
       const buf = Uint8Array.fromBase64(share, { alphabet: "base64url" });
-      const h = await import('./share/helpers.js'); // only for commit hex
+      const h = await import('./share/helpers.js');
       const commitHex = h.getCommitHex(buf);
-      const relPath = "share/decoder.js"
+      const relPath = "share/decoder.js";
       let decoderUrl = `https://raw.githubusercontent.com/${h.REPO}/${commitHex}/ru/tcp-16-20/${relPath}`;
       if (DEBUG) {
         decoderUrl = "./" + relPath;
@@ -376,6 +376,11 @@ const tryHandleShare = async () => {
       console.log(e);
       shareTsEl.hidden = true;
       asnEl.hidden = true;
+
+      if (typeof Uint8Array.prototype.fromBase64 !== "function") {
+        alert("To see the results, you need to update your browser.");
+        return true;
+      }
       alert("The results are out of date or internal error.");
     }
     return true;
@@ -407,16 +412,21 @@ shareButtonEl.onclick = async () => {
     }
   }
   catch {
+    if (typeof Uint8Array.prototype.toBase64 !== "function") {
+      alert("To share the results, you should update your browser.");
+      return true;
+    }
+
     alert("Error when encoding results.");
   }
 
-  shareButtonEl.textContent = prevContent
+  shareButtonEl.textContent = prevContent;
   shareButtonEl.disabled = false;
 };
 
 document.addEventListener("DOMContentLoaded", async () => {
   if (DEBUG) {
-    console.log("debug mode: on")
+    console.log("debug mode: on");
     insertDebugRow();
   }
 

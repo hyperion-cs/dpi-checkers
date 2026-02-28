@@ -16,6 +16,7 @@ export const decodeShare = async (repo, commitHex, buf) => {
     endpointsUrl = "./suite.v2.json"
   }
   const h = await rawImport(helpersUrl);
+  h.setXor(buf, h.XOR_KEY, h.COMMIT_BYTES);
 
   const tsRaw = h.readBits(buf, h.COMMIT_BITS, h.TIMESTAMP_BITS);
   const ts = _numToUtcNow(tsRaw, h.EPOCH_MS);
