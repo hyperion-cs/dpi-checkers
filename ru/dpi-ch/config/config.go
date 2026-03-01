@@ -50,6 +50,11 @@ type Config struct {
 		} `yaml:"whoami"`
 	} `yaml:"checkers"`
 
+	Webhostfarm struct {
+		TcpConnTimeout      time.Duration `yaml:"tcp-conn-timeout"`
+		TlsHandshakeTimeout time.Duration `yaml:"tls-handshake-timeout"`
+	} `yaml:"webhostfarm"`
+
 	Netutils struct {
 		RipeApiUrl     string            `yaml:"ripe-api-url"`
 		YandexApiUrl   string            `yaml:"yandex-api-url"`

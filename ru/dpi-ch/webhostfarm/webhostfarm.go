@@ -1,7 +1,7 @@
 package webhostfarm
 
 import (
-	"crypto/tls"
+	"dpich/config"
 	"iter"
 	"math/rand/v2"
 	"net"
@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"time"
 
+	tls "github.com/refraction-networking/utls"
 	"go4.org/netipx"
 )
 
@@ -26,14 +27,14 @@ type FarmItem struct {
 // it finds count hosts accessible as a web service.
 // Currently, only https with forced tls handshake verification is supported.
 func Farm(opt FarmOpt) []FarmItem {
-	const port = 443
+	const port = 443 // TODO: make param?
 	items := []FarmItem{}
 	found := 0
 	for ip := range randomIpsIter(opt.Subnets) {
 		if found >= opt.Count {
 			break
 		}
-		if tryTlsHandshake(ip, port, time.Second) {
+		if tryUTlsHandshake(ip, port) {
 			found++
 			items = append(items, FarmItem{Ip: ip, Port: port})
 			continue
@@ -42,23 +43,23 @@ func Farm(opt FarmOpt) []FarmItem {
 	return items
 }
 
-func tryTlsHandshake(ip netip.Addr, port int, timeout time.Duration) bool {
-	d := net.Dialer{Timeout: timeout}
+func tryUTlsHandshake(ip netip.Addr, port int) bool {
+	cfg := config.Get().Webhostfarm
+	d := net.Dialer{Timeout: cfg.TcpConnTimeout}
 	addr := net.JoinHostPort(ip.String(), strconv.Itoa(port))
 
 	tcpConn, err := d.Dial("tcp", addr)
 	if err != nil {
 		return false
 	}
-	defer tcpConn.Close()
 
 	// without sni
-	tlsConn := tls.Client(tcpConn, &tls.Config{
+	tlsConn := tls.UClient(tcpConn, &tls.Config{
 		InsecureSkipVerify: true,
-	})
+	}, tls.HelloChrome_Auto)
 	defer tlsConn.Close()
 
-	tlsConn.SetDeadline(time.Now().Add(timeout))
+	tlsConn.SetDeadline(time.Now().Add(cfg.TlsHandshakeTimeout))
 	if err := tlsConn.Handshake(); err != nil {
 		return false
 	}

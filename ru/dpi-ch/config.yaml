@@ -66,6 +66,10 @@ checkers:
   whoami:
     timeout: 15s
 
+webhostfarm:
+    tcp-conn-timeout: 3s
+    tls-handshake-timeout: 3s
+
 netutils:
   timeout: 15s
   ripe-api-url: https://stat.ripe.net/data/
