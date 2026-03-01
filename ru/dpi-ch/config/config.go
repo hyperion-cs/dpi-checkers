@@ -22,6 +22,18 @@ type Config struct {
 			LookupTimeout time.Duration `yaml:"lookup-timeout"`
 		} `yaml:"dnsserver"`
 
+		Webhost struct {
+			TcpConnTimeout      time.Duration     `yaml:"tcp-conn-timeout"`
+			TlsHandshakeTimeout time.Duration     `yaml:"tls-handshake-timeout"`
+			TcpReadTimeout      time.Duration     `yaml:"tcp-read-timeout"`
+			TcpWriteTimeout     time.Duration     `yaml:"tcp-write-timeout"`
+			TcpWriteBuf         int               `yaml:"tcp-write-buf"`
+			TcpReadBuf          int               `yaml:"tcp-read-buf"`
+			Tcp1620nBytes       int               `yaml:"tcp1620-n-bytes"`
+			KeyLogPath          string            `yaml:"key-log-path"`
+			HttpStaticHeaders   map[string]string `yaml:"http-static-headers"`
+		} `yaml:"webhost"`
+
 		Endpoint struct {
 			Timeout time.Duration `yaml:"timeout"`
 			Urls    []string      `yaml:"urls"`

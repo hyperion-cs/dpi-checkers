@@ -21,6 +21,19 @@ checkers:
     urls:
       - https://vk.ru/
 
+  webhost:
+    tcp-conn-timeout: 3s
+    tls-handshake-timeout: 3s
+    tcp-read-timeout: 15s
+    tcp-write-timeout: 15s
+    tcp-write-buf: 4096
+    tcp-read-buf: 4096
+    tcp1620-n-bytes: 65536
+    key-log-path: "/tmp/keys.log"
+    http-static-headers:
+      accept: "*/*"
+      user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36
+
   tcp1620:
     workers: 10
     n-bytes: 65536

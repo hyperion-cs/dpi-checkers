@@ -1,34 +1,43 @@
 package checkers
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/tls"
+	"dpich/config"
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"net/netip"
+	"os"
+	"strconv"
+	"strings"
 	"time"
 )
 
 // TODO (options):
-// - Try to extract sni/host from cert
-// - Set proto (http/https) via TlsV
+// - Set proto (http/https)
+// - Set tlsV
 // - Set port
+// - Set sni/host
 // - Set random sni/host (?)
+// - Try to extract sni/host from cert
 // - Skip tcp1620 check (alive only)
 type WebhostOpt struct {
-	Ip netip.Addr
+	Ip   netip.Addr
+	Port int
 }
 
 type WebhostAttr struct {
 	Ip       netip.Addr
 	Port     int
-	TlsV     uint16 // plain http if 0
+	TlsV     uint16
 	Sni      string
 	HttpHost string
-	Alive    bool
-	Tcp1620  bool
+	Alive    error
+	Tcp1620  error
 }
 
 type webhostHttpReq struct {
@@ -38,79 +47,168 @@ type webhostHttpReq struct {
 }
 
 var (
-	ErrWebhostConn         = errors.New("tcp connection error")
-	ErrWebhostTlsHandshake = errors.New("tls handshake error")
-	ErrWebhostReq          = errors.New("request error")
-	ErrWebhostResp         = errors.New("response error")
+	ErrWebhostTcpConnTimeout      = errors.New("tcp connection timeout")
+	ErrWebhostTlsHandshakeTimeout = errors.New("tls handshake timeout")
+	ErrWebhostTlsHandshakeFail    = errors.New("tls handshake failure")
+	ErrWebhostTcpWriteTimeout     = errors.New("tcp write timeout")
+	ErrWebhostTcpReadTimeout      = errors.New("tcp read timeout")
+	ErrWebhostInternal            = errors.New("internal error")
 )
 
-func WebhostSingle(opt WebhostOpt) (WebhostAttr, error) {
-	d := net.Dialer{Timeout: 5 * time.Second}
-	addr := net.JoinHostPort(opt.Ip.String(), "443")
+func WebhostSingle(opt WebhostOpt) WebhostAttr {
+	cfg := config.Get().Checkers.Webhost
 
-	tcpConn, err := d.Dial("tcp", addr)
-	if err != nil {
-		return WebhostAttr{}, ErrWebhostConn
+	// TODO: when there are many threads, this needs to be moved to the top
+	keyLogWriter := io.Discard
+	if cfg.KeyLogPath != "" {
+		file, err := os.OpenFile(cfg.KeyLogPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
+		if err != nil {
+			panic(err)
+		}
+		defer file.Close()
+		keyLogWriter = file
 	}
-	defer tcpConn.Close()
 
-	sni := "" // without sni
-	tlsConn := tls.Client(tcpConn, &tls.Config{
-		ServerName:         sni,
-		InsecureSkipVerify: true,
-	})
+	a := WebhostAttr{Ip: opt.Ip, Port: opt.Port}
+	tlsConn, err := getHandshakedTlsConn(opt, keyLogWriter)
+	if err != nil {
+		a.Alive = err
+		return a
+	}
+	defer tlsConn.Close()
+	a.TlsV = tlsConn.ConnectionState().Version
+
+	err = webhostAliveCheck(tlsConn)
+	if err != nil {
+		a.Alive = err
+		return a
+	}
+
+	resp, err := tlsReadAll(tlsConn)
+	if err != nil {
+		a.Alive = err
+	}
+	fmt.Println("alive resp:", string(resp))
+
+	tlsConn, err = getHandshakedTlsConn(opt, keyLogWriter)
+	if err != nil {
+		a.Tcp1620 = err
+		return a
+	}
 	defer tlsConn.Close()
 
-	tlsConn.SetDeadline(time.Now().Add(5 * time.Second))
+	err = webhostTcp1620check(tlsConn)
+	if err != nil {
+		a.Tcp1620 = err
+		return a
+	}
+
+	resp, err = tlsReadAll(tlsConn)
+	if err != nil {
+		a.Tcp1620 = err
+	}
+	fmt.Println("tcp1620 resp:", string(resp))
+
+	return a
+}
+
+func getHandshakedTlsConn(opt WebhostOpt, keyLogWriter io.Writer) (*tls.Conn, error) {
+	cfg := config.Get().Checkers.Webhost
+	tcpDialer := net.Dialer{Timeout: cfg.TcpConnTimeout}
+	addr := net.JoinHostPort(opt.Ip.String(), strconv.Itoa(opt.Port))
+
+	tcpConn, err := tcpDialer.Dial("tcp", addr)
+	if err != nil {
+		if isTimeout(err) {
+			return nil, ErrWebhostTcpConnTimeout
+		}
+		log.Println("getHandshakedTlsConn/Dial", err)
+		return nil, ErrWebhostInternal
+	}
+
+	rawTcpConn := tcpConn.(*net.TCPConn)
+	rawTcpConn.SetWriteBuffer(cfg.TcpWriteBuf)
+	rawTcpConn.SetReadBuffer(cfg.TcpReadBuf)
+
+	// without sni
+	tlsConn := tls.Client(tcpConn, &tls.Config{
+		InsecureSkipVerify: true,
+		KeyLogWriter:       keyLogWriter,
+	})
+
+	tlsConn.SetDeadline(time.Now().Add(cfg.TlsHandshakeTimeout))
 	if err := tlsConn.Handshake(); err != nil {
-		return WebhostAttr{}, ErrWebhostTlsHandshake
+		if isTimeout(err) {
+			return nil, ErrWebhostTlsHandshakeTimeout
+		}
+		// https://go.dev/src/crypto/tls/alert.go
+		if strings.Contains(err.Error(), "handshake failure") {
+			return nil, ErrWebhostTlsHandshakeFail
+		}
+		log.Println("getHandshakedTlsConn/Handshake", err)
+		return nil, ErrWebhostInternal
 	}
 	tlsConn.SetDeadline(time.Time{})
 
-	req := prepareHttpReq(webhostHttpReq{method: "HEAD"})
-	tcpConn.SetWriteDeadline(time.Now().Add(5 * time.Second))
-	if _, err := tlsConn.Write(req); err != nil {
-		return WebhostAttr{}, ErrWebhostReq
-	}
-	tcpConn.SetWriteDeadline(time.Time{})
-
-	err = readIntoVacuum(tlsConn, 5*time.Second)
-	if err != nil {
-		return WebhostAttr{}, ErrWebhostResp
-	}
-
-	return WebhostAttr{
-		Ip:       opt.Ip,
-		Port:     443,
-		TlsV:     tlsConn.ConnectionState().Version,
-		Sni:      sni,
-		HttpHost: "",
-		Alive:    true,
-		Tcp1620:  false,
-	}, nil
+	return tlsConn, nil
 }
 
-func readIntoVacuum(tlsConn *tls.Conn, timeout time.Duration) error {
-	tlsConn.SetReadDeadline(time.Now().Add(timeout))
+func tlsReadAll(tlsConn *tls.Conn) ([]byte, error) {
+	cfg := config.Get().Checkers.Webhost
+	tlsConn.SetReadDeadline(time.Now().Add(cfg.TcpReadTimeout))
 	defer tlsConn.SetReadDeadline(time.Time{})
-	if _, err := io.ReadAll(tlsConn); err != nil {
-		return err
+	data, err := io.ReadAll(tlsConn)
+	if err != nil {
+		if isTimeout(err) {
+			return nil, ErrWebhostTcpReadTimeout
+		}
+		log.Println("tlsReadAll", err)
+		return nil, ErrWebhostInternal
+	}
+	return data, nil
+}
+
+func tlsWriteAll(tlsConn *tls.Conn, data []byte) error {
+	cfg := config.Get().Checkers.Webhost
+	tlsConn.SetWriteDeadline(time.Now().Add(cfg.TcpWriteTimeout))
+	defer tlsConn.SetWriteDeadline(time.Time{})
+	if _, err := tlsConn.Write(data); err != nil {
+		if isTimeout(err) {
+			return ErrWebhostTcpWriteTimeout
+		}
+		log.Println("tlsWriteAll", err)
+		return ErrWebhostInternal
 	}
 	return nil
 }
 
+func webhostAliveCheck(tlsConn *tls.Conn) error {
+	req := prepareHttpReq(webhostHttpReq{method: "HEAD"})
+	return tlsWriteAll(tlsConn, req)
+}
+
+func webhostTcp1620check(tlsConn *tls.Conn) error {
+	cfg := config.Get().Checkers.Webhost
+	body, _ := randomBytes(cfg.Tcp1620nBytes)
+	req := prepareHttpReq(webhostHttpReq{method: "POST", body: body})
+	return tlsWriteAll(tlsConn, req)
+}
+
 func prepareHttpReq(opt webhostHttpReq) []byte {
-	reqStr := opt.method + " / HTTP/1.1\r\n" +
-		"User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36\r\n" +
-		"Accept: */*\r\n"
+	cfg := config.Get().Checkers.Webhost
+	reqStr := opt.method + " / HTTP/1.1\r\n"
+	for k, v := range cfg.HttpStaticHeaders {
+		reqStr += fmt.Sprintf("%s: %s\r\n", k, v)
+	}
 	if len(opt.host) > 0 {
 		reqStr += "Host: " + opt.host
 	}
 	if opt.body != nil {
-		reqStr += fmt.Sprintf("Content-Length: %d", len(opt.body))
+		reqStr += fmt.Sprintf("Content-Length: %d\r\n", len(opt.body))
 	}
 	reqStr += "Connection: close\r\n\r\n"
-	req := make([]byte, len(reqStr)+len(opt.body))
+
+	req := make([]byte, 0, len(reqStr)+len(opt.body))
 	req = append(req, []byte(reqStr)...)
 	req = append(req, opt.body...)
 	return req
@@ -123,4 +221,16 @@ func randomBytes(n int) ([]byte, error) {
 		return nil, err
 	}
 	return b, nil
+}
+
+func isTimeout(err error) bool {
+	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) ||
+			errors.Is(err, os.ErrDeadlineExceeded) {
+			return true
+		} else if ne, ok := err.(net.Error); ok && ne.Timeout() {
+			return true
+		}
+	}
+	return false
 }
