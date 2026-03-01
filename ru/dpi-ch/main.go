@@ -27,6 +27,10 @@ func main() {
 		defer f.Close()
 	}
 
+	//lab.FarmTest()
+	//lab.WebhostCheckerTest()
+	//return
+
 	switch *ui {
 	case "t":
 		tui.Tui()

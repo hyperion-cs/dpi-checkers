@@ -3,7 +3,7 @@ package inetlookup
 import (
 	"context"
 	"dpich/config"
-	"dpich/netutil"
+	"dpich/httputil"
 	"net"
 	"net/http"
 	"net/netip"
@@ -11,6 +11,7 @@ import (
 
 var defaultInetLookup InetLookup
 
+// TODO: lock and startup that
 func Default() InetLookup {
 	if defaultInetLookup == nil {
 		ilOpt := GeoliteCsvOpt{
@@ -36,7 +37,7 @@ func GetExternalIpViaRipe(ctx context.Context) (netip.Addr, error) {
 	cfg := config.Get().Inetlookup
 
 	var ipRaw struct{ Data struct{ Ip string } }
-	if err := netutil.GetAndUnmarshal(ctx, http.DefaultClient, cfg.RipeApiUrl+"whats-my-ip/data.json", &ipRaw, true); err != nil {
+	if err := httputil.GetAndUnmarshal(ctx, http.DefaultClient, cfg.RipeApiUrl+"whats-my-ip/data.json", &ipRaw, true); err != nil {
 		return netip.Addr{}, err
 	}
 
@@ -47,7 +48,7 @@ func GetExternalIpViaYandex(ctx context.Context) (netip.Addr, error) {
 	cfg := config.Get().Inetlookup
 
 	var ip string
-	err := netutil.GetAndUnmarshal(ctx, http.DefaultClient, cfg.YandexApiUrl+"ip", &ip, true)
+	err := httputil.GetAndUnmarshal(ctx, http.DefaultClient, cfg.YandexApiUrl+"ip", &ip, true)
 	if err != nil {
 		return netip.Addr{}, err
 	}

@@ -5,7 +5,7 @@ package checkers
 import (
 	"context"
 	"dpich/config"
-	"dpich/netutil"
+	"dpich/httputil"
 	"errors"
 	"net/http"
 	"sync"
@@ -29,7 +29,7 @@ func CidrWhitelist() error {
 
 	for _, url := range cfg.Regular {
 		wg.Go(func() {
-			if err := netutil.Head(regCtx, http.DefaultClient, url, true); err == nil {
+			if err := httputil.Head(regCtx, http.DefaultClient, url, true); err == nil {
 				regCancel()
 				wlCancel() // results are already clear
 				atomic.AddInt32(&regCount, 1)
@@ -39,7 +39,7 @@ func CidrWhitelist() error {
 
 	for _, url := range cfg.Whitelisted {
 		wg.Go(func() {
-			if err := netutil.Head(wlCtx, http.DefaultClient, url, true); err == nil {
+			if err := httputil.Head(wlCtx, http.DefaultClient, url, true); err == nil {
 				wlCancel()
 				atomic.AddInt32(&wlCount, 1)
 			}
