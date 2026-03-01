@@ -3,11 +3,11 @@ debug: true
 checkers:
   cidrwhitelist:
     timeout: 15s
-    wl-endpoints:
+    whitelisted:
       - https://max.ru/
       - https://ya.ru/
       - https://vk.ru/
-    norm-endpoints:
+    regular:
       - https://github.com/
       - https://ru.wikipedia.org/
       - https://www.google.com/

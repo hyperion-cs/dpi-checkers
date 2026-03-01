@@ -19,25 +19,25 @@ func CidrWhitelist() error {
 	cfg := config.Get().Checkers.CidrWhitelist
 
 	var wg sync.WaitGroup
-	var wlCount, normCount int32
+	var wlCount, regCount int32
 
 	wlCtx, wlCancel := context.WithTimeout(context.Background(), cfg.Timeout)
-	normCtx, normCancel := context.WithTimeout(context.Background(), cfg.Timeout)
+	regCtx, regCancel := context.WithTimeout(context.Background(), cfg.Timeout)
 
 	defer wlCancel()
-	defer normCancel()
+	defer regCancel()
 
-	for _, url := range cfg.NormEndpoints {
+	for _, url := range cfg.Regular {
 		wg.Go(func() {
-			if err := netutil.Head(normCtx, http.DefaultClient, url, true); err == nil {
-				normCancel()
+			if err := netutil.Head(regCtx, http.DefaultClient, url, true); err == nil {
+				regCancel()
 				wlCancel() // results are already clear
-				atomic.AddInt32(&normCount, 1)
+				atomic.AddInt32(&regCount, 1)
 			}
 		})
 	}
 
-	for _, url := range cfg.WlEndpoints {
+	for _, url := range cfg.Whitelisted {
 		wg.Go(func() {
 			if err := netutil.Head(wlCtx, http.DefaultClient, url, true); err == nil {
 				wlCancel()
@@ -49,7 +49,7 @@ func CidrWhitelist() error {
 	wg.Wait()
 
 	// Resources not on the whitelist are available
-	if normCount > 0 {
+	if regCount > 0 {
 		return nil
 	}
 

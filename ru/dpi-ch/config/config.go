@@ -12,9 +12,9 @@ type Config struct {
 
 	Checkers struct {
 		CidrWhitelist struct {
-			Timeout       time.Duration `yaml:"timeout"`
-			WlEndpoints   []string      `yaml:"wl-endpoints"`
-			NormEndpoints []string      `yaml:"norm-endpoints"`
+			Timeout     time.Duration `yaml:"timeout"`
+			Whitelisted []string      `yaml:"whitelisted"`
+			Regular     []string      `yaml:"regular"`
 		} `yaml:"cidrwhitelist"`
 
 		DnsServer struct {
