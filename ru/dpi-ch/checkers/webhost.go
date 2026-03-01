@@ -3,7 +3,6 @@ package checkers
 import (
 	"context"
 	"crypto/rand"
-	"crypto/tls"
 	"dpich/config"
 	"errors"
 	"fmt"
@@ -15,6 +14,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	tls "github.com/refraction-networking/utls"
 )
 
 // TODO (options):
@@ -69,8 +70,9 @@ func WebhostSingle(opt WebhostOpt) WebhostAttr {
 		keyLogWriter = file
 	}
 
+	// alive check
 	a := WebhostAttr{Ip: opt.Ip, Port: opt.Port}
-	tlsConn, err := getHandshakedTlsConn(opt, keyLogWriter)
+	tlsConn, err := getHandshakedUTlsConn(opt, keyLogWriter)
 	if err != nil {
 		a.Alive = err
 		return a
@@ -84,13 +86,13 @@ func WebhostSingle(opt WebhostOpt) WebhostAttr {
 		return a
 	}
 
-	resp, err := tlsReadAll(tlsConn)
+	_, err = tlsReadAll(tlsConn)
 	if err != nil {
 		a.Alive = err
 	}
-	fmt.Println("alive resp:", string(resp))
 
-	tlsConn, err = getHandshakedTlsConn(opt, keyLogWriter)
+	// tcp16-20 check
+	tlsConn, err = getHandshakedUTlsConn(opt, keyLogWriter)
 	if err != nil {
 		a.Tcp1620 = err
 		return a
@@ -103,16 +105,15 @@ func WebhostSingle(opt WebhostOpt) WebhostAttr {
 		return a
 	}
 
-	resp, err = tlsReadAll(tlsConn)
+	_, err = tlsReadAll(tlsConn)
 	if err != nil {
 		a.Tcp1620 = err
 	}
-	fmt.Println("tcp1620 resp:", string(resp))
 
 	return a
 }
 
-func getHandshakedTlsConn(opt WebhostOpt, keyLogWriter io.Writer) (*tls.Conn, error) {
+func getHandshakedUTlsConn(opt WebhostOpt, keyLogWriter io.Writer) (*tls.UConn, error) {
 	cfg := config.Get().Checkers.Webhost
 	tcpDialer := net.Dialer{Timeout: cfg.TcpConnTimeout}
 	addr := net.JoinHostPort(opt.Ip.String(), strconv.Itoa(opt.Port))
@@ -131,10 +132,10 @@ func getHandshakedTlsConn(opt WebhostOpt, keyLogWriter io.Writer) (*tls.Conn, er
 	rawTcpConn.SetReadBuffer(cfg.TcpReadBuf)
 
 	// without sni
-	tlsConn := tls.Client(tcpConn, &tls.Config{
+	tlsConn := tls.UClient(tcpConn, &tls.Config{
 		InsecureSkipVerify: true,
 		KeyLogWriter:       keyLogWriter,
-	})
+	}, tls.HelloChrome_Auto)
 
 	tlsConn.SetDeadline(time.Now().Add(cfg.TlsHandshakeTimeout))
 	if err := tlsConn.Handshake(); err != nil {
@@ -153,7 +154,7 @@ func getHandshakedTlsConn(opt WebhostOpt, keyLogWriter io.Writer) (*tls.Conn, er
 	return tlsConn, nil
 }
 
-func tlsReadAll(tlsConn *tls.Conn) ([]byte, error) {
+func tlsReadAll(tlsConn *tls.UConn) ([]byte, error) {
 	cfg := config.Get().Checkers.Webhost
 	tlsConn.SetReadDeadline(time.Now().Add(cfg.TcpReadTimeout))
 	defer tlsConn.SetReadDeadline(time.Time{})
@@ -168,7 +169,7 @@ func tlsReadAll(tlsConn *tls.Conn) ([]byte, error) {
 	return data, nil
 }
 
-func tlsWriteAll(tlsConn *tls.Conn, data []byte) error {
+func tlsWriteAll(tlsConn *tls.UConn, data []byte) error {
 	cfg := config.Get().Checkers.Webhost
 	tlsConn.SetWriteDeadline(time.Now().Add(cfg.TcpWriteTimeout))
 	defer tlsConn.SetWriteDeadline(time.Time{})
@@ -182,12 +183,12 @@ func tlsWriteAll(tlsConn *tls.Conn, data []byte) error {
 	return nil
 }
 
-func webhostAliveCheck(tlsConn *tls.Conn) error {
+func webhostAliveCheck(tlsConn *tls.UConn) error {
 	req := prepareHttpReq(webhostHttpReq{method: "HEAD"})
 	return tlsWriteAll(tlsConn, req)
 }
 
-func webhostTcp1620check(tlsConn *tls.Conn) error {
+func webhostTcp1620check(tlsConn *tls.UConn) error {
 	cfg := config.Get().Checkers.Webhost
 	body, _ := randomBytes(cfg.Tcp1620nBytes)
 	req := prepareHttpReq(webhostHttpReq{method: "POST", body: body})
