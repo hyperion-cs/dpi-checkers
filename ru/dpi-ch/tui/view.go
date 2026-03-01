@@ -28,8 +28,6 @@ func (rm rootModel) View() string {
 		s += whoamiView(rm.whoamiModel)
 	case cidrwhitelistPage:
 		s += cidrwhitelistView(rm.cidrwhitelistModel)
-	case tcp1620Page:
-		s += tcp1620View(rm.tcp1620Model)
 	}
 
 	if rm.page != menuPage && !rm.quitting {
@@ -52,13 +50,12 @@ func menuView(model menuModel) string {
 	}
 
 	choices := fmt.Sprintf(
-		"%s\n%s\n%s\n%s\n%s\n%s",
+		"%s\n%s\n%s\n%s\n%s",
 		checkbox(at, p == allPage, as),
 		checkbox("Who am I? "+subtleStyle.Render("about your internet connection"), p == whoamiPage, nil),
 		checkbox("Am I under the CIDR whitelist? "+subtleStyle.Render("checks if a censor restricts tcp/udp connections by ip subnets"), p == cidrwhitelistPage, nil),
-		checkbox("DNS "+subtleStyle.Render("checks availability and hijacking of some dns servers"), p == dnsserverPage, nil),
-		checkbox("Popular Web Services "+subtleStyle.Render("like YouTube, Instagram, Discord, Telegram and others"), p == endpointPage, nil),
-		checkbox("Infrastructure Providers "+subtleStyle.Render("like Cloudflare, Akamai, Hetzner, DigitalOcean and others"), p == tcp1620Page, nil),
+		checkbox("Popular Web Services "+subtleStyle.Render("like YouTube, Instagram, Discord, Telegram and others"), p == webhostPopularPage, nil),
+		checkbox("Infrastructure Providers "+subtleStyle.Render("like Cloudflare, Akamai, Hetzner, DigitalOcean and others"), p == webhostInfraPage, nil),
 	)
 
 	return fmt.Sprintf(tpl, choices)

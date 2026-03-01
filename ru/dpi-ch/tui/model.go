@@ -15,20 +15,18 @@ const (
 	allPage
 	whoamiPage
 	cidrwhitelistPage
-	dnsserverPage
-	endpointPage
-	tcp1620Page
+	webhostPopularPage
+	webhostInfraPage
 )
 
 func getPageName(p page) string {
 	pageNames := map[page]string{
-		menuPage:          "Menu",
-		allPage:           "ALL",
-		whoamiPage:        "Who am I?",
-		cidrwhitelistPage: "Am I under the CIDR whitelist?",
-		dnsserverPage:     "DNS",
-		endpointPage:      "Popular Web Services",
-		tcp1620Page:       "Infrastructure Providers",
+		menuPage:           "Menu",
+		allPage:            "ALL",
+		whoamiPage:         "Who am I?",
+		cidrwhitelistPage:  "Am I under the CIDR whitelist?",
+		webhostPopularPage: "Popular Web Services",
+		webhostInfraPage:   "Infrastructure Providers",
 	}
 
 	if pn, ex := pageNames[p]; ex {
@@ -46,7 +44,7 @@ type rootModel struct {
 	tcp1620Model       tcp1620Model
 }
 
-var menuOptions = []page{allPage, whoamiPage, cidrwhitelistPage, dnsserverPage, endpointPage, tcp1620Page}
+var menuOptions = []page{allPage, whoamiPage, cidrwhitelistPage, webhostPopularPage, webhostInfraPage}
 
 type menuModel struct {
 	optionIdx int

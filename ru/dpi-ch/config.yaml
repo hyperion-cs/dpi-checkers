@@ -16,11 +16,6 @@ checkers:
     conn-timeout: 3s
     lookup-timeout: 15s
 
-  endpoint:
-    timeout: 5s
-    urls:
-      - https://vk.ru/
-
   webhost:
     tcp-conn-timeout: 3s
     tls-handshake-timeout: 3s

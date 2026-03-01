@@ -34,11 +34,6 @@ type Config struct {
 			HttpStaticHeaders   map[string]string `yaml:"http-static-headers"`
 		} `yaml:"webhost"`
 
-		Endpoint struct {
-			Timeout time.Duration `yaml:"timeout"`
-			Urls    []string      `yaml:"urls"`
-		} `yaml:"endpoint"`
-
 		Tcp1620 struct {
 			Workers             int           `yaml:"workers"`
 			NBytes              int           `yaml:"n-bytes"`

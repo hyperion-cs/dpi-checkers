@@ -61,8 +61,6 @@ func menuUpdate(model menuModel, msg tea.Msg) (menuModel, tea.Cmd) {
 				initMsg = whoamiInitMsg{}
 			case cidrwhitelistPage:
 				initMsg = cidrwhitelistInitMsg{}
-			case tcp1620Page:
-				initMsg = tcp1620InitMsg{}
 			}
 
 			return model, tea.Batch(
