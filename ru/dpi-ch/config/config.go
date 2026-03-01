@@ -17,11 +17,6 @@ type Config struct {
 			Regular     []string      `yaml:"regular"`
 		} `yaml:"cidrwhitelist"`
 
-		DnsServer struct {
-			ConnTimeout   time.Duration `yaml:"conn-timeout"`
-			LookupTimeout time.Duration `yaml:"lookup-timeout"`
-		} `yaml:"dnsserver"`
-
 		Webhost struct {
 			TcpConnTimeout      time.Duration     `yaml:"tcp-conn-timeout"`
 			TlsHandshakeTimeout time.Duration     `yaml:"tls-handshake-timeout"`
@@ -55,10 +50,12 @@ type Config struct {
 		TlsHandshakeTimeout time.Duration `yaml:"tls-handshake-timeout"`
 	} `yaml:"webhostfarm"`
 
+	Inetlookup struct {
+		RipeApiUrl   string `yaml:"ripe-api-url"`
+		YandexApiUrl string `yaml:"yandex-api-url"`
+	}
+
 	Netutils struct {
-		RipeApiUrl     string            `yaml:"ripe-api-url"`
-		YandexApiUrl   string            `yaml:"yandex-api-url"`
-		Timeout        time.Duration     `yaml:"timeout"`
 		BrowserHeaders map[string]string `yaml:"browser-headers"`
 	} `yaml:"netutils"`
 }

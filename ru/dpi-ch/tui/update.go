@@ -1,11 +1,7 @@
 package tui
 
 import (
-	"context"
-	"dpich/checkers"
-
 	"github.com/charmbracelet/bubbles/spinner"
-	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -37,9 +33,6 @@ func (rm rootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	cmds = append(cmds, cmd)
 
 	rm.cidrwhitelistModel, cmd = cidrwhitelistUpdate(rm.cidrwhitelistModel, msg)
-	cmds = append(cmds, cmd)
-
-	rm.tcp1620Model, cmd = tcp1620Update(rm.tcp1620Model, msg)
 	cmds = append(cmds, cmd)
 
 	return rm, tea.Batch(cmds...)
@@ -116,53 +109,6 @@ func cidrwhitelistUpdate(model cidrwhitelistModel, msg tea.Msg) (cidrwhitelistMo
 			model.spinner, cmd = model.spinner.Update(msg)
 			return model, cmd
 		}
-	}
-
-	return model, nil
-}
-
-func tcp1620Update(model tcp1620Model, msg tea.Msg) (tcp1620Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tcp1620InitMsg:
-		// TODO: Should we move ctx/cancel to tcp1620ProducerStartedMsg?
-		ctx, cancel := context.WithCancel(context.Background())
-		model = tcp1620Model{ctx: ctx, cancel: cancel, fetching: true}
-		return model, tcp1620ProducerStartCmd(ctx)
-	case tcp1620ProducerStartedMsg:
-		model.ch = msg.ch
-		return model, tcp1620ConsumerCmd(model.ch)
-	case tcp1620ItemMsg:
-		// TODO: This shouldn't be here
-		if msg.Attrs.Country == "XX" {
-			msg.Attrs.Country = "N/A"
-		}
-
-		s := "Not detected"
-		switch msg.Err {
-		case checkers.ErrTcp1620Conn:
-			s = "Conn Err"
-		case checkers.ErrTcp1620Read:
-			s = "Detected"
-		}
-
-		r := table.Row{
-			msg.Attrs.Id,
-			msg.Attrs.Subnet,
-			msg.Attrs.Holder,
-			"AS" + msg.Attrs.Asn,
-			msg.Attrs.CountryEmoji + " " + msg.Attrs.Country,
-			s,
-		}
-		model.rows = append(model.rows, r)
-		return model, tcp1620ConsumerCmd(model.ch)
-	case tcp1620ProducerDoneMsg:
-		model.fetching = false
-		return model, nil
-	case returnedToMenuMsg:
-		if model.cancel != nil {
-			model.cancel()
-		}
-		return model, nil
 	}
 
 	return model, nil

@@ -1,18 +1,22 @@
 debug: true
 
 checkers:
-  cidrwhitelist:
-    timeout: 15s
-    whitelisted:
-      - https://max.ru/
-      - https://ya.ru/
-      - https://vk.ru/
-    regular:
-      - https://github.com/
-      - https://ru.wikipedia.org/
-      - https://www.google.com/
-
   webhost:
+    popular:
+      - name: YouTube
+        filter: host("www.youtube.com")
+      - name: Instagram
+        filter: host("www.instagram.com")
+    infra:
+      - name: CF
+        filter: org("cloudflare")
+      - name: DigitalOcean
+        filter: org("digitalocean")
+        count: 2
+      - name: Hetzner DE
+        filter: org("hetzner") && country("de")
+      - name: RTK
+        filter: as(57181)
     tcp-conn-timeout: 3s
     tls-handshake-timeout: 3s
     tcp-read-timeout: 15s
@@ -24,6 +28,17 @@ checkers:
     http-static-headers:
       accept: "*/*"
       user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36
+
+  cidrwhitelist:
+    timeout: 15s
+    whitelisted:
+      - https://max.ru/
+      - https://ya.ru/
+      - https://vk.ru/
+    regular:
+      - https://github.com/
+      - https://ru.wikipedia.org/
+      - https://www.google.com/
 
   tcp1620:
     workers: 10
@@ -60,16 +75,18 @@ checkers:
       - https://us.rudder.qntmnet.com/QN-CDN/images/qn_bg_.jpg
 
   whoami:
-    timeout: 15s
+    timeout: 30s
 
 webhostfarm:
     tcp-conn-timeout: 3s
     tls-handshake-timeout: 3s
 
-netutils:
-  timeout: 15s
+inetlookup:
   ripe-api-url: https://stat.ripe.net/data/
   yandex-api-url: https://yandex.ru/internet/api/v0/
+
+netutils:
+  timeout: 15s
   browser-headers:
     accept-language: ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7
     user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36

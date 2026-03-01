@@ -4,7 +4,6 @@ import (
 	"dpich/checkers"
 	"fmt"
 
-	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -71,7 +70,7 @@ func whoamiView(model whoamiModel) string {
 	}
 
 	r := model.result
-	return fmt.Sprintf("IP: %s\nSubnet: %s\nHolder: %s (AS%s)\nLocation: %s", r.Ip, r.Subnet, r.Holder, r.Asn, r.Location)
+	return fmt.Sprintf("IP: %s\nSubnet: %s\nOrg: %s (%s)\nLocation: %s", r.Ip, r.Subnet, r.Org, r.Asn, r.Location)
 }
 
 func cidrwhitelistView(model cidrwhitelistModel) string {
@@ -92,52 +91,4 @@ func cidrwhitelistView(model cidrwhitelistModel) string {
 	}
 
 	return warningStyle.Render("Internal error ;(")
-}
-
-func tcp1620View(model tcp1620Model) string {
-	// type EndpointAttrs struct {
-	// 	Id      string
-	// 	Url     string
-	// 	Host    string
-	// 	IpAddr  string
-	// 	Subnet  string
-	// 	Asn     string
-	// 	Holder  string
-	// 	Country string
-	// 	City    string
-	// }
-
-	columns := []table.Column{
-		{Title: "Id", Width: 11},
-		{Title: "Subnet", Width: 18},
-		{Title: "Holder", Width: 20},
-		{Title: "ASN", Width: 12},
-		{Title: "Country", Width: 7},
-		{Title: "Status", Width: 12},
-	}
-
-	t := table.New(
-		table.WithColumns(columns),
-		table.WithRows(model.rows),
-		table.WithFocused(true),
-		//table.WithHeight(min(len(model.rows), 15)),
-		table.WithHeight(len(model.rows)),
-	)
-
-	s := table.DefaultStyles()
-	s.Header = s.Header.
-		BorderStyle(lipgloss.NormalBorder()).
-		BorderForeground(lipgloss.Color("240")).
-		BorderBottom(true).
-		Bold(false)
-	s.Selected = s.Selected.
-		Foreground(lipgloss.Color("229")).
-		Background(lipgloss.Color("57")).
-		Bold(false)
-	t.SetStyles(s)
-
-	var r string
-	r += tblOuterBorderStyle.Render(t.View()) + "\n\n"
-	r += fmt.Sprintf("Fetching: %t\nCount: %d\n", model.fetching, len(model.rows))
-	return r
 }

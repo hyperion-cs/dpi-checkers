@@ -9,9 +9,6 @@ import (
 )
 
 func Head(ctx context.Context, client *http.Client, url string, browserHeaders bool) error {
-	ctx, cancel := ctxOrDefault(ctx)
-	defer cancel()
-
 	req, err := http.NewRequestWithContext(ctx, http.MethodHead, url, http.NoBody)
 	if err != nil {
 		return err
@@ -31,9 +28,6 @@ func Head(ctx context.Context, client *http.Client, url string, browserHeaders b
 }
 
 func Get(ctx context.Context, client *http.Client, url string, browserHeaders bool) ([]byte, error) {
-	ctx, cancel := ctxOrDefault(ctx)
-	defer cancel()
-
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
 		return nil, err
@@ -58,9 +52,6 @@ func Get(ctx context.Context, client *http.Client, url string, browserHeaders bo
 }
 
 func GetAndUnmarshal[T any](ctx context.Context, client *http.Client, url string, v *T, browserHeaders bool) error {
-	ctx, cancel := ctxOrDefault(ctx)
-	defer cancel()
-
 	body, err := Get(ctx, client, url, browserHeaders)
 	if err != nil {
 		return err
@@ -78,13 +69,4 @@ func SetBrowserHeaders(header *http.Header) {
 	for k, v := range cfg.BrowserHeaders {
 		header.Set(k, v)
 	}
-}
-
-func ctxOrDefault(ctx context.Context) (context.Context, context.CancelFunc) {
-	if ctx != nil {
-		return ctx, func() {}
-	}
-
-	cfg := config.Get().Netutils
-	return context.WithTimeout(context.Background(), cfg.Timeout)
 }
