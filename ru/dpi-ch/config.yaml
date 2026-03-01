@@ -12,10 +12,6 @@ checkers:
       - https://ru.wikipedia.org/
       - https://www.google.com/
 
-  dnsserver:
-    conn-timeout: 3s
-    lookup-timeout: 15s
-
   webhost:
     tcp-conn-timeout: 3s
     tls-handshake-timeout: 3s
