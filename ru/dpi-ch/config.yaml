@@ -8,13 +8,14 @@ checkers:
       - name: Instagram
         filter: host("www.instagram.com")
     infra:
+      - name: CF
+        filter: org("cloudflare")
       - name: DigitalOcean
         filter: org("digitalocean")
-        count: 2
+        count: 3
       - name: Hetzner DE
         filter: org("hetzner") && country("de")
-      - name: RTK
-        filter: as(57181)
+        count: 3
     workers: 8
     tcp-conn-timeout: 3s
     tls-handshake-timeout: 3s

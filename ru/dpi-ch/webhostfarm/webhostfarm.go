@@ -1,9 +1,7 @@
 package webhostfarm
 
 import (
-	"context"
 	"dpich/config"
-	"dpich/gochan"
 	"iter"
 	"math/rand/v2"
 	"net"
@@ -23,35 +21,6 @@ type FarmOpt struct {
 type FarmItem struct {
 	Ip   netip.Addr
 	Port int
-}
-
-type FarmGochanIn struct {
-	Id  string
-	Opt FarmOpt
-}
-
-type FarmGochanOut struct {
-	Id        string
-	FarmItems []FarmItem
-}
-
-type FarmGochanOpt struct {
-	Ctx context.Context
-	In  <-chan FarmGochanIn
-}
-
-func FarmGochan(opt FarmGochanOpt) <-chan FarmGochanOut {
-	cfg := config.Get().WebhostFarm
-	return gochan.Start(gochan.GochanOpt[FarmGochanIn, FarmGochanOut]{
-		Ctx:      opt.Ctx,
-		Workers:  cfg.Workers,
-		Input:    opt.In,
-		Executor: farmGochanExecutor,
-	})
-}
-
-func farmGochanExecutor(in FarmGochanIn) FarmGochanOut {
-	return FarmGochanOut{in.Id, Farm(in.Opt)}
 }
 
 // Randomly scans ip addresses from the specified subnets until

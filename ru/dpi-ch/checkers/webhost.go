@@ -4,10 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"dpich/config"
-	"dpich/gochan"
 	"dpich/inetlookup"
-	"dpich/subnetfilter"
-	"dpich/webhostfarm"
 	"errors"
 	"fmt"
 	"io"
@@ -31,7 +28,6 @@ import (
 // - Try to extract sni/host from cert
 // - Skip tcp1620 check (alive only)
 type WebhostSingleOpt struct {
-	Id           string
 	Ip           netip.Addr
 	Port         int
 	KeyLogWriter io.Writer
@@ -53,13 +49,6 @@ type webhostHttpReq struct {
 	body   []byte
 }
 
-type WebHostMode int
-
-const (
-	WebHostModePopular WebHostMode = iota
-	WebHostModeInfra
-)
-
 var (
 	ErrWebhostTcpConnReset        = errors.New("tcp connection reset")
 	ErrWebhostTcpConnTimeout      = errors.New("tcp connection timeout")
@@ -71,121 +60,7 @@ var (
 	ErrWebhostSkip                = errors.New("skip")
 )
 
-type PenisOpt struct {
-	Ctx  context.Context
-	Mode WebHostMode
-}
-
-func WebhostGreatGochan(opt PenisOpt) <-chan WebhostSingleResult {
-	cfg := config.Get().Checkers.Webhost
-	sf := subnetfilter.New(inetlookup.Default())
-
-	// итак, нам надо:
-	// паралельно запустить subnetfilter для каждого name
-	// дождаться
-	// параллельно запустить webhostfarmer для каждого name
-	// не дожидаясь, параллельно запустить webhost (check) для тех ферм, что уже готовы..
-	// и все это пихать в общий чан с говном
-
-	// при этом, у каждого из этим модулей свои воркеры встроенные ;)
-
-	if opt.Mode == WebHostModePopular {
-		panic("not impl yet")
-	}
-
-	// opt.Mode == WebHostModeInfra
-
-	sfGochanIn := make(chan subnetfilter.RunFilterGochanIn)
-	sfGochan := sf.RunFilterGochan(subnetfilter.RunFilterGochanOpt{Ctx: opt.Ctx, In: sfGochanIn})
-	// нагрузим работой subnetfilter
-	gochan.Push(opt.Ctx, sfGochanIn, getSubnetfilterItems(sf, opt.Mode))
-
-	farmGochanIn := make(chan webhostfarm.FarmGochanIn)
-	farmGochan := webhostfarm.FarmGochan(webhostfarm.FarmGochanOpt{Ctx: opt.Ctx, In: farmGochanIn})
-
-	// нагрузим работой фарму, результатами из subnetfilter
-	go func() {
-		defer close(farmGochanIn)
-		for x := range sfGochan {
-			fmt.Println("id:", x.Id, "subnetfilter prefixes:", len(x.IpSet.Prefixes()))
-			// TODO: откуда тут брать count?
-			in := webhostfarm.FarmGochanIn{Id: x.Id, Opt: webhostfarm.FarmOpt{Subnets: x.IpSet, Count: 3}}
-			select {
-			case <-opt.Ctx.Done():
-				return
-			case farmGochanIn <- in:
-			}
-		}
-	}()
-
-	// наконец, нагрузим работой чекер, результатами из фармы
-	var keyLogWriter io.Writer
-	var postFunc func()
-	if cfg.KeyLogPath != "" {
-		file, err := os.OpenFile(cfg.KeyLogPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
-		if err != nil {
-			panic(err)
-		}
-		postFunc = func() { file.Close() }
-		keyLogWriter = file
-	}
-	webhostGochanIn := make(chan WebhostSingleOpt)
-	webhostGochan := WebhostGochan(WebhostGochanOpt{Ctx: opt.Ctx, In: webhostGochanIn, Post: postFunc})
-
-	go func() {
-		defer close(webhostGochanIn)
-		for x := range farmGochan {
-			fmt.Println("id:", x.Id, "farm items:", len(x.FarmItems))
-			for _, v := range x.FarmItems {
-				in := WebhostSingleOpt{Id: x.Id, Ip: v.Ip, Port: v.Port, KeyLogWriter: keyLogWriter}
-				select {
-				case <-opt.Ctx.Done():
-					return
-				case webhostGochanIn <- in:
-				}
-			}
-		}
-
-	}()
-
-	return webhostGochan
-}
-
-type WebhostGochanOpt struct {
-	Ctx  context.Context
-	In   <-chan WebhostSingleOpt
-	Post func()
-}
-
-func WebhostGochan(opt WebhostGochanOpt) <-chan WebhostSingleResult {
-	cfg := config.Get().Checkers.Webhost
-	return gochan.Start(gochan.GochanOpt[WebhostSingleOpt, WebhostSingleResult]{
-		Ctx:      opt.Ctx,
-		Workers:  cfg.Workers,
-		Input:    opt.In,
-		Executor: Webhost,
-		Post:     opt.Post,
-	})
-}
-
-func getSubnetfilterItems(sf *subnetfilter.Subnetfilter, mode WebHostMode) []subnetfilter.RunFilterGochanIn {
-	cfg := config.Get().Checkers.Webhost
-	iter := cfg.Infra
-
-	if mode == WebHostModePopular {
-		iter = cfg.Popular
-	}
-
-	items := []subnetfilter.RunFilterGochanIn{}
-	for _, v := range iter {
-		// TODO: handle errors
-		f, _ := sf.CompileFilter(v.Filter)
-		items = append(items, subnetfilter.RunFilterGochanIn{Id: v.Name, Filter: f})
-	}
-	return items
-}
-
-func Webhost(opt WebhostSingleOpt) WebhostSingleResult {
+func WebhostSingle(opt WebhostSingleOpt) WebhostSingleResult {
 	if opt.KeyLogWriter == nil {
 		opt.KeyLogWriter = io.Discard
 	}
