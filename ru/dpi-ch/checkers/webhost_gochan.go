@@ -56,6 +56,8 @@ type WebhostGochanRunnerOpt struct {
 type WebhostGochanBag struct {
 	Name  string
 	Count int
+	Host  string
+	Sni   string
 }
 
 func WebhostGochanRunner(opt WebhostGochanRunnerOpt) <-chan WebhostGochanOut[WebhostGochanBag] {
@@ -113,7 +115,12 @@ func WebhostGochanRunner(opt WebhostGochanRunnerOpt) <-chan WebhostGochanOut[Web
 			for _, v := range x.Out {
 				in := WebhostGochanIn[WebhostGochanBag]{
 					Bag: x.Bag,
-					In:  WebhostSingleOpt{Ip: v.Ip, Port: v.Port, KeyLogWriter: keyLogWriter},
+					In: WebhostSingleOpt{Ip: v.Ip,
+						Port:         v.Port,
+						Sni:          x.Bag.Sni,
+						Host:         x.Bag.Host,
+						KeyLogWriter: keyLogWriter,
+					},
 				}
 				select {
 				case <-opt.Ctx.Done():
@@ -130,8 +137,8 @@ func WebhostGochanRunner(opt WebhostGochanRunnerOpt) <-chan WebhostGochanOut[Web
 
 func getSubnetfilterItems(sf *subnetfilter.Subnetfilter, mode WebHostMode) []subnetfilter.GochanIn[WebhostGochanBag] {
 	cfg := config.Get().Checkers.Webhost
-	iter := cfg.Infra
 
+	iter := cfg.Infra
 	if mode == WebHostModePopular {
 		iter = cfg.Popular
 	}
@@ -140,13 +147,25 @@ func getSubnetfilterItems(sf *subnetfilter.Subnetfilter, mode WebHostMode) []sub
 	for _, v := range iter {
 		// TODO: handle errors
 		f, _ := sf.CompileFilter(v.Filter)
-		count := 1
+		count, sni, host := 1, "", ""
+
+		if filterHost, ok := sf.ExtractHostname(f); ok {
+			sni = filterHost
+			host = filterHost
+		}
+
 		if v.Count != nil {
 			count = *v.Count
 		}
+		if v.Sni != nil {
+			sni = *v.Sni
+		}
+		if v.Host != nil {
+			host = *v.Host
+		}
 
 		items = append(items, subnetfilter.GochanIn[WebhostGochanBag]{
-			Bag: WebhostGochanBag{v.Name, count},
+			Bag: WebhostGochanBag{Name: v.Name, Count: count, Sni: sni, Host: host},
 			In:  subnetfilter.SubnetfilterIn{Filter: f},
 		})
 	}

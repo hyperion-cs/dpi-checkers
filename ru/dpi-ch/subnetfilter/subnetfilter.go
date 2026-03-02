@@ -1,12 +1,14 @@
 package subnetfilter
 
 import (
+	"context"
 	"dpich/inetlookup"
 	"net/netip"
 	"slices"
 	"strings"
 
 	"github.com/expr-lang/expr"
+	"github.com/expr-lang/expr/ast"
 	"github.com/expr-lang/expr/vm"
 	"go4.org/netipx"
 )
@@ -50,10 +52,50 @@ func (s *Subnetfilter) RunFilter(filter *vm.Program) (*netipx.IPSet, error) {
 	return v.(*netipx.IPSet), nil
 }
 
+// If filter is the single host() call with a single string argument, that argument will be returned.
+func (s *Subnetfilter) ExtractHostname(filter *vm.Program) (string, bool) {
+	const funcName = "host"
+	root := filter.Node()
+	call, isCall := root.(*ast.CallNode)
+	if !isCall || len(call.Arguments) != 1 {
+		return "", false
+	}
+
+	if ident, ok := call.Callee.(*ast.IdentifierNode); !ok || ident.Value != funcName {
+		return "", false
+	}
+
+	arg := call.Arguments[0]
+	if v, ok := arg.(*ast.StringNode); ok {
+		return v.Value, true
+	}
+
+	return "", false
+}
+
 // hostname to A/AAAA dns records (/32 subnets)
 // tricks such as deep search are used
+// TODO: clean this up, including deep mode
 func (s *Subnetfilter) host(hosts ...string) *netipx.IPSet {
-	return s.inetlookup.Cidrs(inetlookup.CidrsOpt{Hosts: hosts})
+	var b netipx.IPSetBuilder
+
+	for _, h := range hosts {
+		ctx := context.Background()
+		ips, err := inetlookup.LookupIpViaDefault(ctx, h)
+		if err != nil {
+			continue
+		}
+		for _, ip := range ips {
+			b.Add(netip.MustParseAddr(ip.String()))
+		}
+	}
+
+	set, err := b.IPSet()
+	if err != nil {
+		panic(err)
+	}
+	return set
+
 }
 
 // ips or subnets to subnets

@@ -18,17 +18,8 @@ type Config struct {
 		} `yaml:"cidrwhitelist"`
 
 		Webhost struct {
-			Popular []struct {
-				Name   string `yaml:"name"`
-				Filter string `yaml:"filter"`
-				Count  *int   `yaml:"count"`
-			} `yaml:"popular"`
-
-			Infra []struct {
-				Name   string `yaml:"name"`
-				Filter string `yaml:"filter"`
-				Count  *int   `yaml:"count"`
-			} `yaml:"infra"`
+			Popular []WebhostItem `yaml:"popular"`
+			Infra   []WebhostItem `yaml:"infra"`
 
 			Workers             int               `yaml:"workers"`
 			TcpConnTimeout      time.Duration     `yaml:"tcp-conn-timeout"`
@@ -65,6 +56,14 @@ type Config struct {
 	HttpUtil struct {
 		BrowserHeaders map[string]string `yaml:"browser-headers"`
 	} `yaml:"netutils"`
+}
+
+type WebhostItem struct {
+	Name   string  `yaml:"name"`
+	Filter string  `yaml:"filter"`
+	Count  *int    `yaml:"count"`
+	Host   *string `yaml:"sni"`
+	Sni    *string `yaml:"host"`
 }
 
 var cfg = &Config{}
