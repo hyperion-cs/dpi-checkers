@@ -35,6 +35,7 @@ type geoliteCsv struct {
 	cidr2countryIso []cidr2CountryIso
 }
 
+// TODO: we need indexes instead of direct scans through csv iterators
 func NewGeoliteCsv(opt GeoliteCsvOpt) InetLookup {
 	lkpr := &geoliteCsv{cidr2as: []cidr2As{}, cidr2countryIso: []cidr2CountryIso{}}
 	gnId2Iso := getGeonameId2CountryIso(opt.GeonameId2countryIsoPath)

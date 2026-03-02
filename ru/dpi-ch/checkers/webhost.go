@@ -4,6 +4,10 @@ import (
 	"context"
 	"crypto/rand"
 	"dpich/config"
+	"dpich/gochan"
+	"dpich/inetlookup"
+	"dpich/subnetfilter"
+	"dpich/webhostfarm"
 	"errors"
 	"fmt"
 	"io"
@@ -56,6 +60,37 @@ var (
 	ErrWebhostInternal            = errors.New("internal error")
 )
 
+func WebhostStart(ctx context.Context) <-chan WebhostAttr {
+	cfg := config.Get().Checkers.Webhost
+	sf := subnetfilter.New(inetlookup.Default())
+	f, _ := sf.CompileFilter(`org("hetzner")`)
+	subnets, _ := sf.RunFilter(f)
+	fmt.Println("found subnets:", len(subnets.Prefixes()))
+	items := webhostfarm.Farm(webhostfarm.FarmOpt{Subnets: subnets, Count: 2})
+	fmt.Printf("ips: %v\n", items)
+
+	in := make(chan WebhostOpt)
+	out := gochan.Start(gochan.GochanOpt[WebhostOpt, WebhostAttr]{
+		Ctx:      ctx,
+		Workers:  cfg.CheckWorkers,
+		Input:    in,
+		Executor: WebhostSingle,
+	})
+
+	go func() {
+		defer close(in)
+		for _, x := range items {
+			select {
+			case <-ctx.Done():
+				return
+			case in <- WebhostOpt{x.Ip, x.Port}:
+			}
+		}
+	}()
+
+	return out
+}
+
 func WebhostSingle(opt WebhostOpt) WebhostAttr {
 	cfg := config.Get().Checkers.Webhost
 
@@ -89,6 +124,7 @@ func WebhostSingle(opt WebhostOpt) WebhostAttr {
 	_, err = tlsReadAll(tlsConn)
 	if err != nil {
 		a.Alive = err
+		return a
 	}
 
 	// tcp16-20 check

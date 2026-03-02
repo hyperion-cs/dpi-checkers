@@ -65,7 +65,7 @@ func GetAndUnmarshal[T any](ctx context.Context, client *http.Client, url string
 }
 
 func SetBrowserHeaders(header *http.Header) {
-	cfg := config.Get().Netutils
+	cfg := config.Get().HttpUtil
 	for k, v := range cfg.BrowserHeaders {
 		header.Set(k, v)
 	}

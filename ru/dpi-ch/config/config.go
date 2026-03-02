@@ -18,6 +18,8 @@ type Config struct {
 		} `yaml:"cidrwhitelist"`
 
 		Webhost struct {
+			CheckWorkers        int               `yaml:"check-workers"`
+			FarmWorkers         int               `yaml:"farm-workers"`
 			TcpConnTimeout      time.Duration     `yaml:"tcp-conn-timeout"`
 			TlsHandshakeTimeout time.Duration     `yaml:"tls-handshake-timeout"`
 			TcpReadTimeout      time.Duration     `yaml:"tcp-read-timeout"`
@@ -29,33 +31,22 @@ type Config struct {
 			HttpStaticHeaders   map[string]string `yaml:"http-static-headers"`
 		} `yaml:"webhost"`
 
-		Tcp1620 struct {
-			Workers             int           `yaml:"workers"`
-			NBytes              int           `yaml:"n-bytes"`
-			BufSize             int           `yaml:"buf-size"`
-			TcpConnTimeout      time.Duration `yaml:"tcp-conn-timeout"`
-			TlsHandshakeTimeout time.Duration `yaml:"tls-handshake-timeout"`
-			HttpHeadersTimeout  time.Duration `yaml:"http-headers-timeout"`
-			TotalTimeout        time.Duration `yaml:"total-timeout"`
-			Endpoints           []string      `yaml:"endpoints"`
-		} `yaml:"tcp1620"`
-
 		Whoami struct {
 			Timeout time.Duration `yaml:"timeout"`
 		} `yaml:"whoami"`
 	} `yaml:"checkers"`
 
-	Webhostfarm struct {
+	WebhostFarm struct {
 		TcpConnTimeout      time.Duration `yaml:"tcp-conn-timeout"`
 		TlsHandshakeTimeout time.Duration `yaml:"tls-handshake-timeout"`
 	} `yaml:"webhostfarm"`
 
-	Inetlookup struct {
+	InetLookup struct {
 		RipeApiUrl   string `yaml:"ripe-api-url"`
 		YandexApiUrl string `yaml:"yandex-api-url"`
 	}
 
-	Netutils struct {
+	HttpUtil struct {
 		BrowserHeaders map[string]string `yaml:"browser-headers"`
 	} `yaml:"netutils"`
 }

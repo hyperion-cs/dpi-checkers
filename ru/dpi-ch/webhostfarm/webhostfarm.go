@@ -44,7 +44,7 @@ func Farm(opt FarmOpt) []FarmItem {
 }
 
 func tryUTlsHandshake(ip netip.Addr, port int) bool {
-	cfg := config.Get().Webhostfarm
+	cfg := config.Get().WebhostFarm
 	d := net.Dialer{Timeout: cfg.TcpConnTimeout}
 	addr := net.JoinHostPort(ip.String(), strconv.Itoa(port))
 

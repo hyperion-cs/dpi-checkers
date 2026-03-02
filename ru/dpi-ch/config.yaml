@@ -17,6 +17,8 @@ checkers:
         filter: org("hetzner") && country("de")
       - name: RTK
         filter: as(57181)
+    check-workers: 10
+    farm-workers: 10
     tcp-conn-timeout: 3s
     tls-handshake-timeout: 3s
     tcp-read-timeout: 15s
@@ -40,43 +42,6 @@ checkers:
       - https://ru.wikipedia.org/
       - https://www.google.com/
 
-  tcp1620:
-    workers: 10
-    n-bytes: 65536
-    buf-size: 8192
-    tcp-conn-timeout: 3s
-    tls-handshake-timeout: 3s
-    http-headers-timeout: 3s
-    total-timeout: 15s
-    endpoints:
-      - https://findair.net/wp-content/uploads/2025/07/online-booking-2.jpeg
-      - https://carishealthcare.com/content/uploads/2025/04/Rectangle-105.jpg
-      - https://bohnlawllc.com/wp-content/uploads/sites/27/2024/01/Trusts.jpg
-      - https://ecomstal.com/_next/static/css/73cc557714b4846b.css
-      - https://aegis.audioeye.com/assets/index.js
-      - https://ssl.p.jwpcdn.com/player/v/8.40.5/bidding.js
-      - https://www.jetblue.com/footer/footer-element-es2015.js
-      - https://gcore.com/assets/fonts/Montserrat-Variable.woff2
-      - https://api.usercentrics.eu/gvl/v3/en.json
-      - https://widgets.reputation.com/fonts/Inter-Light.ttf
-      - https://apiwhatsapp-1000.zapipro.com/libs/bootstrap/dist/css/bootstrap.min.css
-      - https://www.industrialport.net/wp-content/uploads/custom-fonts/2022/10/Lato-Bold.ttf
-      - https://251b5cd9.nip.io/1MB.bin
-      - https://nioges.com/libs/fontawesome/webfonts/fa-solid-900.woff2
-      - https://5fd8bdae.nip.io/1MB.bin
-      - https://5fd8bca5.nip.io/1MB.bin
-      - https://twin.mentat.su/assets/fonts/Inter-SemiBold.woff2
-      - https://plataforma.trackerintl.com/images/background.jpg
-      - https://global-seres.com.sg/wp-content/uploads/2024/02/SVG00732-scaled.jpg
-      - https://app.symarobot.com/content/images/logo.png
-      - https://filmoteka.net.pl/css/bootstrap.min.css
-      - https://www.velivole.fr/img/header.jpg
-      - https://static-cdn.play.date/static/js/model-viewer.min.js
-      - https://us.rudder.qntmnet.com/QN-CDN/images/qn_bg_.jpg
-
-  whoami:
-    timeout: 30s
-
 webhostfarm:
     tcp-conn-timeout: 3s
     tls-handshake-timeout: 3s
@@ -85,8 +50,7 @@ inetlookup:
   ripe-api-url: https://stat.ripe.net/data/
   yandex-api-url: https://yandex.ru/internet/api/v0/
 
-netutils:
-  timeout: 15s
+httputil:
   browser-headers:
     accept-language: ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7
     user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36
