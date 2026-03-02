@@ -36,7 +36,7 @@ type WebhostOpt struct {
 }
 
 type WebhostAttr struct {
-	Ip       netip.Addr
+	IpInfo   inetlookup.IpInfo
 	Port     int
 	TlsV     uint16
 	Sni      string
@@ -52,21 +52,25 @@ type webhostHttpReq struct {
 }
 
 var (
+	ErrWebhostTcpConnReset        = errors.New("tcp connection reset")
 	ErrWebhostTcpConnTimeout      = errors.New("tcp connection timeout")
 	ErrWebhostTlsHandshakeTimeout = errors.New("tls handshake timeout")
 	ErrWebhostTlsHandshakeFail    = errors.New("tls handshake failure")
 	ErrWebhostTcpWriteTimeout     = errors.New("tcp write timeout")
 	ErrWebhostTcpReadTimeout      = errors.New("tcp read timeout")
 	ErrWebhostInternal            = errors.New("internal error")
+	ErrWebhostSkip                = errors.New("skip")
 )
 
 func WebhostStart(ctx context.Context) <-chan WebhostAttr {
 	cfg := config.Get().Checkers.Webhost
 	sf := subnetfilter.New(inetlookup.Default())
-	f, _ := sf.CompileFilter(`org("hetzner")`)
+	//f, _ := sf.CompileFilter(`org("hetzner")`)
+
+	f, _ := sf.CompileFilter(`subnet("135.181.168.35/32")`)
 	subnets, _ := sf.RunFilter(f)
 	fmt.Println("found subnets:", len(subnets.Prefixes()))
-	items := webhostfarm.Farm(webhostfarm.FarmOpt{Subnets: subnets, Count: 2})
+	items := webhostfarm.Farm(webhostfarm.FarmOpt{Subnets: subnets, Count: 1})
 	fmt.Printf("ips: %v\n", items)
 
 	in := make(chan WebhostOpt)
@@ -105,25 +109,22 @@ func WebhostSingle(opt WebhostOpt) WebhostAttr {
 		keyLogWriter = file
 	}
 
+	ipinfo := inetlookup.Default().IpInfo(opt.Ip)
+	a := WebhostAttr{IpInfo: ipinfo, Port: opt.Port}
+
 	// alive check
-	a := WebhostAttr{Ip: opt.Ip, Port: opt.Port}
 	tlsConn, err := getHandshakedUTlsConn(opt, keyLogWriter)
 	if err != nil {
 		a.Alive = err
+		a.Tcp1620 = ErrWebhostSkip
 		return a
 	}
 	defer tlsConn.Close()
 	a.TlsV = tlsConn.ConnectionState().Version
 
-	err = webhostAliveCheck(tlsConn)
-	if err != nil {
+	if err = webhostAliveCheck(tlsConn); err != nil {
 		a.Alive = err
-		return a
-	}
-
-	_, err = tlsReadAll(tlsConn)
-	if err != nil {
-		a.Alive = err
+		a.Tcp1620 = ErrWebhostSkip
 		return a
 	}
 
@@ -135,18 +136,21 @@ func WebhostSingle(opt WebhostOpt) WebhostAttr {
 	}
 	defer tlsConn.Close()
 
-	err = webhostTcp1620check(tlsConn)
-	if err != nil {
-		a.Tcp1620 = err
-		return a
-	}
-
-	_, err = tlsReadAll(tlsConn)
-	if err != nil {
+	if err = webhostTcp1620check(tlsConn); err != nil {
 		a.Tcp1620 = err
 	}
 
 	return a
+}
+
+func setAlpn(spec *tls.ClientHelloSpec, protos []string) {
+	for i := range spec.Extensions {
+		if alpn, ok := spec.Extensions[i].(*tls.ALPNExtension); ok {
+			alpn.AlpnProtocols = protos
+			return
+		}
+	}
+	spec.Extensions = append(spec.Extensions, &tls.ALPNExtension{AlpnProtocols: protos})
 }
 
 func getHandshakedUTlsConn(opt WebhostOpt, keyLogWriter io.Writer) (*tls.UConn, error) {
@@ -171,7 +175,12 @@ func getHandshakedUTlsConn(opt WebhostOpt, keyLogWriter io.Writer) (*tls.UConn, 
 	tlsConn := tls.UClient(tcpConn, &tls.Config{
 		InsecureSkipVerify: true,
 		KeyLogWriter:       keyLogWriter,
-	}, tls.HelloChrome_Auto)
+	}, tls.HelloCustom)
+
+	// chrome fingerprint originally contains ALPN for h2
+	chromeSpec, _ := tls.UTLSIdToSpec(tls.HelloChrome_Auto)
+	setAlpn(&chromeSpec, []string{"http/1.1"})
+	tlsConn.ApplyPreset(&chromeSpec)
 
 	tlsConn.SetDeadline(time.Now().Add(cfg.TlsHandshakeTimeout))
 	if err := tlsConn.Handshake(); err != nil {
@@ -186,7 +195,6 @@ func getHandshakedUTlsConn(opt WebhostOpt, keyLogWriter io.Writer) (*tls.UConn, 
 		return nil, ErrWebhostInternal
 	}
 	tlsConn.SetDeadline(time.Time{})
-
 	return tlsConn, nil
 }
 
@@ -198,6 +206,9 @@ func tlsReadAll(tlsConn *tls.UConn) ([]byte, error) {
 	if err != nil {
 		if isTimeout(err) {
 			return nil, ErrWebhostTcpReadTimeout
+		}
+		if strings.Contains(err.Error(), "connection reset") {
+			return nil, ErrWebhostTcpConnReset
 		}
 		log.Println("tlsReadAll", err)
 		return nil, ErrWebhostInternal
@@ -221,14 +232,26 @@ func tlsWriteAll(tlsConn *tls.UConn, data []byte) error {
 
 func webhostAliveCheck(tlsConn *tls.UConn) error {
 	req := prepareHttpReq(webhostHttpReq{method: "HEAD"})
-	return tlsWriteAll(tlsConn, req)
+	if err := tlsWriteAll(tlsConn, req); err != nil {
+		return err
+	}
+	if _, err := tlsReadAll(tlsConn); err != nil {
+		return err
+	}
+	return nil
 }
 
 func webhostTcp1620check(tlsConn *tls.UConn) error {
 	cfg := config.Get().Checkers.Webhost
 	body, _ := randomBytes(cfg.Tcp1620nBytes)
 	req := prepareHttpReq(webhostHttpReq{method: "POST", body: body})
-	return tlsWriteAll(tlsConn, req)
+	if err := tlsWriteAll(tlsConn, req); err != nil {
+		return err
+	}
+	if _, err := tlsReadAll(tlsConn); err != nil {
+		return err
+	}
+	return nil
 }
 
 func prepareHttpReq(opt webhostHttpReq) []byte {

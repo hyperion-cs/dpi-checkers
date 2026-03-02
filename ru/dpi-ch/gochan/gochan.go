@@ -12,17 +12,6 @@ type GochanOpt[In any, Out any] struct {
 	Executor func(In) Out
 }
 
-func PushAndClose[In any](ctx context.Context, ch chan In, in []In) {
-	defer close(ch)
-	for _, x := range in {
-		select {
-		case <-ctx.Done():
-			return
-		case ch <- x:
-		}
-	}
-}
-
 func Start[In any, Out any](opt GochanOpt[In, Out]) <-chan Out {
 	out := make(chan Out)
 	var wg sync.WaitGroup
