@@ -43,6 +43,16 @@ func Farm(opt FarmOpt) []FarmItem {
 	return items
 }
 
+func setUTlsAlpn(spec *tls.ClientHelloSpec, protos []string) {
+	for i := range spec.Extensions {
+		if alpn, ok := spec.Extensions[i].(*tls.ALPNExtension); ok {
+			alpn.AlpnProtocols = protos
+			return
+		}
+	}
+	spec.Extensions = append(spec.Extensions, &tls.ALPNExtension{AlpnProtocols: protos})
+}
+
 func tryUTlsHandshake(ip netip.Addr, port int) bool {
 	cfg := config.Get().WebhostFarm
 	d := net.Dialer{Timeout: cfg.TcpConnTimeout}
@@ -56,8 +66,13 @@ func tryUTlsHandshake(ip netip.Addr, port int) bool {
 	// without sni
 	tlsConn := tls.UClient(tcpConn, &tls.Config{
 		InsecureSkipVerify: true,
-	}, tls.HelloChrome_Auto)
+	}, tls.HelloCustom)
 	defer tlsConn.Close()
+
+	// chrome fingerprint originally contains ALPN for h2
+	chromeSpec, _ := tls.UTLSIdToSpec(tls.HelloChrome_133)
+	setUTlsAlpn(&chromeSpec, []string{"http/1.1"})
+	tlsConn.ApplyPreset(&chromeSpec)
 
 	tlsConn.SetDeadline(time.Now().Add(cfg.TlsHandshakeTimeout))
 	if err := tlsConn.Handshake(); err != nil {

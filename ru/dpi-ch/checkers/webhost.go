@@ -182,7 +182,7 @@ func getHandshakedUTlsConn(opt WebhostOpt, keyLogWriter io.Writer) (*tls.UConn, 
 	}, tls.HelloCustom)
 
 	// chrome fingerprint originally contains ALPN for h2
-	chromeSpec, _ := tls.UTLSIdToSpec(tls.HelloChrome_Auto)
+	chromeSpec, _ := tls.UTLSIdToSpec(tls.HelloChrome_133)
 	setUTlsAlpn(&chromeSpec, []string{"http/1.1"})
 	tlsConn.ApplyPreset(&chromeSpec)
 
