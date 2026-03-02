@@ -1,6 +1,9 @@
 package subnetfilter
 
 import (
+	"context"
+	"dpich/config"
+	"dpich/gochan"
 	"dpich/inetlookup"
 	"net/netip"
 	"slices"
@@ -14,6 +17,37 @@ import (
 type Subnetfilter struct {
 	inetlookup inetlookup.InetLookup
 	env        map[string]any
+}
+
+type RunFilterGochanIn struct {
+	Id     string
+	Filter *vm.Program
+}
+
+type RunFilterGochanOut struct {
+	Id    string
+	IpSet *netipx.IPSet
+	Error error
+}
+
+type RunFilterGochanOpt struct {
+	Ctx context.Context
+	In  <-chan RunFilterGochanIn
+}
+
+func (s *Subnetfilter) RunFilterGochan(opt RunFilterGochanOpt) <-chan RunFilterGochanOut {
+	cfg := config.Get().Subnetfilter
+	return gochan.Start(gochan.GochanOpt[RunFilterGochanIn, RunFilterGochanOut]{
+		Ctx:      opt.Ctx,
+		Workers:  cfg.Workers,
+		Input:    opt.In,
+		Executor: s.runFilterGochanExecutor,
+	})
+}
+
+func (s *Subnetfilter) runFilterGochanExecutor(in RunFilterGochanIn) RunFilterGochanOut {
+	v, err := s.RunFilter(in.Filter)
+	return RunFilterGochanOut{in.Id, v, err}
 }
 
 func New(lookup inetlookup.InetLookup) *Subnetfilter {

@@ -8,8 +8,6 @@ checkers:
       - name: Instagram
         filter: host("www.instagram.com")
     infra:
-      - name: CF
-        filter: org("cloudflare")
       - name: DigitalOcean
         filter: org("digitalocean")
         count: 2
@@ -17,8 +15,7 @@ checkers:
         filter: org("hetzner") && country("de")
       - name: RTK
         filter: as(57181)
-    check-workers: 10
-    farm-workers: 10
+    workers: 8
     tcp-conn-timeout: 3s
     tls-handshake-timeout: 3s
     tcp-read-timeout: 15s
@@ -43,9 +40,13 @@ checkers:
       - https://ru.wikipedia.org/
       - https://www.google.com/
 
+subnetfilter:
+  workers: 8
+
 webhostfarm:
-    tcp-conn-timeout: 3s
-    tls-handshake-timeout: 3s
+  workers: 8
+  tcp-conn-timeout: 3s
+  tls-handshake-timeout: 3s
 
 inetlookup:
   ripe-api-url: https://stat.ripe.net/data/

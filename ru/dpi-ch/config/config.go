@@ -18,8 +18,19 @@ type Config struct {
 		} `yaml:"cidrwhitelist"`
 
 		Webhost struct {
-			CheckWorkers        int               `yaml:"check-workers"`
-			FarmWorkers         int               `yaml:"farm-workers"`
+			Popular []struct {
+				Name   string `yaml:"name"`
+				Filter string `yaml:"filter"`
+				Count  *int   `yaml:"count"`
+			} `yaml:"popular"`
+
+			Infra []struct {
+				Name   string `yaml:"name"`
+				Filter string `yaml:"filter"`
+				Count  *int   `yaml:"count"`
+			} `yaml:"infra"`
+
+			Workers             int               `yaml:"workers"`
 			TcpConnTimeout      time.Duration     `yaml:"tcp-conn-timeout"`
 			TlsHandshakeTimeout time.Duration     `yaml:"tls-handshake-timeout"`
 			TcpReadTimeout      time.Duration     `yaml:"tcp-read-timeout"`
@@ -37,9 +48,14 @@ type Config struct {
 	} `yaml:"checkers"`
 
 	WebhostFarm struct {
+		Workers             int           `yaml:"workers"`
 		TcpConnTimeout      time.Duration `yaml:"tcp-conn-timeout"`
 		TlsHandshakeTimeout time.Duration `yaml:"tls-handshake-timeout"`
 	} `yaml:"webhostfarm"`
+
+	Subnetfilter struct {
+		Workers int `yaml:"workers"`
+	} `yaml:"subnetfilter"`
 
 	InetLookup struct {
 		RipeApiUrl   string `yaml:"ripe-api-url"`

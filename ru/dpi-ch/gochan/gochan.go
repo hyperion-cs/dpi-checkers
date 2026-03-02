@@ -13,6 +13,20 @@ type GochanOpt[In any, Out any] struct {
 	Post     func()
 }
 
+// Push slice into input channel and close it.
+func Push[In any](ctx context.Context, ch chan<- In, items []In) {
+	go func() {
+		defer close(ch)
+		for _, x := range items {
+			select {
+			case <-ctx.Done():
+				return
+			case ch <- x:
+			}
+		}
+	}()
+}
+
 func Start[In any, Out any](opt GochanOpt[In, Out]) <-chan Out {
 	out := make(chan Out)
 	var wg sync.WaitGroup

@@ -30,13 +30,14 @@ import (
 // - Set random sni/host (?)
 // - Try to extract sni/host from cert
 // - Skip tcp1620 check (alive only)
-type WebhostOpt struct {
+type WebhostSingleOpt struct {
+	Id           string
 	Ip           netip.Addr
 	Port         int
 	KeyLogWriter io.Writer
 }
 
-type WebhostAttr struct {
+type WebhostSingleResult struct {
 	IpInfo   inetlookup.IpInfo
 	Port     int
 	TlsV     uint16
@@ -52,6 +53,13 @@ type webhostHttpReq struct {
 	body   []byte
 }
 
+type WebHostMode int
+
+const (
+	WebHostModePopular WebHostMode = iota
+	WebHostModeInfra
+)
+
 var (
 	ErrWebhostTcpConnReset        = errors.New("tcp connection reset")
 	ErrWebhostTcpConnTimeout      = errors.New("tcp connection timeout")
@@ -63,17 +71,54 @@ var (
 	ErrWebhostSkip                = errors.New("skip")
 )
 
-func WebhostStart(ctx context.Context) <-chan WebhostAttr {
+type PenisOpt struct {
+	Ctx  context.Context
+	Mode WebHostMode
+}
+
+func WebhostGreatGochan(opt PenisOpt) <-chan WebhostSingleResult {
 	cfg := config.Get().Checkers.Webhost
 	sf := subnetfilter.New(inetlookup.Default())
-	//f, _ := sf.CompileFilter(`org("hetzner")`)
 
-	f, _ := sf.CompileFilter(`subnet("37.27.26.179/32")`)
-	subnets, _ := sf.RunFilter(f)
-	fmt.Println("found subnets:", len(subnets.Prefixes()))
-	items := webhostfarm.Farm(webhostfarm.FarmOpt{Subnets: subnets, Count: 1})
-	fmt.Printf("ips: %v\n", items)
+	// итак, нам надо:
+	// паралельно запустить subnetfilter для каждого name
+	// дождаться
+	// параллельно запустить webhostfarmer для каждого name
+	// не дожидаясь, параллельно запустить webhost (check) для тех ферм, что уже готовы..
+	// и все это пихать в общий чан с говном
 
+	// при этом, у каждого из этим модулей свои воркеры встроенные ;)
+
+	if opt.Mode == WebHostModePopular {
+		panic("not impl yet")
+	}
+
+	// opt.Mode == WebHostModeInfra
+
+	sfGochanIn := make(chan subnetfilter.RunFilterGochanIn)
+	sfGochan := sf.RunFilterGochan(subnetfilter.RunFilterGochanOpt{Ctx: opt.Ctx, In: sfGochanIn})
+	// нагрузим работой subnetfilter
+	gochan.Push(opt.Ctx, sfGochanIn, getSubnetfilterItems(sf, opt.Mode))
+
+	farmGochanIn := make(chan webhostfarm.FarmGochanIn)
+	farmGochan := webhostfarm.FarmGochan(webhostfarm.FarmGochanOpt{Ctx: opt.Ctx, In: farmGochanIn})
+
+	// нагрузим работой фарму, результатами из subnetfilter
+	go func() {
+		defer close(farmGochanIn)
+		for x := range sfGochan {
+			fmt.Println("id:", x.Id, "subnetfilter prefixes:", len(x.IpSet.Prefixes()))
+			// TODO: откуда тут брать count?
+			in := webhostfarm.FarmGochanIn{Id: x.Id, Opt: webhostfarm.FarmOpt{Subnets: x.IpSet, Count: 3}}
+			select {
+			case <-opt.Ctx.Done():
+				return
+			case farmGochanIn <- in:
+			}
+		}
+	}()
+
+	// наконец, нагрузим работой чекер, результатами из фармы
 	var keyLogWriter io.Writer
 	var postFunc func()
 	if cfg.KeyLogPath != "" {
@@ -84,67 +129,95 @@ func WebhostStart(ctx context.Context) <-chan WebhostAttr {
 		postFunc = func() { file.Close() }
 		keyLogWriter = file
 	}
-
-	in := make(chan WebhostOpt)
-	out := gochan.Start(gochan.GochanOpt[WebhostOpt, WebhostAttr]{
-		Ctx:      ctx,
-		Workers:  cfg.CheckWorkers,
-		Input:    in,
-		Executor: WebhostSingle,
-		Post:     postFunc,
-	})
+	webhostGochanIn := make(chan WebhostSingleOpt)
+	webhostGochan := WebhostGochan(WebhostGochanOpt{Ctx: opt.Ctx, In: webhostGochanIn, Post: postFunc})
 
 	go func() {
-		defer close(in)
-		for _, x := range items {
-			select {
-			case <-ctx.Done():
-				return
-			case in <- WebhostOpt{Ip: x.Ip, Port: x.Port, KeyLogWriter: keyLogWriter}:
+		defer close(webhostGochanIn)
+		for x := range farmGochan {
+			fmt.Println("id:", x.Id, "farm items:", len(x.FarmItems))
+			for _, v := range x.FarmItems {
+				in := WebhostSingleOpt{Id: x.Id, Ip: v.Ip, Port: v.Port, KeyLogWriter: keyLogWriter}
+				select {
+				case <-opt.Ctx.Done():
+					return
+				case webhostGochanIn <- in:
+				}
 			}
 		}
+
 	}()
 
-	return out
+	return webhostGochan
 }
 
-func WebhostSingle(opt WebhostOpt) WebhostAttr {
+type WebhostGochanOpt struct {
+	Ctx  context.Context
+	In   <-chan WebhostSingleOpt
+	Post func()
+}
+
+func WebhostGochan(opt WebhostGochanOpt) <-chan WebhostSingleResult {
+	cfg := config.Get().Checkers.Webhost
+	return gochan.Start(gochan.GochanOpt[WebhostSingleOpt, WebhostSingleResult]{
+		Ctx:      opt.Ctx,
+		Workers:  cfg.Workers,
+		Input:    opt.In,
+		Executor: Webhost,
+		Post:     opt.Post,
+	})
+}
+
+func getSubnetfilterItems(sf *subnetfilter.Subnetfilter, mode WebHostMode) []subnetfilter.RunFilterGochanIn {
+	cfg := config.Get().Checkers.Webhost
+	iter := cfg.Infra
+
+	if mode == WebHostModePopular {
+		iter = cfg.Popular
+	}
+
+	items := []subnetfilter.RunFilterGochanIn{}
+	for _, v := range iter {
+		// TODO: handle errors
+		f, _ := sf.CompileFilter(v.Filter)
+		items = append(items, subnetfilter.RunFilterGochanIn{Id: v.Name, Filter: f})
+	}
+	return items
+}
+
+func Webhost(opt WebhostSingleOpt) WebhostSingleResult {
 	if opt.KeyLogWriter == nil {
 		opt.KeyLogWriter = io.Discard
 	}
 
 	ipinfo := inetlookup.Default().IpInfo(opt.Ip)
-	a := WebhostAttr{IpInfo: ipinfo, Port: opt.Port}
+	res := WebhostSingleResult{IpInfo: ipinfo, Port: opt.Port}
 
 	// alive check
 	tlsConn, err := getHandshakedUTlsConn(opt, opt.KeyLogWriter)
 	if err != nil {
-		a.Alive = err
-		a.Tcp1620 = ErrWebhostSkip
-		return a
+		res.Alive = err
+		res.Tcp1620 = ErrWebhostSkip
+		return res
 	}
-	defer tlsConn.Close()
-	a.TlsV = tlsConn.ConnectionState().Version
-
+	res.TlsV = tlsConn.ConnectionState().Version
 	if err = webhostAliveCheck(tlsConn); err != nil {
-		a.Alive = err
-		a.Tcp1620 = ErrWebhostSkip
-		return a
+		res.Alive = err
+		res.Tcp1620 = ErrWebhostSkip
+		return res
 	}
 
 	// tcp16-20 check
 	tlsConn, err = getHandshakedUTlsConn(opt, opt.KeyLogWriter)
 	if err != nil {
-		a.Tcp1620 = err
-		return a
+		res.Tcp1620 = err
+		return res
 	}
-	defer tlsConn.Close()
-
 	if err = webhostTcp1620check(tlsConn); err != nil {
-		a.Tcp1620 = err
+		res.Tcp1620 = err
 	}
 
-	return a
+	return res
 }
 
 func setUTlsAlpn(spec *tls.ClientHelloSpec, protos []string) {
@@ -157,7 +230,7 @@ func setUTlsAlpn(spec *tls.ClientHelloSpec, protos []string) {
 	spec.Extensions = append(spec.Extensions, &tls.ALPNExtension{AlpnProtocols: protos})
 }
 
-func getHandshakedUTlsConn(opt WebhostOpt, keyLogWriter io.Writer) (*tls.UConn, error) {
+func getHandshakedUTlsConn(opt WebhostSingleOpt, keyLogWriter io.Writer) (*tls.UConn, error) {
 	cfg := config.Get().Checkers.Webhost
 	tcpDialer := net.Dialer{Timeout: cfg.TcpConnTimeout}
 	addr := net.JoinHostPort(opt.Ip.String(), strconv.Itoa(opt.Port))
@@ -235,6 +308,7 @@ func tlsWriteAll(tlsConn *tls.UConn, data []byte) error {
 }
 
 func webhostAliveCheck(tlsConn *tls.UConn) error {
+	defer tlsConn.Close()
 	req := prepareHttpReq(webhostHttpReq{method: "HEAD"})
 	if err := tlsWriteAll(tlsConn, req); err != nil {
 		return err
@@ -246,6 +320,7 @@ func webhostAliveCheck(tlsConn *tls.UConn) error {
 }
 
 func webhostTcp1620check(tlsConn *tls.UConn) error {
+	defer tlsConn.Close()
 	cfg := config.Get().Checkers.Webhost
 	body, _ := randomBytes(cfg.Tcp1620nBytes)
 	req := prepareHttpReq(webhostHttpReq{method: "POST", body: body})
