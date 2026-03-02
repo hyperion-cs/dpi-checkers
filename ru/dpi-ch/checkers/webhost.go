@@ -31,8 +31,9 @@ import (
 // - Try to extract sni/host from cert
 // - Skip tcp1620 check (alive only)
 type WebhostOpt struct {
-	Ip   netip.Addr
-	Port int
+	Ip           netip.Addr
+	Port         int
+	KeyLogWriter io.Writer
 }
 
 type WebhostAttr struct {
@@ -67,11 +68,21 @@ func WebhostStart(ctx context.Context) <-chan WebhostAttr {
 	sf := subnetfilter.New(inetlookup.Default())
 	//f, _ := sf.CompileFilter(`org("hetzner")`)
 
-	f, _ := sf.CompileFilter(`subnet("135.181.168.35/32")`)
+	f, _ := sf.CompileFilter(`subnet("195.201.92.197/32")`)
 	subnets, _ := sf.RunFilter(f)
 	fmt.Println("found subnets:", len(subnets.Prefixes()))
 	items := webhostfarm.Farm(webhostfarm.FarmOpt{Subnets: subnets, Count: 1})
 	fmt.Printf("ips: %v\n", items)
+
+	var keyLogWriter io.Writer
+	if cfg.KeyLogPath != "" {
+		file, err := os.OpenFile(cfg.KeyLogPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
+		if err != nil {
+			panic(err)
+		}
+		defer file.Close()
+		keyLogWriter = file
+	}
 
 	in := make(chan WebhostOpt)
 	out := gochan.Start(gochan.GochanOpt[WebhostOpt, WebhostAttr]{
@@ -87,7 +98,7 @@ func WebhostStart(ctx context.Context) <-chan WebhostAttr {
 			select {
 			case <-ctx.Done():
 				return
-			case in <- WebhostOpt{x.Ip, x.Port}:
+			case in <- WebhostOpt{Ip: x.Ip, Port: x.Port, KeyLogWriter: keyLogWriter}:
 			}
 		}
 	}()
@@ -96,24 +107,15 @@ func WebhostStart(ctx context.Context) <-chan WebhostAttr {
 }
 
 func WebhostSingle(opt WebhostOpt) WebhostAttr {
-	cfg := config.Get().Checkers.Webhost
-
-	// TODO: when there are many threads, this needs to be moved to the top
-	keyLogWriter := io.Discard
-	if cfg.KeyLogPath != "" {
-		file, err := os.OpenFile(cfg.KeyLogPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
-		if err != nil {
-			panic(err)
-		}
-		defer file.Close()
-		keyLogWriter = file
+	if opt.KeyLogWriter == nil {
+		opt.KeyLogWriter = io.Discard
 	}
 
 	ipinfo := inetlookup.Default().IpInfo(opt.Ip)
 	a := WebhostAttr{IpInfo: ipinfo, Port: opt.Port}
 
 	// alive check
-	tlsConn, err := getHandshakedUTlsConn(opt, keyLogWriter)
+	tlsConn, err := getHandshakedUTlsConn(opt, opt.KeyLogWriter)
 	if err != nil {
 		a.Alive = err
 		a.Tcp1620 = ErrWebhostSkip
@@ -129,7 +131,7 @@ func WebhostSingle(opt WebhostOpt) WebhostAttr {
 	}
 
 	// tcp16-20 check
-	tlsConn, err = getHandshakedUTlsConn(opt, keyLogWriter)
+	tlsConn, err = getHandshakedUTlsConn(opt, opt.KeyLogWriter)
 	if err != nil {
 		a.Tcp1620 = err
 		return a
@@ -143,7 +145,7 @@ func WebhostSingle(opt WebhostOpt) WebhostAttr {
 	return a
 }
 
-func setAlpn(spec *tls.ClientHelloSpec, protos []string) {
+func setUTlsAlpn(spec *tls.ClientHelloSpec, protos []string) {
 	for i := range spec.Extensions {
 		if alpn, ok := spec.Extensions[i].(*tls.ALPNExtension); ok {
 			alpn.AlpnProtocols = protos
@@ -163,7 +165,7 @@ func getHandshakedUTlsConn(opt WebhostOpt, keyLogWriter io.Writer) (*tls.UConn, 
 		if isTimeout(err) {
 			return nil, ErrWebhostTcpConnTimeout
 		}
-		log.Println("getHandshakedTlsConn/Dial", err)
+		log.Println("getHandshakedUTlsConn/Dial", err)
 		return nil, ErrWebhostInternal
 	}
 
@@ -179,7 +181,7 @@ func getHandshakedUTlsConn(opt WebhostOpt, keyLogWriter io.Writer) (*tls.UConn, 
 
 	// chrome fingerprint originally contains ALPN for h2
 	chromeSpec, _ := tls.UTLSIdToSpec(tls.HelloChrome_Auto)
-	setAlpn(&chromeSpec, []string{"http/1.1"})
+	setUTlsAlpn(&chromeSpec, []string{"http/1.1"})
 	tlsConn.ApplyPreset(&chromeSpec)
 
 	tlsConn.SetDeadline(time.Now().Add(cfg.TlsHandshakeTimeout))
@@ -191,7 +193,7 @@ func getHandshakedUTlsConn(opt WebhostOpt, keyLogWriter io.Writer) (*tls.UConn, 
 		if strings.Contains(err.Error(), "handshake failure") {
 			return nil, ErrWebhostTlsHandshakeFail
 		}
-		log.Println("getHandshakedTlsConn/Handshake", err)
+		log.Println("getHandshakedUTlsConn/Handshake", err)
 		return nil, ErrWebhostInternal
 	}
 	tlsConn.SetDeadline(time.Time{})
