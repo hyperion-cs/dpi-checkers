@@ -10,6 +10,7 @@ type GochanOpt[In any, Out any] struct {
 	Workers  int
 	Input    <-chan In
 	Executor func(In) Out
+	Post     func()
 }
 
 func Start[In any, Out any](opt GochanOpt[In, Out]) <-chan Out {
@@ -39,6 +40,9 @@ func Start[In any, Out any](opt GochanOpt[In, Out]) <-chan Out {
 	go func() {
 		wg.Wait()
 		close(out)
+		if opt.Post != nil {
+			opt.Post()
+		}
 	}()
 
 	return out

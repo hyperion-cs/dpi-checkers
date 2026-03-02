@@ -68,19 +68,20 @@ func WebhostStart(ctx context.Context) <-chan WebhostAttr {
 	sf := subnetfilter.New(inetlookup.Default())
 	//f, _ := sf.CompileFilter(`org("hetzner")`)
 
-	f, _ := sf.CompileFilter(`subnet("195.201.92.197/32")`)
+	f, _ := sf.CompileFilter(`subnet("37.27.26.179/32")`)
 	subnets, _ := sf.RunFilter(f)
 	fmt.Println("found subnets:", len(subnets.Prefixes()))
 	items := webhostfarm.Farm(webhostfarm.FarmOpt{Subnets: subnets, Count: 1})
 	fmt.Printf("ips: %v\n", items)
 
 	var keyLogWriter io.Writer
+	var postFunc func()
 	if cfg.KeyLogPath != "" {
 		file, err := os.OpenFile(cfg.KeyLogPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
 		if err != nil {
 			panic(err)
 		}
-		defer file.Close()
+		postFunc = func() { file.Close() }
 		keyLogWriter = file
 	}
 
@@ -90,6 +91,7 @@ func WebhostStart(ctx context.Context) <-chan WebhostAttr {
 		Workers:  cfg.CheckWorkers,
 		Input:    in,
 		Executor: WebhostSingle,
+		Post:     postFunc,
 	})
 
 	go func() {
