@@ -3,19 +3,37 @@ debug: true
 checkers:
   webhost:
     popular:
+      - name: Yandex
+        filter: host("ya.ru")
+      - name: Google
+        filter: host("www.google.com")
       - name: YouTube
         filter: host("www.youtube.com")
       - name: Instagram
         filter: host("www.instagram.com")
     infra:
-      - name: CF
+      - name: Cloudflare
         filter: org("cloudflare")
+      - name: Akamai
+        filter: org("akamai")
+      - name: Fastly
+        filter: org("fastly")
+      - name: Oracle
+        filter: org("oracle")
       - name: DigitalOcean
         filter: org("digitalocean")
-        count: 3
+        count: 2
       - name: Hetzner DE
         filter: org("hetzner") && country("de")
-        count: 3
+        count: 2
+      - name: Hetzner FI
+        filter: org("hetzner") && country("fi")
+        count: 2
+      - name: OVH
+        filter: as(16276)
+        count: 2
+      - name: Gcore
+        filter: as(199524)
     workers: 8
     tcp-conn-timeout: 3s
     tls-handshake-timeout: 3s
