@@ -59,6 +59,9 @@ checkers:
       - https://ru.wikipedia.org/
       - https://www.google.com/
 
+  whoami:
+      timeout: 30s
+
 subnetfilter:
   workers: 8
 

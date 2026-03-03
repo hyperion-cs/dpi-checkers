@@ -3,6 +3,7 @@ package tui
 import (
 	"dpich/checkers"
 	"fmt"
+	"log"
 
 	"github.com/charmbracelet/lipgloss"
 )
@@ -66,7 +67,8 @@ func whoamiView(model whoamiModel) string {
 	}
 
 	if model.err != nil {
-		return "error when fetching"
+		log.Println(model.err)
+		return "error when fetching ;("
 	}
 
 	r := model.result
