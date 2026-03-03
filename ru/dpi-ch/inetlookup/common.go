@@ -7,12 +7,17 @@ import (
 	"net"
 	"net/http"
 	"net/netip"
+	"sync"
 )
 
+var mu sync.Mutex
 var defaultInetLookup InetLookup
 
-// TODO: lock and startup that
 func Default() InetLookup {
+	mu.Lock()
+	defer mu.Unlock()
+
+	// TODO: Make that as config
 	if defaultInetLookup == nil {
 		ilOpt := GeoliteCsvOpt{
 			Cidr2asPath:              "/Users/hyperion/Repositories/dpi-checkers/lab/geolite2_csv/asn_ipv4.csv",
