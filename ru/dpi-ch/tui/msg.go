@@ -19,7 +19,9 @@ type cidrwhitelistResultMsg struct {
 	err error
 }
 
-type webhostInitMsg struct{}
+type webhostInitMsg struct {
+	Mode checkers.WebHostMode
+}
 type webhostProducerStartedMsg struct {
 	out checkers.WebhostGochanRunnerOut
 }

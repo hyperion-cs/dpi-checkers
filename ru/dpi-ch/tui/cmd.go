@@ -26,10 +26,9 @@ func cidrwhitelistCheckCmd() tea.Msg {
 	return cidrwhitelistResultMsg{err: err}
 }
 
-func webhostProducerStartCmd(ctx context.Context) tea.Cmd {
+func webhostProducerStartCmd(ctx context.Context, mode checkers.WebHostMode) tea.Cmd {
 	return func() tea.Msg {
-		// TODO: select mode here...
-		opt := checkers.WebhostGochanRunnerOpt{Ctx: ctx, Mode: checkers.WebHostModeInfra}
+		opt := checkers.WebhostGochanRunnerOpt{Ctx: ctx, Mode: mode}
 		out := checkers.WebhostGochanRunner(opt)
 		return webhostProducerStartedMsg{out}
 	}

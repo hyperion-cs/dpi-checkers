@@ -29,7 +29,7 @@ func (rm rootModel) View() string {
 		s += whoamiView(rm.whoamiModel)
 	case cidrwhitelistPage:
 		s += cidrwhitelistView(rm.cidrwhitelistModel)
-	case webhostInfraPage:
+	case webhostInfraPage, webhostPopularPage:
 		s += webhostView(rm.webhostModel)
 	}
 

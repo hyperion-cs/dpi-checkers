@@ -64,9 +64,10 @@ func menuUpdate(model menuModel, msg tea.Msg) (menuModel, tea.Cmd) {
 				initMsg = whoamiInitMsg{}
 			case cidrwhitelistPage:
 				initMsg = cidrwhitelistInitMsg{}
+			case webhostPopularPage:
+				initMsg = webhostInitMsg{Mode: checkers.WebHostModePopular}
 			case webhostInfraPage:
-				// Сюда то мы и будем класть тип сервиска...
-				initMsg = webhostInitMsg{}
+				initMsg = webhostInitMsg{Mode: checkers.WebHostModeInfra}
 			}
 
 			return model, tea.Batch(
@@ -133,7 +134,7 @@ func webhostUpdate(model webhostModel, msg tea.Msg) (webhostModel, tea.Cmd) {
 		// TODO: Should we move ctx/cancel to webhostProducerStartedMsg?
 		ctx, cancel := context.WithCancel(context.Background())
 		model = webhostModel{ctx: ctx, cancel: cancel, fetching: true}
-		return model, webhostProducerStartCmd(ctx)
+		return model, webhostProducerStartCmd(ctx, msg.Mode)
 	case webhostProducerStartedMsg:
 		model.out = msg.out
 		return model, webhostConsumerCmd(model.out)
