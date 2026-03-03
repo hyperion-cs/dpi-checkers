@@ -7,6 +7,7 @@ import (
 	"dpich/inetlookup"
 	"dpich/subnetfilter"
 	"dpich/webhostfarm"
+	"fmt"
 	"io"
 	"os"
 )
@@ -62,8 +63,15 @@ type WebhostGochanBag struct {
 	RandomHostname bool
 }
 
-func WebhostGochanRunner(opt WebhostGochanRunnerOpt) <-chan WebhostGochanOut[WebhostGochanBag] {
+type WebhostGochanRunnerOut struct {
+	Out      <-chan WebhostGochanOut[WebhostGochanBag]
+	Progress <-chan string
+}
+
+func WebhostGochanRunner(opt WebhostGochanRunnerOpt) WebhostGochanRunnerOut {
 	cfg := config.Get().Checkers.Webhost
+	progressCh := make(chan string, 16)
+	webhostSendProgress(progressCh, "webhost checker => initialization...")
 
 	sf := subnetfilter.New(inetlookup.Default())
 	sfGochanIn := make(chan subnetfilter.GochanIn[WebhostGochanBag])
@@ -72,14 +80,20 @@ func WebhostGochanRunner(opt WebhostGochanRunnerOpt) <-chan WebhostGochanOut[Web
 		Subnetfilter: sf,
 		In:           sfGochanIn,
 	})
+	webhostSendProgress(progressCh, "subnetfilter => initialized")
 	gochan.Push(opt.Ctx, sfGochanIn, getSubnetfilterItems(sf, opt.Mode))
 
 	farmGochanIn := make(chan webhostfarm.GochanIn[WebhostGochanBag])
 	farmGochan := webhostfarm.Gochan(webhostfarm.GochanOpt[WebhostGochanBag]{Ctx: opt.Ctx, In: farmGochanIn})
+	webhostSendProgress(progressCh, "webhostfarm => initialized")
 
 	go func() {
 		defer close(farmGochanIn)
 		for x := range sfGochan {
+			webhostSendProgress(
+				progressCh,
+				fmt.Sprintf(`subnetfilter => for "%s" found subnets: %d`, x.Bag.Name, len(x.Out.IpSet.Prefixes())),
+			)
 			in := webhostfarm.GochanIn[WebhostGochanBag]{
 				Bag: x.Bag,
 				In:  webhostfarm.FarmOpt{Subnets: x.Out.IpSet, Count: x.Bag.Count, Port: x.Bag.Port},
@@ -108,10 +122,17 @@ func WebhostGochanRunner(opt WebhostGochanRunnerOpt) <-chan WebhostGochanOut[Web
 		In:   webhostGochanIn,
 		Post: klwPostFunc,
 	})
+	webhostSendProgress(progressCh, "webhost checker => initialized")
 
 	go func() {
+		defer close(progressCh)
 		defer close(webhostGochanIn)
+		defer webhostSendProgress(progressCh, "webhost checker => done")
+
 		for x := range farmGochan {
+			webhostSendProgress(progressCh,
+				fmt.Sprintf(`webhostfarm => for "%s" found hosts: %d`, x.Bag.Name, len(x.Out)),
+			)
 			for _, v := range x.Out {
 				in := WebhostGochanIn[WebhostGochanBag]{
 					Bag: x.Bag,
@@ -135,7 +156,14 @@ func WebhostGochanRunner(opt WebhostGochanRunnerOpt) <-chan WebhostGochanOut[Web
 
 	}()
 
-	return webhostGochan
+	return WebhostGochanRunnerOut{Out: webhostGochan, Progress: progressCh}
+}
+
+func webhostSendProgress(ch chan<- string, p string) {
+	select {
+	case ch <- p:
+	default:
+	}
 }
 
 func getSubnetfilterItems(sf *subnetfilter.Subnetfilter, mode WebHostMode) []subnetfilter.GochanIn[WebhostGochanBag] {
