@@ -16,6 +16,7 @@ import (
 type FarmOpt struct {
 	Subnets *netipx.IPSet
 	Count   int
+	Port    int
 }
 
 type FarmItem struct {
@@ -27,16 +28,15 @@ type FarmItem struct {
 // it finds count hosts accessible as a web service.
 // Currently, only https with forced tls handshake verification is supported.
 func Farm(opt FarmOpt) []FarmItem {
-	const port = 443 // TODO: make param?
 	items := []FarmItem{}
 	found := 0
 	for ip := range randomIpsIter(opt.Subnets) {
 		if found >= opt.Count {
 			break
 		}
-		if tryUTlsHandshake(ip, port) {
+		if tryUTlsHandshake(ip, opt.Port) {
 			found++
-			items = append(items, FarmItem{Ip: ip, Port: port})
+			items = append(items, FarmItem{Ip: ip, Port: opt.Port})
 			continue
 		}
 	}

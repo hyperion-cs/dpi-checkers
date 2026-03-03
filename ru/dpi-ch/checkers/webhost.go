@@ -24,26 +24,25 @@ import (
 // TODO (options):
 // - Set proto (http/https)
 // - Set tlsV
-// - Set port
-// - Set random sni/host (?)
 // - Try to extract sni/host from cert
-// - Skip tcp1620 check (alive only)
 type WebhostSingleOpt struct {
-	Ip           netip.Addr
-	Port         int
-	KeyLogWriter io.Writer
-	Sni          string
-	Host         string
+	Ip             netip.Addr
+	Port           int
+	KeyLogWriter   io.Writer
+	Sni            string
+	Host           string
+	Tcp1620skip    bool
+	RandomHostname bool
 }
 
 type WebhostSingleResult struct {
-	IpInfo   inetlookup.IpInfo
-	Port     int
-	TlsV     uint16
-	Sni      string
-	HttpHost string
-	Alive    error
-	Tcp1620  error
+	IpInfo  inetlookup.IpInfo
+	Port    int
+	TlsV    uint16
+	Sni     string
+	Host    string
+	Alive   error
+	Tcp1620 error
 }
 
 type webhostHttpReq struct {
@@ -65,13 +64,27 @@ var (
 	ErrWebhostSkip                = errors.New("check: skip")
 )
 
+const RANDOM_HOSTNAME_ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789"
+const RANDOM_HOSTNAME_LEN = 12
+
 func WebhostSingle(opt WebhostSingleOpt) WebhostSingleResult {
 	if opt.KeyLogWriter == nil {
 		opt.KeyLogWriter = io.Discard
 	}
 
+	if opt.RandomHostname {
+		rndHostname, _ := randomHostname()
+		opt.Sni = rndHostname
+		opt.Host = rndHostname
+	}
+
 	ipinfo := inetlookup.Default().IpInfo(opt.Ip)
-	res := WebhostSingleResult{IpInfo: ipinfo, Port: opt.Port}
+	res := WebhostSingleResult{
+		IpInfo: ipinfo,
+		Port:   opt.Port,
+		Sni:    opt.Sni,
+		Host:   opt.Host,
+	}
 
 	// alive check
 	tlsConn, err := getHandshakedUTlsConn(opt, opt.KeyLogWriter)
@@ -84,6 +97,10 @@ func WebhostSingle(opt WebhostSingleOpt) WebhostSingleResult {
 	if err = webhostAliveCheck(opt, tlsConn); err != nil {
 		res.Alive = err
 		res.Tcp1620 = ErrWebhostSkip
+		return res
+	}
+
+	if opt.Tcp1620skip {
 		return res
 	}
 
@@ -120,6 +137,10 @@ func getHandshakedUTlsConn(opt WebhostSingleOpt, keyLogWriter io.Writer) (*tls.U
 		if isTimeout(err) {
 			return nil, ErrWebhostTcpConnTimeout
 		}
+		if whErr, ok := tryHandleErr(err); ok {
+			return nil, whErr
+		}
+
 		log.Println("getHandshakedUTlsConn/Dial", err)
 		return nil, ErrWebhostInternal
 	}
@@ -149,12 +170,8 @@ func getHandshakedUTlsConn(opt WebhostSingleOpt, keyLogWriter io.Writer) (*tls.U
 		if isTimeout(err) {
 			return nil, ErrWebhostTlsHandshakeTimeout
 		}
-		// https://go.dev/src/crypto/tls/alert.go
-		if strings.Contains(err.Error(), "handshake failure") {
-			return nil, ErrWebhostTlsHandshakeFail
-		}
-		if strings.Contains(err.Error(), "connection reset") {
-			return nil, ErrWebhostTcpConnReset
+		if whErr, ok := tryHandleErr(err); ok {
+			return nil, whErr
 		}
 
 		log.Println("getHandshakedUTlsConn/Handshake", err)
@@ -176,17 +193,17 @@ func tlsReadHttpHeaders(tlsConn *tls.UConn) ([]byte, error) {
 	for {
 		line, err := br.ReadBytes('\n')
 		if err != nil {
+			// TODO: No error?
+			if err == io.EOF {
+				return buf, nil
+			}
 			if isTimeout(err) {
 				return nil, ErrWebhostTcpReadTimeout
 			}
-			if strings.Contains(err.Error(), "connection reset") {
-				return nil, ErrWebhostTcpConnReset
+			if whErr, ok := tryHandleErr(err); ok {
+				return nil, whErr
 			}
-			// https://go.dev/src/crypto/tls/alert.go
-			if strings.Contains(err.Error(), "bad record MAC") {
-				return buf, ErrWebhostTlsBadRecordMac
-			}
-			log.Println("tlsReadAll", err)
+			log.Println("tlsReadHttpHeaders", err)
 			return nil, ErrWebhostInternal
 		}
 
@@ -205,8 +222,8 @@ func tlsWriteAll(tlsConn *tls.UConn, data []byte) error {
 		if isTimeout(err) {
 			return ErrWebhostTcpWriteTimeout
 		}
-		if strings.Contains(err.Error(), "write: broken pipe") {
-			return ErrWebhostTlsWriteBrokenPipe
+		if whErr, ok := tryHandleErr(err); ok {
+			return whErr
 		}
 		log.Println("tlsWriteAll", err)
 		return ErrWebhostInternal
@@ -269,6 +286,29 @@ func randomBytes(n int) ([]byte, error) {
 	return b, nil
 }
 
+// Try to handle errors. Assume that timeouts are already handled.
+func tryHandleErr(err error) (error, bool) {
+	// yeah, it looks like shit. but there's nothing we can do about it ;(
+
+	// AlertError: https://go.dev/src/crypto/tls/alert.go
+	if strings.Contains(err.Error(), "handshake failure") {
+		return ErrWebhostTlsHandshakeFail, true
+	}
+	if strings.Contains(err.Error(), "bad record MAC") {
+		return ErrWebhostTlsBadRecordMac, true
+	}
+
+	// others
+	if strings.Contains(err.Error(), "connection reset") {
+		return ErrWebhostTcpConnReset, true
+	}
+	if strings.Contains(err.Error(), "write: broken pipe") {
+		return ErrWebhostTlsWriteBrokenPipe, true
+	}
+
+	return err, false
+}
+
 func isTimeout(err error) bool {
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) ||
@@ -279,4 +319,18 @@ func isTimeout(err error) bool {
 		}
 	}
 	return false
+}
+
+func randomHostname() (string, error) {
+	b := make([]byte, RANDOM_HOSTNAME_LEN)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+
+	const rha = RANDOM_HOSTNAME_ALPHABET
+	for i := range b {
+		b[i] = rha[int(b[i])%len(rha)]
+	}
+
+	return fmt.Sprintf("%s.com", string(b)), nil
 }

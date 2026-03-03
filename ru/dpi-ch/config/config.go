@@ -59,11 +59,14 @@ type Config struct {
 }
 
 type WebhostItem struct {
-	Name   string  `yaml:"name"`
-	Filter string  `yaml:"filter"`
-	Count  *int    `yaml:"count"`
-	Host   *string `yaml:"sni"`
-	Sni    *string `yaml:"host"`
+	Name           string `yaml:"name"`
+	Filter         string `yaml:"filter"`
+	Count          int    `yaml:"count"`
+	Port           int    `yaml:"port"`
+	Host           string `yaml:"sni"`
+	Sni            string `yaml:"host"`
+	Tcp1620skip    bool   `yaml:"tcp1620-skip"`
+	RandomHostname bool   `yaml:"random-hostname"`
 }
 
 var cfg = &Config{}

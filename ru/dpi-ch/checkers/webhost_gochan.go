@@ -54,10 +54,13 @@ type WebhostGochanRunnerOpt struct {
 }
 
 type WebhostGochanBag struct {
-	Name  string
-	Count int
-	Host  string
-	Sni   string
+	Name           string
+	Count          int
+	Port           int
+	Host           string
+	Sni            string
+	Tcp1620skip    bool
+	RandomHostname bool
 }
 
 func WebhostGochanRunner(opt WebhostGochanRunnerOpt) <-chan WebhostGochanOut[WebhostGochanBag] {
@@ -81,7 +84,7 @@ func WebhostGochanRunner(opt WebhostGochanRunnerOpt) <-chan WebhostGochanOut[Web
 			fmt.Println("name:", x.Bag.Name, "subnetfilter prefixes:", len(x.Out.IpSet.Prefixes()))
 			in := webhostfarm.GochanIn[WebhostGochanBag]{
 				Bag: x.Bag,
-				In:  webhostfarm.FarmOpt{Subnets: x.Out.IpSet, Count: x.Bag.Count},
+				In:  webhostfarm.FarmOpt{Subnets: x.Out.IpSet, Count: x.Bag.Count, Port: x.Bag.Port},
 			}
 			select {
 			case <-opt.Ctx.Done():
@@ -115,11 +118,14 @@ func WebhostGochanRunner(opt WebhostGochanRunnerOpt) <-chan WebhostGochanOut[Web
 			for _, v := range x.Out {
 				in := WebhostGochanIn[WebhostGochanBag]{
 					Bag: x.Bag,
-					In: WebhostSingleOpt{Ip: v.Ip,
-						Port:         v.Port,
-						Sni:          x.Bag.Sni,
-						Host:         x.Bag.Host,
-						KeyLogWriter: keyLogWriter,
+					In: WebhostSingleOpt{
+						Ip:             v.Ip,
+						Port:           v.Port,
+						Sni:            x.Bag.Sni,
+						Host:           x.Bag.Host,
+						Tcp1620skip:    x.Bag.Tcp1620skip,
+						RandomHostname: x.Bag.RandomHostname,
+						KeyLogWriter:   keyLogWriter,
 					},
 				}
 				select {
@@ -147,26 +153,37 @@ func getSubnetfilterItems(sf *subnetfilter.Subnetfilter, mode WebHostMode) []sub
 	for _, v := range iter {
 		// TODO: handle errors
 		f, _ := sf.CompileFilter(v.Filter)
-		count, sni, host := 1, "", ""
+		port, count, sni, host := 443, 1, "", ""
 
 		if filterHost, ok := sf.ExtractHostname(f); ok {
 			sni = filterHost
 			host = filterHost
 		}
 
-		if v.Count != nil {
-			count = *v.Count
+		if v.Count > 0 {
+			count = v.Count
 		}
-		if v.Sni != nil {
-			sni = *v.Sni
+		if v.Port > 0 {
+			port = v.Port
 		}
-		if v.Host != nil {
-			host = *v.Host
+		if v.Sni != "" {
+			sni = v.Sni
+		}
+		if v.Host != "" {
+			host = v.Host
 		}
 
 		items = append(items, subnetfilter.GochanIn[WebhostGochanBag]{
-			Bag: WebhostGochanBag{Name: v.Name, Count: count, Sni: sni, Host: host},
-			In:  subnetfilter.SubnetfilterIn{Filter: f},
+			Bag: WebhostGochanBag{
+				Name:           v.Name,
+				Count:          count,
+				Sni:            sni,
+				Host:           host,
+				Port:           port,
+				RandomHostname: v.RandomHostname,
+				Tcp1620skip:    v.Tcp1620skip,
+			},
+			In: subnetfilter.SubnetfilterIn{Filter: f},
 		})
 	}
 	return items
