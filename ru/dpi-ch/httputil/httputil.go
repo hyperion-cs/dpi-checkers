@@ -8,8 +8,9 @@ import (
 	"net/http"
 )
 
-func Head(ctx context.Context, client *http.Client, url string, browserHeaders bool) error {
+func Head(ctx context.Context, client *http.Client, url string, browserHeaders bool, close bool) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodHead, url, http.NoBody)
+	req.Close = close
 	if err != nil {
 		return err
 	}
@@ -27,8 +28,9 @@ func Head(ctx context.Context, client *http.Client, url string, browserHeaders b
 	return nil
 }
 
-func Get(ctx context.Context, client *http.Client, url string, browserHeaders bool) ([]byte, error) {
+func Get(ctx context.Context, client *http.Client, url string, browserHeaders bool, close bool) ([]byte, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
+	req.Close = close
 	if err != nil {
 		return nil, err
 	}
@@ -51,8 +53,8 @@ func Get(ctx context.Context, client *http.Client, url string, browserHeaders bo
 	return body, nil
 }
 
-func GetAndUnmarshal[T any](ctx context.Context, client *http.Client, url string, v *T, browserHeaders bool) error {
-	body, err := Get(ctx, client, url, browserHeaders)
+func GetAndUnmarshal[T any](ctx context.Context, client *http.Client, url string, v *T, browserHeaders bool, close bool) error {
+	body, err := Get(ctx, client, url, browserHeaders, close)
 	if err != nil {
 		return err
 	}

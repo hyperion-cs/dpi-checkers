@@ -42,7 +42,7 @@ func GetExternalIpViaRipe(ctx context.Context) (netip.Addr, error) {
 	cfg := config.Get().InetLookup
 
 	var ipRaw struct{ Data struct{ Ip string } }
-	if err := httputil.GetAndUnmarshal(ctx, http.DefaultClient, cfg.RipeApiUrl+"whats-my-ip/data.json", &ipRaw, true); err != nil {
+	if err := httputil.GetAndUnmarshal(ctx, http.DefaultClient, cfg.RipeApiUrl+"whats-my-ip/data.json", &ipRaw, true, true); err != nil {
 		return netip.Addr{}, err
 	}
 
@@ -53,7 +53,7 @@ func GetExternalIpViaYandex(ctx context.Context) (netip.Addr, error) {
 	cfg := config.Get().InetLookup
 
 	var ip string
-	err := httputil.GetAndUnmarshal(ctx, http.DefaultClient, cfg.YandexApiUrl+"ip", &ip, true)
+	err := httputil.GetAndUnmarshal(ctx, http.DefaultClient, cfg.YandexApiUrl+"ip", &ip, true, true)
 	if err != nil {
 		return netip.Addr{}, err
 	}
