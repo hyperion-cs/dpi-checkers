@@ -60,6 +60,7 @@ var (
 	ErrWebhostTlsHandshakeTimeout = errors.New("tls: handshake timeout")
 	ErrWebhostTlsHandshakeFail    = errors.New("tls: handshake failure")
 	ErrWebhostTlsBadRecordMac     = errors.New("tls: bad record MAC")
+	ErrWebhostTlsWriteBrokenPipe  = errors.New("tls/write: broken pipe")
 	ErrWebhostInternal            = errors.New("check: internal error")
 	ErrWebhostSkip                = errors.New("check: skip")
 )
@@ -203,6 +204,9 @@ func tlsWriteAll(tlsConn *tls.UConn, data []byte) error {
 	if _, err := tlsConn.Write(data); err != nil {
 		if isTimeout(err) {
 			return ErrWebhostTcpWriteTimeout
+		}
+		if strings.Contains(err.Error(), "write: broken pipe") {
+			return ErrWebhostTlsWriteBrokenPipe
 		}
 		log.Println("tlsWriteAll", err)
 		return ErrWebhostInternal
