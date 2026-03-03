@@ -127,7 +127,6 @@ func WebhostGochanRunner(opt WebhostGochanRunnerOpt) WebhostGochanRunnerOut {
 	go func() {
 		defer close(progressCh)
 		defer close(webhostGochanIn)
-		defer webhostSendProgress(progressCh, "webhost checker => done")
 
 		for x := range farmGochan {
 			webhostSendProgress(progressCh,
@@ -153,7 +152,7 @@ func WebhostGochanRunner(opt WebhostGochanRunnerOpt) WebhostGochanRunnerOut {
 				}
 			}
 		}
-
+		webhostSendProgress(progressCh, "webhost checker => done")
 	}()
 
 	return WebhostGochanRunnerOut{Out: webhostGochan, Progress: progressCh}

@@ -10,6 +10,7 @@ import (
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 func (rm rootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -133,46 +134,40 @@ func webhostUpdate(model webhostModel, msg tea.Msg) (webhostModel, tea.Cmd) {
 	case webhostInitMsg:
 		// TODO: Should we move ctx/cancel to webhostProducerStartedMsg?
 		ctx, cancel := context.WithCancel(context.Background())
-		model = webhostModel{ctx: ctx, cancel: cancel, fetching: true}
-		return model, webhostProducerStartCmd(ctx, msg.Mode)
+
+		spin := spinner.New()
+		spin.Spinner = spinnerType
+		spin.Style = spinnerStyle
+
+		// TODO: move that
+		t := table.New()
+		s := table.DefaultStyles()
+		s.Header = s.Header.
+			BorderStyle(lipgloss.NormalBorder()).
+			BorderForeground(lipgloss.Color("240")).
+			BorderBottom(true).
+			Bold(false)
+		s.Selected = s.Selected.
+			Foreground(lipgloss.Color("229")).
+			Background(lipgloss.Color("57")).
+			Bold(false)
+		t.SetStyles(s)
+
+		model = webhostModel{ctx: ctx, cancel: cancel, fetching: true, table: t, spinner: spin}
+		return model, tea.Batch(model.spinner.Tick, webhostProducerStartCmd(ctx, msg.Mode))
 	case webhostProducerStartedMsg:
 		model.out = msg.out
 		return model, webhostConsumerCmd(model.out)
 	case webhostItemMsg:
-		// 		type WebhostSingleResult struct {
-		// 	IpInfo  inetlookup.IpInfo
-		// 	Port    int
-		// 	TlsV    uint16
-		// 	Sni     string
-		// 	Host    string
-		// 	Alive   error
-		// 	Tcp1620 error
-		// }
-
-		// type IpInfo struct {
-		// 	Ip         netip.Addr
-		// 	Asn        int32
-		// 	Subnet     netip.Prefix
-		// 	Org        string
-		// 	CountryIso string
-		// }
-
 		model.progress = fmt.Sprintf(
 			`webhost checker => for "%s" ready: %v`,
 			msg.Bag.Name,
 			msg.Out.IpInfo.Ip,
 		)
 
-		// {Title: "Group", Width: 20},
-		// {Title: "AS", Width: 14},
-		// {Title: "IP", Width: 15},
-		// {Title: "Prefix", Width: 18},
-		// {Title: "Location", Width: 5},
-		// {Title: "Alive", Width: 5},
-		// {Title: "Tcp 16-20", Width: 5},
-
 		r := table.Row{
 			msg.Bag.Name,
+			msg.Out.IpInfo.Org,
 			fmt.Sprintf("AS%d", msg.Out.IpInfo.Asn),
 			countryIsoToFlagEmoji(msg.Out.IpInfo.CountryIso) + " " + msg.Out.IpInfo.CountryIso,
 			msg.Out.IpInfo.Ip.String(),
@@ -185,6 +180,21 @@ func webhostUpdate(model webhostModel, msg tea.Msg) (webhostModel, tea.Cmd) {
 			return cmp.Compare(a[0], b[0]) // by group
 		})
 
+		columns := []table.Column{
+			{Title: "Group", Width: getMaxLen(model.rows, 0, 5)},
+			{Title: "Org", Width: getMaxLen(model.rows, 1, 3)},
+			{Title: "AS", Width: getMaxLen(model.rows, 2, 7)},
+			{Title: "Location", Width: 8},
+			{Title: "IP", Width: getMaxLen(model.rows, 4, 2)},
+			{Title: "Prefix", Width: getMaxLen(model.rows, 5, 6)},
+			{Title: "Alive", Width: 6},
+			{Title: "Tcp 16-20", Width: 11},
+		}
+
+		model.table.SetColumns(columns)
+		model.table.SetHeight(len(model.rows) + 2) // TODO: fix that
+		model.table.SetRows(model.rows)
+
 		return model, webhostConsumerCmd(model.out)
 	case webhostProgressMsg:
 		model.progress = string(msg)
@@ -192,10 +202,17 @@ func webhostUpdate(model webhostModel, msg tea.Msg) (webhostModel, tea.Cmd) {
 	case webhostProducerDoneMsg:
 		model.fetching = false
 		return model, nil
+	case spinner.TickMsg:
+		if model.fetching {
+			var cmd tea.Cmd
+			model.spinner, cmd = model.spinner.Update(msg)
+			return model, cmd
+		}
 	case returnedToMenuMsg:
 		if model.cancel != nil {
 			model.cancel()
 		}
+		model = webhostModel{}
 		return model, nil
 	}
 
@@ -254,4 +271,14 @@ func countryIsoToFlagEmoji(iso string) string {
 	}
 
 	return string(runes)
+}
+
+func getMaxLen(rows []table.Row, pos, min int) int {
+	max := min
+	for _, v := range rows {
+		if len(v[pos]) > max {
+			max = len(v[pos])
+		}
+	}
+	return max
 }

@@ -65,8 +65,10 @@ type cidrwhitelistModel struct {
 
 type webhostModel struct {
 	fetching bool
+	spinner  spinner.Model
 	progress string
 	rows     []table.Row
+	table    table.Model
 
 	ctx    context.Context
 	cancel context.CancelFunc

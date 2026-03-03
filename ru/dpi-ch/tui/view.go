@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -99,49 +98,13 @@ func cidrwhitelistView(model cidrwhitelistModel) string {
 }
 
 func webhostView(model webhostModel) string {
-	columns := []table.Column{
-		{Title: "Group", Width: getMaxLen(model.rows, 0, 5)},
-		{Title: "AS", Width: getMaxLen(model.rows, 1, 7)},
-		{Title: "Location", Width: 8},
-		{Title: "IP", Width: getMaxLen(model.rows, 3, 2)},
-		{Title: "Prefix", Width: getMaxLen(model.rows, 4, 6)},
-		{Title: "Alive", Width: 6},
-		{Title: "Tcp 16-20", Width: 11},
-	}
-
-	t := table.New(
-		table.WithColumns(columns),
-		table.WithRows(model.rows),
-		table.WithFocused(true),
-		table.WithHeight(len(model.rows)),
-	)
-
-	s := table.DefaultStyles()
-	s.Header = s.Header.
-		BorderStyle(lipgloss.NormalBorder()).
-		BorderForeground(lipgloss.Color("240")).
-		BorderBottom(true).
-		Bold(false)
-	s.Selected = s.Selected.
-		Foreground(lipgloss.Color("229")).
-		Background(lipgloss.Color("57")).
-		Bold(false)
-	t.SetStyles(s)
-
 	var r string
 	if len(model.rows) > 0 {
-		r += tblOuterBorderStyle.Render(t.View()) + "\n\n"
+		r += tblOuterBorderStyle.Render(model.table.View()) + "\n\n"
 	}
-	r += fmt.Sprintf("Status: %s\nCount: %d\n", model.progress, len(model.rows))
+	if model.fetching {
+		r += fmt.Sprintf("%s %s\n", model.spinner.View(), model.progress)
+	}
+	r += fmt.Sprintf("Count: %d pcs.\n", len(model.rows))
 	return r
-}
-
-func getMaxLen(rows []table.Row, pos, min int) int {
-	max := min
-	for _, v := range rows {
-		if len(v[pos]) > max {
-			max = len(v[pos])
-		}
-	}
-	return max
 }
