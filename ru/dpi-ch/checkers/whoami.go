@@ -20,9 +20,9 @@ func Whoami() (WhoamiResult, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.Timeout)
 	defer cancel()
 
-	ip, err := inetlookup.GetExternalIpViaRipe(ctx)
+	ip, err := inetlookup.GetExternalIpViaYandex(ctx)
 	if err != nil {
-		ip, err = inetlookup.GetExternalIpViaYandex(ctx)
+		ip, err = inetlookup.GetExternalIpViaRipe(ctx)
 	}
 	if err != nil {
 		return WhoamiResult{}, err

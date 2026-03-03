@@ -18,3 +18,11 @@ type cidrwhitelistInitMsg struct{}
 type cidrwhitelistResultMsg struct {
 	err error
 }
+
+type webhostInitMsg struct{}
+type webhostProducerStartedMsg struct {
+	out checkers.WebhostGochanRunnerOut
+}
+type webhostProducerDoneMsg struct{}
+type webhostItemMsg checkers.WebhostGochanOut[checkers.WebhostGochanBag]
+type webhostProgressMsg string

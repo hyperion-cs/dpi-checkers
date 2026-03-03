@@ -1,9 +1,11 @@
 package tui
 
 import (
+	"context"
 	"dpich/checkers"
 
 	"github.com/charmbracelet/bubbles/spinner"
+	"github.com/charmbracelet/bubbles/table"
 )
 
 type page int
@@ -39,6 +41,7 @@ type rootModel struct {
 	menuModel          menuModel
 	whoamiModel        whoamiModel
 	cidrwhitelistModel cidrwhitelistModel
+	webhostModel       webhostModel
 }
 
 var menuOptions = []page{allPage, whoamiPage, cidrwhitelistPage, webhostPopularPage, webhostInfraPage}
@@ -58,4 +61,14 @@ type cidrwhitelistModel struct {
 	fetching bool
 	spinner  spinner.Model
 	err      error
+}
+
+type webhostModel struct {
+	fetching bool
+	progress string
+	rows     []table.Row
+
+	ctx    context.Context
+	cancel context.CancelFunc
+	out    checkers.WebhostGochanRunnerOut
 }

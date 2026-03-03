@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"context"
 	"dpich/checkers"
 	"dpich/inetlookup"
 
@@ -23,4 +24,36 @@ func whoamiFetchCmd() tea.Msg {
 func cidrwhitelistCheckCmd() tea.Msg {
 	err := checkers.CidrWhitelist()
 	return cidrwhitelistResultMsg{err: err}
+}
+
+func webhostProducerStartCmd(ctx context.Context) tea.Cmd {
+	return func() tea.Msg {
+		// TODO: select mode here...
+		opt := checkers.WebhostGochanRunnerOpt{Ctx: ctx, Mode: checkers.WebHostModeInfra}
+		out := checkers.WebhostGochanRunner(opt)
+		return webhostProducerStartedMsg{out}
+	}
+}
+
+func webhostConsumerCmd(out checkers.WebhostGochanRunnerOut) tea.Cmd {
+	return func() tea.Msg {
+		for out.Out != nil || out.Progress != nil {
+			select {
+			case v, ok := <-out.Out:
+				if !ok {
+					out.Out = nil
+					continue
+				}
+				return webhostItemMsg(v)
+			case v, ok := <-out.Progress:
+				if !ok {
+					out.Progress = nil
+					continue
+				}
+				return webhostProgressMsg(v)
+			}
+		}
+
+		return webhostProducerDoneMsg{}
+	}
 }

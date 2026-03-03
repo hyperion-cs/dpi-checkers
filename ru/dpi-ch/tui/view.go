@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -28,6 +29,8 @@ func (rm rootModel) View() string {
 		s += whoamiView(rm.whoamiModel)
 	case cidrwhitelistPage:
 		s += cidrwhitelistView(rm.cidrwhitelistModel)
+	case webhostInfraPage:
+		s += webhostView(rm.webhostModel)
 	}
 
 	if rm.page != menuPage && !rm.quitting {
@@ -93,4 +96,52 @@ func cidrwhitelistView(model cidrwhitelistModel) string {
 	}
 
 	return warningStyle.Render("Internal error ;(")
+}
+
+func webhostView(model webhostModel) string {
+	columns := []table.Column{
+		{Title: "Group", Width: getMaxLen(model.rows, 0, 5)},
+		{Title: "AS", Width: getMaxLen(model.rows, 1, 7)},
+		{Title: "Location", Width: 8},
+		{Title: "IP", Width: getMaxLen(model.rows, 3, 2)},
+		{Title: "Prefix", Width: getMaxLen(model.rows, 4, 6)},
+		{Title: "Alive", Width: 6},
+		{Title: "Tcp 16-20", Width: 11},
+	}
+
+	t := table.New(
+		table.WithColumns(columns),
+		table.WithRows(model.rows),
+		table.WithFocused(true),
+		table.WithHeight(len(model.rows)),
+	)
+
+	s := table.DefaultStyles()
+	s.Header = s.Header.
+		BorderStyle(lipgloss.NormalBorder()).
+		BorderForeground(lipgloss.Color("240")).
+		BorderBottom(true).
+		Bold(false)
+	s.Selected = s.Selected.
+		Foreground(lipgloss.Color("229")).
+		Background(lipgloss.Color("57")).
+		Bold(false)
+	t.SetStyles(s)
+
+	var r string
+	if len(model.rows) > 0 {
+		r += tblOuterBorderStyle.Render(t.View()) + "\n\n"
+	}
+	r += fmt.Sprintf("Status: %s\nCount: %d\n", model.progress, len(model.rows))
+	return r
+}
+
+func getMaxLen(rows []table.Row, pos, min int) int {
+	max := min
+	for _, v := range rows {
+		if len(v[pos]) > max {
+			max = len(v[pos])
+		}
+	}
+	return max
 }
