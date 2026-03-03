@@ -7,7 +7,6 @@ import (
 	"dpich/inetlookup"
 	"dpich/subnetfilter"
 	"dpich/webhostfarm"
-	"fmt"
 	"io"
 	"os"
 )
@@ -81,7 +80,6 @@ func WebhostGochanRunner(opt WebhostGochanRunnerOpt) <-chan WebhostGochanOut[Web
 	go func() {
 		defer close(farmGochanIn)
 		for x := range sfGochan {
-			fmt.Println("name:", x.Bag.Name, "subnetfilter prefixes:", len(x.Out.IpSet.Prefixes()))
 			in := webhostfarm.GochanIn[WebhostGochanBag]{
 				Bag: x.Bag,
 				In:  webhostfarm.FarmOpt{Subnets: x.Out.IpSet, Count: x.Bag.Count, Port: x.Bag.Port},
@@ -114,7 +112,6 @@ func WebhostGochanRunner(opt WebhostGochanRunnerOpt) <-chan WebhostGochanOut[Web
 	go func() {
 		defer close(webhostGochanIn)
 		for x := range farmGochan {
-			fmt.Println("name:", x.Bag.Name, "farm items:", len(x.Out))
 			for _, v := range x.Out {
 				in := WebhostGochanIn[WebhostGochanBag]{
 					Bag: x.Bag,

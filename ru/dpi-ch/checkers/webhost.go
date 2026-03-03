@@ -86,7 +86,6 @@ func WebhostSingle(opt WebhostSingleOpt) WebhostSingleResult {
 		Host:   opt.Host,
 	}
 
-	// alive check
 	tlsConn, err := getHandshakedUTlsConn(opt, opt.KeyLogWriter)
 	if err != nil {
 		res.Alive = err
@@ -104,7 +103,6 @@ func WebhostSingle(opt WebhostSingleOpt) WebhostSingleResult {
 		return res
 	}
 
-	// tcp16-20 check
 	tlsConn, err = getHandshakedUTlsConn(opt, opt.KeyLogWriter)
 	if err != nil {
 		res.Tcp1620 = err
@@ -134,7 +132,7 @@ func getHandshakedUTlsConn(opt WebhostSingleOpt, keyLogWriter io.Writer) (*tls.U
 
 	tcpConn, err := tcpDialer.Dial("tcp", addr)
 	if err != nil {
-		if isTimeout(err) {
+		if isTimeoutErr(err) {
 			return nil, ErrWebhostTcpConnTimeout
 		}
 		if whErr, ok := tryHandleErr(err); ok {
@@ -167,7 +165,7 @@ func getHandshakedUTlsConn(opt WebhostSingleOpt, keyLogWriter io.Writer) (*tls.U
 
 	tlsConn.SetDeadline(time.Now().Add(cfg.TlsHandshakeTimeout))
 	if err := tlsConn.Handshake(); err != nil {
-		if isTimeout(err) {
+		if isTimeoutErr(err) {
 			return nil, ErrWebhostTlsHandshakeTimeout
 		}
 		if whErr, ok := tryHandleErr(err); ok {
@@ -197,7 +195,7 @@ func tlsReadHttpHeaders(tlsConn *tls.UConn) ([]byte, error) {
 			if err == io.EOF {
 				return buf, nil
 			}
-			if isTimeout(err) {
+			if isTimeoutErr(err) {
 				return nil, ErrWebhostTcpReadTimeout
 			}
 			if whErr, ok := tryHandleErr(err); ok {
@@ -219,7 +217,7 @@ func tlsWriteAll(tlsConn *tls.UConn, data []byte) error {
 	tlsConn.SetWriteDeadline(time.Now().Add(cfg.TcpWriteTimeout))
 	defer tlsConn.SetWriteDeadline(time.Time{})
 	if _, err := tlsConn.Write(data); err != nil {
-		if isTimeout(err) {
+		if isTimeoutErr(err) {
 			return ErrWebhostTcpWriteTimeout
 		}
 		if whErr, ok := tryHandleErr(err); ok {
@@ -290,7 +288,7 @@ func randomBytes(n int) ([]byte, error) {
 func tryHandleErr(err error) (error, bool) {
 	// yeah, it looks like shit. but there's nothing we can do about it ;(
 
-	// AlertError: https://go.dev/src/crypto/tls/alert.go
+	// alert errors: https://go.dev/src/crypto/tls/alert.go
 	if strings.Contains(err.Error(), "handshake failure") {
 		return ErrWebhostTlsHandshakeFail, true
 	}
@@ -309,7 +307,7 @@ func tryHandleErr(err error) (error, bool) {
 	return err, false
 }
 
-func isTimeout(err error) bool {
+func isTimeoutErr(err error) bool {
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) ||
 			errors.Is(err, os.ErrDeadlineExceeded) {
@@ -322,6 +320,7 @@ func isTimeout(err error) bool {
 }
 
 func randomHostname() (string, error) {
+	const tld = "com"
 	b := make([]byte, RANDOM_HOSTNAME_LEN)
 	if _, err := rand.Read(b); err != nil {
 		return "", err
@@ -332,5 +331,5 @@ func randomHostname() (string, error) {
 		b[i] = rha[int(b[i])%len(rha)]
 	}
 
-	return fmt.Sprintf("%s.com", string(b)), nil
+	return fmt.Sprintf("%s.%s", string(b), tld), nil
 }

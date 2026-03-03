@@ -10,7 +10,6 @@ require (
 	github.com/goccy/go-yaml v1.19.2
 	github.com/refraction-networking/utls v1.8.2
 	go4.org/netipx v0.0.0-20231129151722-fdeea329fbba
-	golang.org/x/net v0.50.0
 )
 
 require (
