@@ -44,9 +44,9 @@ checkers:
     tcp1620-n-bytes: 65536
     key-log-path: "/tmp/keys.log"
     http-static-headers:
-      accept: "*/*"
-      content-type: application/octet-stream
-      user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36
+      Accept: "*/*"
+      Content-Type: application/octet-stream
+      User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36
 
   cidrwhitelist:
     timeout: 15s
@@ -73,5 +73,5 @@ inetlookup:
 
 httputil:
   browser-headers:
-    accept-language: ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7
-    user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36
+    Accept-Language: ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7
+    User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36

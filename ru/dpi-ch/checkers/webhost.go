@@ -1,6 +1,8 @@
 package checkers
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"crypto/rand"
 	"dpich/config"
@@ -51,14 +53,15 @@ type webhostHttpReq struct {
 }
 
 var (
-	ErrWebhostTcpConnReset        = errors.New("tcp connection reset")
-	ErrWebhostTcpConnTimeout      = errors.New("tcp connection timeout")
-	ErrWebhostTlsHandshakeTimeout = errors.New("tls handshake timeout")
-	ErrWebhostTlsHandshakeFail    = errors.New("tls handshake failure")
-	ErrWebhostTcpWriteTimeout     = errors.New("tcp write timeout")
-	ErrWebhostTcpReadTimeout      = errors.New("tcp read timeout")
-	ErrWebhostInternal            = errors.New("internal error")
-	ErrWebhostSkip                = errors.New("skip")
+	ErrWebhostTcpConnReset        = errors.New("tcp: connection reset")
+	ErrWebhostTcpConnTimeout      = errors.New("tcp: connection timeout")
+	ErrWebhostTcpWriteTimeout     = errors.New("tcp: write timeout")
+	ErrWebhostTcpReadTimeout      = errors.New("tcp: read timeout")
+	ErrWebhostTlsHandshakeTimeout = errors.New("tls: handshake timeout")
+	ErrWebhostTlsHandshakeFail    = errors.New("tls: handshake failure")
+	ErrWebhostTlsBadRecordMac     = errors.New("tls: bad record MAC")
+	ErrWebhostInternal            = errors.New("check: internal error")
+	ErrWebhostSkip                = errors.New("check: skip")
 )
 
 func WebhostSingle(opt WebhostSingleOpt) WebhostSingleResult {
@@ -160,22 +163,37 @@ func getHandshakedUTlsConn(opt WebhostSingleOpt, keyLogWriter io.Writer) (*tls.U
 	return tlsConn, nil
 }
 
-func tlsReadAll(tlsConn *tls.UConn) ([]byte, error) {
+func tlsReadHttpHeaders(tlsConn *tls.UConn) ([]byte, error) {
 	cfg := config.Get().Checkers.Webhost
 	tlsConn.SetReadDeadline(time.Now().Add(cfg.TcpReadTimeout))
 	defer tlsConn.SetReadDeadline(time.Time{})
-	data, err := io.ReadAll(tlsConn)
-	if err != nil {
-		if isTimeout(err) {
-			return nil, ErrWebhostTcpReadTimeout
+
+	br := bufio.NewReader(tlsConn)
+	var buf []byte
+	needle := []byte("\r\n\r\n")
+
+	for {
+		line, err := br.ReadBytes('\n')
+		if err != nil {
+			if isTimeout(err) {
+				return nil, ErrWebhostTcpReadTimeout
+			}
+			if strings.Contains(err.Error(), "connection reset") {
+				return nil, ErrWebhostTcpConnReset
+			}
+			// https://go.dev/src/crypto/tls/alert.go
+			if strings.Contains(err.Error(), "bad record MAC") {
+				return buf, ErrWebhostTlsBadRecordMac
+			}
+			log.Println("tlsReadAll", err)
+			return nil, ErrWebhostInternal
 		}
-		if strings.Contains(err.Error(), "connection reset") {
-			return nil, ErrWebhostTcpConnReset
+
+		buf = append(buf, line...)
+		if bytes.HasSuffix(buf, needle) {
+			return buf, nil
 		}
-		log.Println("tlsReadAll", err)
-		return nil, ErrWebhostInternal
 	}
-	return data, nil
 }
 
 func tlsWriteAll(tlsConn *tls.UConn, data []byte) error {
@@ -198,7 +216,7 @@ func webhostAliveCheck(opt WebhostSingleOpt, tlsConn *tls.UConn) error {
 	if err := tlsWriteAll(tlsConn, req); err != nil {
 		return err
 	}
-	if _, err := tlsReadAll(tlsConn); err != nil {
+	if _, err := tlsReadHttpHeaders(tlsConn); err != nil {
 		return err
 	}
 	return nil
@@ -212,7 +230,7 @@ func webhostTcp1620check(opt WebhostSingleOpt, tlsConn *tls.UConn) error {
 	if err := tlsWriteAll(tlsConn, req); err != nil {
 		return err
 	}
-	if _, err := tlsReadAll(tlsConn); err != nil {
+	if _, err := tlsReadHttpHeaders(tlsConn); err != nil {
 		return err
 	}
 	return nil
