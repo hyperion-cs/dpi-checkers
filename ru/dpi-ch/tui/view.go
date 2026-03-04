@@ -22,6 +22,8 @@ func (rm rootModel) View() string {
 	}
 
 	switch rm.page {
+	case allPage:
+		s += allView()
 	case menuPage:
 		s += menuView(rm.menuModel)
 	case whoamiPage:
@@ -75,6 +77,10 @@ func whoamiView(model whoamiModel) string {
 
 	r := model.result
 	return fmt.Sprintf("IP: %s\nSubnet: %s\nOrg: %s (%s)\nLocation: %s", r.Ip, r.Subnet, r.Org, r.Asn, r.Location)
+}
+
+func allView() string {
+	return "Still in development. Will be ready soon ;)"
 }
 
 func cidrwhitelistView(model cidrwhitelistModel) string {
