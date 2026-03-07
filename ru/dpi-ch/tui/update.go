@@ -132,29 +132,8 @@ func cidrwhitelistUpdate(model cidrwhitelistModel, msg tea.Msg) (cidrwhitelistMo
 func webhostUpdate(model webhostModel, msg tea.Msg) (webhostModel, tea.Cmd) {
 	switch msg := msg.(type) {
 	case webhostInitMsg:
-		// TODO: Should we move ctx/cancel to webhostProducerStartedMsg?
-		ctx, cancel := context.WithCancel(context.Background())
-
-		spin := spinner.New()
-		spin.Spinner = spinnerType
-		spin.Style = spinnerStyle
-
-		// TODO: move that
-		t := table.New()
-		s := table.DefaultStyles()
-		s.Header = s.Header.
-			BorderStyle(lipgloss.NormalBorder()).
-			BorderForeground(lipgloss.Color("240")).
-			BorderBottom(true).
-			Bold(false)
-		s.Selected = s.Selected.
-			Foreground(lipgloss.Color("229")).
-			Background(lipgloss.Color("57")).
-			Bold(false)
-		t.SetStyles(s)
-
-		model = webhostModel{ctx: ctx, cancel: cancel, fetching: true, table: t, spinner: spin}
-		return model, tea.Batch(model.spinner.Tick, webhostProducerStartCmd(ctx, msg.Mode))
+		model := getWebhostInitModel()
+		return model, tea.Batch(model.spinner.Tick, webhostProducerStartCmd(model.ctx, msg.Mode))
 	case webhostProducerStartedMsg:
 		model.out = msg.out
 		return model, webhostConsumerCmd(model.out)
@@ -164,38 +143,7 @@ func webhostUpdate(model webhostModel, msg tea.Msg) (webhostModel, tea.Cmd) {
 			msg.Bag.Name,
 			msg.Out.IpInfo.Ip,
 		)
-
-		r := table.Row{
-			msg.Bag.Name,
-			msg.Out.IpInfo.Org,
-			fmt.Sprintf("AS%d", msg.Out.IpInfo.Asn),
-			countryIsoToFlagEmoji(msg.Out.IpInfo.CountryIso) + " " + msg.Out.IpInfo.CountryIso,
-			msg.Out.IpInfo.Ip.String(),
-			msg.Out.IpInfo.Subnet.String(),
-			prettyAlive(msg.Out.Alive),
-			prettyTcp1620(msg.Out.Tcp1620),
-		}
-		model.rows = append(model.rows, r)
-		slices.SortFunc(model.rows, func(a, b table.Row) int {
-			return cmp.Compare(a[0], b[0]) // by group
-		})
-
-		columns := []table.Column{
-			{Title: "Group", Width: getMaxLen(model.rows, 0, 5)},
-			{Title: "Org", Width: getMaxLen(model.rows, 1, 3)},
-			{Title: "AS", Width: getMaxLen(model.rows, 2, 7)},
-			{Title: "Location", Width: 8},
-			{Title: "IP", Width: getMaxLen(model.rows, 4, 2)},
-			{Title: "Prefix", Width: getMaxLen(model.rows, 5, 6)},
-			{Title: "Alive", Width: 6},
-			{Title: "Tcp 16-20", Width: 11},
-		}
-
-		model.table.SetColumns(columns)
-		model.table.SetHeight(len(model.rows) + 2) // TODO: fix that
-		model.table.SetRows(model.rows)
-
-		return model, webhostConsumerCmd(model.out)
+		return webhostProcessItem(msg, model), webhostConsumerCmd(model.out)
 	case webhostProgressMsg:
 		model.progress = string(msg)
 		return model, webhostConsumerCmd(model.out)
@@ -219,18 +167,65 @@ func webhostUpdate(model webhostModel, msg tea.Msg) (webhostModel, tea.Cmd) {
 	return model, nil
 }
 
-// var (
-// 	ErrWebhostTcpConnReset        = errors.New("tcp: connection reset")
-// 	ErrWebhostTcpConnTimeout      = errors.New("tcp: connection timeout")
-// 	ErrWebhostTcpWriteTimeout     = errors.New("tcp: write timeout")
-// 	ErrWebhostTcpReadTimeout      = errors.New("tcp: read timeout")
-// 	ErrWebhostTlsHandshakeTimeout = errors.New("tls: handshake timeout")
-// 	ErrWebhostTlsHandshakeFail    = errors.New("tls: handshake failure")
-// 	ErrWebhostTlsBadRecordMac     = errors.New("tls: bad record MAC")
-// 	ErrWebhostTlsWriteBrokenPipe  = errors.New("tls/write: broken pipe")
-// 	ErrWebhostInternal            = errors.New("check: internal error")
-// 	ErrWebhostSkip                = errors.New("check: skip")
-// )
+// TODO: move that
+
+func webhostProcessItem(msg webhostItemMsg, model webhostModel) webhostModel {
+	r := table.Row{
+		msg.Bag.Name,
+		msg.Out.IpInfo.Org,
+		fmt.Sprintf("AS%d", msg.Out.IpInfo.Asn),
+		countryIsoToFlagEmoji(msg.Out.IpInfo.CountryIso) + " " + msg.Out.IpInfo.CountryIso,
+		msg.Out.IpInfo.Ip.String(),
+		msg.Out.IpInfo.Subnet.String(),
+		prettyAlive(msg.Out.Alive),
+		prettyTcp1620(msg.Out.Tcp1620),
+	}
+	model.rows = append(model.rows, r)
+	slices.SortFunc(model.rows, func(a, b table.Row) int {
+		return cmp.Compare(a[0], b[0]) // by group
+	})
+
+	columns := []table.Column{
+		{Title: "Group", Width: getMaxLen(model.rows, 0, 5)},
+		{Title: "Org", Width: getMaxLen(model.rows, 1, 3)},
+		{Title: "AS", Width: getMaxLen(model.rows, 2, 7)},
+		{Title: "Location", Width: 8},
+		{Title: "IP", Width: getMaxLen(model.rows, 4, 2)},
+		{Title: "Prefix", Width: getMaxLen(model.rows, 5, 6)},
+		{Title: "Alive", Width: 6},
+		{Title: "Tcp 16-20", Width: 11},
+	}
+
+	model.table.SetColumns(columns)
+	model.table.SetHeight(len(model.rows) + 2) // TODO: fix that
+	model.table.SetRows(model.rows)
+
+	return model
+}
+
+func getWebhostInitModel() webhostModel {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	spin := spinner.New()
+	spin.Spinner = spinnerType
+	spin.Style = spinnerStyle
+
+	// TODO: move that
+	t := table.New()
+	s := table.DefaultStyles()
+	s.Header = s.Header.
+		BorderStyle(lipgloss.NormalBorder()).
+		BorderForeground(lipgloss.Color("240")).
+		BorderBottom(true).
+		Bold(false)
+	s.Selected = s.Selected.
+		Foreground(lipgloss.Color("229")).
+		Background(lipgloss.Color("57")).
+		Bold(false)
+	t.SetStyles(s)
+
+	return webhostModel{ctx: ctx, cancel: cancel, fetching: true, table: t, spinner: spin}
+}
 
 func prettyAlive(err error) string {
 	if err == nil {
