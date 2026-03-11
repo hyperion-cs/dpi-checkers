@@ -26,7 +26,7 @@ const getParamsHandler = () => {
   const host = params.get("host");
   if (host) {
     const provider = params.get("provider") || "Custom";
-    const newTest = { id: `CUSTOM-01`, provider, host };
+    const newTest = { id: `CUSTOM-01`, provider, host, country: "💡" };
     testSuite.push(newTest);
   }
 
@@ -434,7 +434,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     return;
   }
 
-  getParamsHandler();
   fetchAsn();
   await fetchSuite();
+  getParamsHandler();
 });
