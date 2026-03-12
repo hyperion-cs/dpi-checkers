@@ -1,4 +1,6 @@
 # DPI Checkers
+[![dpi-ch release](https://github.com/hyperion-cs/dpi-checkers/actions/workflows/dpich_release.yml/badge.svg)](https://github.com/hyperion-cs/dpi-checkers/actions/workflows/dpich_release.yml)
+
 🚀 This repository contains checkers that allow you to determine if your residential ISP has DPI, as well as the specific methods (and their parameters) the censor uses for restrictions.
 
 > [!WARNING]  
@@ -9,6 +11,11 @@
 ## Checkers list
 :bulb: For web checkers: some providers block access to _hyperion-cs.github.io_ — in this case, you can
 preload checker in your browser.
+
+- ❗ **RU :: DPI-CH** (dpi comprehensive checker)<br>
+  This is the "big brother" of all other checkers, not limited by the browser sandbox. It is an attempt to create a powerful tool for general-purpose DPI analysis (incl. an improved _tcp 16-20_ checker and much more).<br>
+  Extremely flexible configuration. Written in golang, builds are [available](https://github.com/hyperion-cs/dpi-checkers/releases/) for windows/macos/linux (android coming soon). See [its page](https://github.com/hyperion-cs/dpi-checkers/tree/main/ru/dpi-ch/docs) for a detailed description.
+  ![gif](https://raw.githubusercontent.com/hyperion-cs/dpi-checkers/refs/heads/main/static/images/dpich_v0.2.1.gif)
 
 - **RU :: TCP 16-20** => [https://hyperion-cs.github.io/dpi-checkers/ru/tcp-16-20](https://hyperion-cs.github.io/dpi-checkers/ru/tcp-16-20)<br>
   Allows to detect _TCP 16-20_ blocking method in Russia + host alive check. The tests use popular web-services hosted by providers whose subnets are potentially subject to limitations. The testing process runs right in your browser and the source code is available. VPN should be disabled during the check.<br>

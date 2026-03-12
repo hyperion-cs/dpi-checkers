@@ -110,8 +110,8 @@ type WebhostItem struct {
 	Filter         string `mapstructure:"filter"`
 	Count          int    `mapstructure:"count"`
 	Port           int    `mapstructure:"port"`
-	Host           string `mapstructure:"sni"`
-	Sni            string `mapstructure:"host"`
+	Host           string `mapstructure:"host"`
+	Sni            string `mapstructure:"sni"`
 	Tcp1620skip    bool   `mapstructure:"tcp1620-skip"`
 	RandomHostname bool   `mapstructure:"random-hostname"`
 }
