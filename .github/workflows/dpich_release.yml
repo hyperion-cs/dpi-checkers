@@ -1,0 +1,133 @@
+name: dpi-ch release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release version (e.g. v0.1.0)
+        required: true
+        type: string
+
+concurrency:
+  group: release-${{ github.event.inputs.version }}
+  cancel-in-progress: false
+
+env:
+  APP_NAME: dpich
+  GO_MODULE_DIR: ru/dpi-ch
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    defaults:
+      run:
+        shell: bash
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os_name: windows
+            goos: windows
+            goarch: amd64
+            binary_ext: .exe
+
+          - os_name: macos
+            goos: darwin
+            goarch: amd64
+            binary_ext: ""
+
+          - os_name: macos
+            goos: darwin
+            goarch: arm64
+            binary_ext: ""
+
+          - os_name: linux
+            goos: linux
+            goarch: amd64
+            binary_ext: ""
+
+          - os_name: linux
+            goos: linux
+            goarch: arm64
+            binary_ext: ""
+
+    env:
+      VERSION: ${{ github.event.inputs.version }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: ru/dpi-ch/go.mod
+          cache-dependency-path: ru/dpi-ch/go.sum
+
+      - name: Build binary
+        run: |
+          set -euo pipefail
+
+          mkdir -p dist
+
+          binary_name="${APP_NAME}${{ matrix.binary_ext }}"
+          archive_name="${APP_NAME}-${VERSION}-${{ matrix.os_name }}-${{ matrix.goarch }}.zip"
+
+          (
+            cd "${GO_MODULE_DIR}"
+
+            CGO_ENABLED=0 \
+            GOOS=${{ matrix.goos }} \
+            GOARCH=${{ matrix.goarch }} \
+            go build \
+              -trimpath \
+              -ldflags="-s -w" \
+              -o "../../dist/${binary_name}" \
+              .
+          )
+
+          (
+            cd dist
+            zip -9 -j "../${archive_name}" "${binary_name}"
+          )
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.os_name }}-${{ matrix.goarch }}
+          path: ${{ env.APP_NAME }}-${{ env.VERSION }}-${{ matrix.os_name }}-${{ matrix.goarch }}.zip
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    defaults:
+      run:
+        shell: bash
+
+    permissions:
+      contents: write
+
+    env:
+      VERSION: ${{ github.event.inputs.version }}
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          mapfile -t files < <(find artifacts -type f -name '*.zip' | sort)
+
+          gh release create "${VERSION}" \
+            --target "${GITHUB_SHA}" \
+            --title "${VERSION}" \
+            --generate-notes \
+            "${files[@]}"
