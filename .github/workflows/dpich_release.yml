@@ -82,7 +82,7 @@ jobs:
             GOARCH=${{ matrix.goarch }} \
             go build \
               -trimpath \
-              -ldflags="-s -w" \
+              -ldflags="-s -w -X dpich/internal/version.Value=${VERSION}" \
               -o "../../dist/${binary_name}" \
               .
           )

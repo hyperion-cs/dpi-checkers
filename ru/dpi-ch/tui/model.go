@@ -79,7 +79,9 @@ type webhostModel struct {
 }
 
 type updaterModel struct {
-	fetching bool
-	spinner  spinner.Model
-	progress string
+	err             error
+	restartRequired bool
+	fetching        bool
+	spinner         spinner.Model
+	progress        string
 }

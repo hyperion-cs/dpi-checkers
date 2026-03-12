@@ -12,13 +12,14 @@ import (
 
 func (rm rootModel) Init() tea.Cmd {
 	updaterCfg := config.Get().Updater
-	if updaterCfg.Enabled {
+	ttu, _ := updater.TimeToUpdate()
+	if updaterCfg.Enabled && ttu {
 		return func() tea.Msg {
 			return updaterInitMsg{}
 		}
 	}
 
-	// updates are disabled; user is responsible for maintaining current state
+	// if updates are disabled, then user is responsible for maintaining current state
 	return func() tea.Msg {
 		inetlookup.Default()
 		return nil
@@ -66,8 +67,30 @@ func webhostConsumerCmd(out checkers.WebhostGochanRunnerOut) tea.Cmd {
 	}
 }
 
-func updaterCmd() tea.Msg {
+func updaterSelfCmd() tea.Msg {
+	upd, err := updater.SelfCheckUpdates()
+	if err == updater.ErrUnsupportedOsOrArch {
+		// TODO: the user should be warned about this.
+		return updaterSelfNoopMsg{}
+	}
+
+	if err != nil {
+		return updaterErrMsg{err: err}
+	}
+
+	if !upd.Required {
+		return updaterSelfNoopMsg{}
+	}
+
+	if err = updater.SelfUpdate(upd.Name, upd.Url); err != nil {
+		return updaterErrMsg{err: err}
+	}
+
+	return updaterSelfDoneMsg{name: upd.Name}
+}
+
+func updaterInetlookupCmd() tea.Msg {
 	updater.GeoliteUpdate()
 	inetlookup.Default()
-	return updaterDoneMsg{}
+	return updaterInetlookupDoneMsg{}
 }

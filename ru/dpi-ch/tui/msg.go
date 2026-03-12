@@ -30,4 +30,7 @@ type webhostItemMsg checkers.WebhostGochanOut[checkers.WebhostGochanBag]
 type webhostProgressMsg string
 
 type updaterInitMsg struct{}
-type updaterDoneMsg struct{}
+type updaterErrMsg struct{ err error }
+type updaterSelfNoopMsg struct{}
+type updaterSelfDoneMsg struct{ name string }
+type updaterInetlookupDoneMsg struct{}
