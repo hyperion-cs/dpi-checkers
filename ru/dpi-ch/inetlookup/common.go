@@ -1,0 +1,62 @@
+package inetlookup
+
+import (
+	"context"
+	"dpich/config"
+	"dpich/httputil"
+	"net"
+	"net/http"
+	"net/netip"
+	"sync"
+)
+
+var mu sync.Mutex
+var defaultInetLookup InetLookup
+
+func Default() InetLookup {
+	mu.Lock()
+	defer mu.Unlock()
+
+	geolitecsvCfg := config.Get().InetlookupGeolitecsv
+	if defaultInetLookup == nil {
+		ilOpt := GeoliteCsvOpt{
+			CidrAsPath:           geolitecsvCfg.CidrAs,
+			CidrCountryPath:      geolitecsvCfg.CidrCountry,
+			GeonameidCountryPath: geolitecsvCfg.GeonameidCountry,
+		}
+		defaultInetLookup = NewGeoliteCsv(ilOpt)
+	}
+
+	return defaultInetLookup
+}
+
+func LookupIpViaDefault(ctx context.Context, host string) ([]net.IP, error) {
+	ips, err := net.DefaultResolver.LookupIP(ctx, "ip", host)
+	if err != nil {
+		return nil, err
+	}
+	return ips, nil
+}
+
+func GetExternalIpViaRipe(ctx context.Context) (netip.Addr, error) {
+	cfg := config.Get().InetLookup
+
+	var ipRaw struct{ Data struct{ Ip string } }
+	if err := httputil.GetAndUnmarshal(ctx, http.DefaultClient, cfg.RipeApiUrl+"whats-my-ip/data.json", &ipRaw, true, true); err != nil {
+		return netip.Addr{}, err
+	}
+
+	return netip.ParseAddr(ipRaw.Data.Ip)
+}
+
+func GetExternalIpViaYandex(ctx context.Context) (netip.Addr, error) {
+	cfg := config.Get().InetLookup
+
+	var ip string
+	err := httputil.GetAndUnmarshal(ctx, http.DefaultClient, cfg.YandexApiUrl+"ip", &ip, true, true)
+	if err != nil {
+		return netip.Addr{}, err
+	}
+
+	return netip.ParseAddr(ip)
+}

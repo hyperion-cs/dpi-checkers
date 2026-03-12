@@ -1,0 +1,136 @@
+# THIS CONFIG FILE WILL BE EMBEDDED IN THE BINARY.
+# For user configuration, use "config.yaml".
+
+checkers:
+  webhost:
+    popular:
+      - name: Google
+        filter: host("www.google.com")
+      - name: Google Gstatic
+        filter: host("www.gstatic.com")
+      - name: YouTube Web
+        filter: host("www.youtube.com")
+      - name: YouTube Image
+        filter: host("i.ytimg.com")
+      - name: Instagram
+        filter: host("www.instagram.com")
+      - name: X (ex. Twitter)
+        filter: host("x.com")
+      - name: Discord
+        filter: host("discord.com")
+      - name: Telegram Web
+        filter: host("web.telegram.org")
+      - name: WhatsApp Web
+        filter: host("web.whatsapp.com")
+      - name: LinkedIn
+        filter: host("www.linkedin.com")
+    infra:
+      - name: Cloudflare
+        filter: org("cloudflare")
+      - name: Akamai
+        filter: org("akamai")
+      - name: Amazon
+        filter: as(16509)
+      - name: Fastly
+        filter: org("fastly")
+      - name: Oracle
+        filter: org("oracle")
+      - name: Contabo
+        filter: org("contabo")
+      - name: CDN77 / DataCamp
+        filter: org("datacamp")
+      - name: DigitalOcean
+        filter: org("digitalocean")
+        count: 2
+      - name: Hetzner:de
+        filter: org("hetzner") && country("de")
+      - name: Hetzner:fi
+        filter: org("hetzner") && country("fi")
+      - name: OVH
+        filter: as(16276)
+        count: 2
+      - name: Gcore
+        filter: as(199524)
+      - name: FT/BuyVM
+        filter: as(53667)
+      - name: Google Cloud
+        filter: as(396982)
+      - name: Melbicom
+        filter: org("melbikomas")
+      - name: Scaleway
+        filter: org("scaleway")
+      - name: Vultr
+        filter: as(20473)
+    workers: 8
+    tcp-conn-timeout: 3s
+    tls-handshake-timeout: 3s
+    tcp-read-timeout: 15s
+    tcp-write-timeout: 15s
+    tcp-write-buf: 4096
+    tcp-read-buf: 4096
+    tcp1620-n-bytes: 65536
+    http-static-headers:
+      Accept: "*/*"
+      Content-Type: application/octet-stream
+      User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36
+    table-max-visible-rows: 20
+
+  cidrwhitelist:
+    timeout: 15s
+    whitelisted:
+      - https://max.ru/
+      - https://ya.ru/
+      - https://vk.ru/
+    regular:
+      - https://github.com/
+      - https://ru.wikipedia.org/
+      - https://www.google.com/
+
+  whoami:
+      timeout: 30s
+
+# Internal modules
+
+subnetfilter:
+  workers: 8
+
+webhostfarm:
+  workers: 8
+  tcp-conn-timeout: 3s
+  tls-handshake-timeout: 3s
+
+inetlookup:
+  ripe-api-url: https://stat.ripe.net/data/
+  yandex-api-url: https://yandex.ru/internet/api/v0/
+
+inetlookup-geolitecsv:
+  cidr-as: ./data/geolite/cidr-as.csv
+  cidr-country: ./data/geolite/cidr-country.csv
+  geonameid-country: ./data/geolite/geonameid-country.csv
+
+httputil:
+  browser-headers:
+    Accept-Language: ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7
+    User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36
+
+updater:
+  enabled: true
+  timeout: 120s
+  root-dir: ./data
+  self:
+    owner: hyperion-cs
+    repo: dpi-checkers
+  geolite:
+    dir: ./geolite
+    owner: Loyalsoldier
+    repo: geoip
+    branch: release
+    cidr-as:
+      from: GeoLite2-ASN-Blocks-IPv4.csv
+      to: cidr-as.csv
+    cidr-country:
+      from: GeoLite2-Country-Blocks-IPv4.csv
+      to: cidr-country.csv
+    geonameid-country:
+      from: GeoLite2-Country-Locations-en.csv
+      to: geonameid-country.csv
