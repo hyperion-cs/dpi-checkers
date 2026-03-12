@@ -35,7 +35,7 @@ func (rm rootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		rm.page = msg.page
 	case updaterInitMsg:
 		rm.page = updaterPage
-	case updaterDoneMsg:
+	case updaterInetlookupDoneMsg:
 		rm.page = menuPage
 	}
 
@@ -145,9 +145,22 @@ func updaterUpdate(model updaterModel, msg tea.Msg) (updaterModel, tea.Cmd) {
 		s := spinner.New()
 		s.Spinner = spinnerType
 		s.Style = spinnerStyle
-		model = updaterModel{fetching: true, spinner: s, progress: "сhecking geoip updates"}
-		return model, tea.Batch(updaterCmd, model.spinner.Tick)
-	case updaterDoneMsg:
+		model = updaterModel{fetching: true, spinner: s, progress: "checking for updates to itself"}
+		return model, tea.Batch(updaterSelfCmd, model.spinner.Tick)
+	case updaterSelfNoopMsg:
+		model.progress = "checking for geoip updates"
+		model.fetching = true
+		return model, tea.Batch(updaterInetlookupCmd, model.spinner.Tick)
+	case updaterSelfDoneMsg:
+		model.fetching = false
+		model.restartRequired = true
+		model.progress = msg.name
+		return model, nil
+	case updaterErrMsg:
+		model.fetching = false
+		model.err = msg.err
+		return model, nil
+	case updaterInetlookupDoneMsg:
 		model.fetching = false
 		return model, nil
 	case spinner.TickMsg:

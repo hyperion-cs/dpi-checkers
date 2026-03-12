@@ -2,9 +2,12 @@ package main
 
 import (
 	"dpich/config"
+	"dpich/internal/version"
 	"dpich/tui"
+	"dpich/updater"
 	"dpich/webui"
 	"flag"
+	"fmt"
 	"io"
 	"log"
 
@@ -13,6 +16,8 @@ import (
 
 func main() {
 	ui := flag.String("ui", "t", "ui mode: t | web")
+	ver := flag.Bool("version", false, "print version")
+	upd := flag.Bool("update", false, "update executable")
 	cfgPath := flag.String("cfg", config.CfgDefPath, ".yaml config path")
 	flag.Parse()
 
@@ -27,6 +32,15 @@ func main() {
 			log.Fatalf("debug log err: %v", err)
 		}
 		defer f.Close()
+	}
+
+	if *ver {
+		fmt.Println(version.Value)
+		return
+	}
+
+	if *upd {
+		updater.SelfUpdateExecutable(flag.Arg(0), flag.Arg(1))
 	}
 
 	switch *ui {

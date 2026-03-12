@@ -2,6 +2,7 @@ package tui
 
 import (
 	"dpich/checkers"
+	"dpich/internal/version"
 	"fmt"
 	"log"
 
@@ -37,11 +38,11 @@ func (rm rootModel) View() string {
 	}
 
 	if rm.page == updaterPage && !rm.quitting {
-		s += "\n\n" + subtleStyle.Render("q, esc: quit")
+		s += "\n\n" + subtleStyle.Render(fmt.Sprintf("q, esc: quit\nv%s", version.Value))
 	}
 
 	if rm.page != menuPage && rm.page != updaterPage && !rm.quitting {
-		s += "\n\n" + subtleStyle.Render("m, backspace: menu"+dotChar+"q, esc: quit")
+		s += "\n\n" + subtleStyle.Render(fmt.Sprintf("m, backspace: menu%sq, esc: quit\nv%s", dotChar, version.Value))
 	}
 
 	return mainStyle.Render("\n" + s + "\n\n")
@@ -49,7 +50,7 @@ func (rm rootModel) View() string {
 
 func menuView(model menuModel) string {
 	tpl := "Select what you want to check.\n\n%s\n\n" +
-		subtleStyle.Render("up/down: select"+dotChar+"enter: choose"+dotChar+"q, esc: quit")
+		subtleStyle.Render(fmt.Sprintf("up/down: select%senter: choose%sq, esc: quit\nv%s", dotChar, dotChar, version.Value))
 
 	p := menuOptions[model.optionIdx]
 	var as *lipgloss.Style
@@ -129,9 +130,17 @@ func webhostView(model webhostModel) string {
 }
 
 func updaterView(model updaterModel) string {
+	if model.err != nil {
+		return fmt.Sprintf("⚠️ error: %v", model.err)
+	}
+
 	if model.fetching {
 		return fmt.Sprintf("%s %s", model.spinner.View(), model.progress)
 	}
 
-	return "ok"
+	if model.restartRequired {
+		return fmt.Sprintf("✅ dpi-ch utility has been updated (=> %s). Please restart.", model.progress)
+	}
+
+	return "noop"
 }

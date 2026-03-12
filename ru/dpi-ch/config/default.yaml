@@ -115,11 +115,16 @@ httputil:
 
 updater:
   enabled: true
+  period: 24h
+  update-ts-file: update-ts
   timeout: 120s
   root-dir: ./data
   self:
+    dir: ./self
+    bin: dpich
     owner: hyperion-cs
     repo: dpi-checkers
+    tag-prefix: dpich-v
   geolite:
     dir: ./geolite
     owner: Loyalsoldier

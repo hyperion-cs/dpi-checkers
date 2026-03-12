@@ -1,20 +1,182 @@
 package updater
 
 import (
+	"archive/zip"
 	"context"
 	"dpich/config"
 	"dpich/httputil"
+	"dpich/internal/version"
+	"errors"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
+	"runtime"
+	"slices"
+	"strconv"
+	"strings"
+	"time"
 )
 
+type SelfCheckUpdatesResult struct {
+	Url      string
+	Name     string
+	Required bool
+}
+
 const HASH_POSTFIX = ".hash"
+
+var ErrUnsupportedOsOrArch = errors.New("updater/self: unsupported os or arch")
+
+// Determines if it is time to update itself and geoip.
+// Independently updates the associated timestamp.
+func TimeToUpdate() (bool, error) {
+	cfg := config.Get().Updater
+	dst := path.Join(cfg.RootDir, cfg.UpdateTsFile)
+
+	if _, err := os.Stat(dst); err != nil {
+		return true, writeUpdateTimestamp(dst)
+	}
+
+	ts, err := readUpdateTimestamp(dst)
+	if err != nil {
+		return true, writeUpdateTimestamp(dst)
+	}
+
+	delta := time.Duration(time.Now().Unix()-ts) * time.Second
+	if delta > cfg.Period {
+		return true, writeUpdateTimestamp(dst)
+	}
+
+	return false, nil
+}
+
+func readUpdateTimestamp(dst string) (int64, error) {
+	data, err := os.ReadFile(dst)
+	if err != nil {
+		return 0, err
+	}
+
+	ts, err := strconv.ParseInt(string(data), 10, 64)
+	if err != nil {
+		return 0, err
+	}
+
+	return ts, nil
+}
+
+func writeUpdateTimestamp(dst string) error {
+	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+		return err
+	}
+
+	ts := strconv.FormatInt(time.Now().Unix(), 10)
+	return os.WriteFile(dst, []byte(ts), 0644)
+}
+
+// Updates itself. Automatically downloads, unzips, and replaces the executable file.
+// If the update is successful, it is necessary to restart manually.
+func SelfUpdate(name, url string) error {
+	cfg := config.Get().Updater
+	log.Printf("updater/self: available %s\n", name)
+
+	dir := path.Join(cfg.RootDir, cfg.Self.Dir)
+	zipDst := path.Join(dir, name)
+	ctx, cancel := context.WithTimeout(context.Background(), cfg.Timeout)
+	defer cancel()
+
+	if err := download(ctx, url, zipDst); err != nil {
+		return err
+	}
+
+	if err := unzip(zipDst, dir); err != nil {
+		return err
+	}
+
+	if err := os.Remove(zipDst); err != nil {
+		return err
+	}
+
+	log.Println("updater/self: executable downloaded and unzipped")
+	selfPath, err := os.Executable()
+	if err != nil {
+		return err
+	}
+
+	newPath := path.Join(dir, cfg.Self.Bin)
+	if err := os.Chmod(newPath, 0755); err != nil {
+		return err
+	}
+
+	cmd := exec.Command(selfPath, "--update", selfPath, newPath)
+	if err := cmd.Run(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Replaces the executable file from with to and kills the current process.
+func SelfUpdateExecutable(from, to string) error {
+	if err := os.Remove(from); err != nil {
+		return err
+	}
+	if err := os.Rename(to, from); err != nil {
+		return err
+	}
+	log.Printf("updater/self: executable replaced %s => %s\n", from, to)
+	os.Exit(0)
+	return nil
+}
+
+// Checks if there are new versions of itself.
+func SelfCheckUpdates() (SelfCheckUpdatesResult, error) {
+	cfg := config.Get().Updater
+	url := latestReleaseUrl(cfg.Self.Owner, cfg.Self.Repo)
+	ctx, cancel := context.WithTimeout(context.Background(), cfg.Timeout)
+	defer cancel()
+
+	type assetType struct {
+		Name               string
+		BrowserDownloadUrl string `json:"browser_download_url"`
+	}
+
+	var respRaw struct {
+		TagName string `json:"tag_name"`
+		Assets  []assetType
+	}
+	if err := httputil.GetAndUnmarshal(ctx, http.DefaultClient, url, &respRaw, true, false); err != nil {
+		return SelfCheckUpdatesResult{}, err
+	}
+
+	currVer := version.Value
+	latestVer := strings.TrimPrefix(respRaw.TagName, cfg.Self.TagPrefix)
+
+	if currVer == latestVer {
+		return SelfCheckUpdatesResult{Required: false}, nil
+	}
+
+	goos := runtime.GOOS
+	if goos == "darwin" {
+		goos = "macos"
+	}
+
+	assetIdx := slices.IndexFunc(respRaw.Assets, func(x assetType) bool {
+		return strings.Contains(x.Name, runtime.GOARCH) && strings.Contains(x.Name, goos)
+	})
+
+	if assetIdx == -1 {
+		return SelfCheckUpdatesResult{}, ErrUnsupportedOsOrArch
+	}
+
+	asset := respRaw.Assets[assetIdx]
+	return SelfCheckUpdatesResult{Url: asset.BrowserDownloadUrl, Name: asset.Name, Required: true}, nil
+}
 
 func GeoliteUpdate() error {
 	cfg := config.Get().Updater
@@ -162,4 +324,32 @@ func latestReleaseUrl(owner, repo string) string {
 		url.PathEscape(owner),
 		url.PathEscape(repo),
 	)
+}
+
+func unzip(zipPath, dst string) error {
+	r, err := zip.OpenReader(zipPath)
+	if err != nil {
+		return err
+	}
+	defer r.Close()
+
+	for _, f := range r.File {
+		p := filepath.Join(dst, f.Name)
+
+		if f.FileInfo().IsDir() {
+			os.MkdirAll(p, 0755)
+			continue
+		}
+
+		os.MkdirAll(filepath.Dir(p), 0755)
+
+		in, _ := f.Open()
+		out, _ := os.Create(p)
+
+		io.Copy(out, in)
+
+		in.Close()
+		out.Close()
+	}
+	return nil
 }

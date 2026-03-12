@@ -67,13 +67,18 @@ type Config struct {
 	} `mapstructure:"httputil"`
 
 	Updater struct {
-		Enabled bool          `mapstructure:"enabled"`
-		Timeout time.Duration `mapstructure:"timeout"`
-		RootDir string        `mapstructure:"root-dir"`
+		Enabled      bool          `mapstructure:"enabled"`
+		Period       time.Duration `mapstructure:"period"`
+		Timeout      time.Duration `mapstructure:"timeout"`
+		RootDir      string        `mapstructure:"root-dir"`
+		UpdateTsFile string        `mapstructure:"update-ts-file"`
 
 		Self struct {
-			Owner string `mapstructure:"owner"`
-			Repo  string `mapstructure:"repo"`
+			Dir       string `mapstructure:"dir"`
+			Bin       string `mapstructure:"bin"`
+			Owner     string `mapstructure:"owner"`
+			Repo      string `mapstructure:"repo"`
+			TagPrefix string `mapstructure:"tag-prefix"`
 		} `mapstructure:"self"`
 
 		Geolite struct {
