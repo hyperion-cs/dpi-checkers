@@ -126,7 +126,8 @@ jobs:
 
           mapfile -t files < <(find artifacts -type f -name '*.zip' | sort)
 
-          gh release create "${VERSION}" \
+          gh release create "dpich-${VERSION}" \
+            --repo "${GITHUB_REPOSITORY}" \
             --target "${GITHUB_SHA}" \
             --title "${VERSION}" \
             --generate-notes \
