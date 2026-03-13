@@ -1,9 +1,13 @@
 package tui
 
 import (
+	"context"
 	"dpich/checkers"
 	"dpich/httputil"
+	"errors"
 	"fmt"
+	"net"
+	"os"
 
 	"github.com/charmbracelet/bubbles/table"
 )
@@ -59,4 +63,16 @@ func tableCellMaxLen(rows []table.Row, pos, min int) int {
 		}
 	}
 	return max
+}
+
+func isTimeoutErr(err error) bool {
+	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) ||
+			errors.Is(err, os.ErrDeadlineExceeded) {
+			return true
+		} else if ne, ok := err.(net.Error); ok && ne.Timeout() {
+			return true
+		}
+	}
+	return false
 }

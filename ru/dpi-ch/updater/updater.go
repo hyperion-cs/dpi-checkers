@@ -33,7 +33,7 @@ const HASH_POSTFIX = ".hash"
 
 var ErrUnsupportedOsOrArch = errors.New("updater/self: unsupported os or arch")
 
-// Determines if it is time to update itself and geoip.
+// Determines if it is time to update itself and inetlookup.
 // Independently updates the associated timestamp.
 func TimeToUpdate() (bool, error) {
 	cfg := config.Get().Updater
@@ -81,11 +81,11 @@ func writeUpdateTimestamp(dst string) error {
 
 // Updates itself. Automatically downloads, unzips, and replaces the executable file.
 // If the update is successful, it is necessary to restart manually.
-func SelfUpdate(name, url string) error {
+func SelfUpdate(ctx context.Context, name, url string) error {
 	cfg := config.Get().Updater
 	dir := path.Join(cfg.RootDir, cfg.Self.Dir)
 	zipDst := path.Join(dir, name)
-	ctx, cancel := context.WithTimeout(context.Background(), cfg.Timeout)
+	ctx, cancel := context.WithTimeout(ctx, cfg.Timeout)
 	defer cancel()
 
 	if err := download(ctx, url, zipDst); err != nil {
@@ -133,10 +133,10 @@ func SelfUpdateExecutable(from, to string) error {
 }
 
 // Checks if there are new versions of itself.
-func SelfCheckUpdates() (SelfCheckUpdatesResult, error) {
+func SelfCheckUpdates(ctx context.Context) (SelfCheckUpdatesResult, error) {
 	cfg := config.Get().Updater
 	url := latestReleaseUrl(cfg.Self.Owner, cfg.Self.Repo)
-	ctx, cancel := context.WithTimeout(context.Background(), cfg.Timeout)
+	ctx, cancel := context.WithTimeout(ctx, cfg.Timeout)
 	defer cancel()
 
 	type assetType struct {
@@ -177,24 +177,24 @@ func SelfCheckUpdates() (SelfCheckUpdatesResult, error) {
 	return SelfCheckUpdatesResult{Url: asset.BrowserDownloadUrl, Name: asset.Name, Required: true}, nil
 }
 
-func GeoliteUpdate() error {
+func GeoliteUpdate(ctx context.Context) error {
 	cfg := config.Get().Updater
 	dir := path.Join(cfg.RootDir, cfg.Geolite.Dir)
 
-	if err := geolitePartUpdate(cfg.Geolite.CidrAs.From, path.Join(dir, cfg.Geolite.CidrAs.To)); err != nil {
+	if err := geolitePartUpdate(ctx, cfg.Geolite.CidrAs.From, path.Join(dir, cfg.Geolite.CidrAs.To)); err != nil {
 		return err
 	}
-	if err := geolitePartUpdate(cfg.Geolite.CidrCountry.From, path.Join(dir, cfg.Geolite.CidrCountry.To)); err != nil {
+	if err := geolitePartUpdate(ctx, cfg.Geolite.CidrCountry.From, path.Join(dir, cfg.Geolite.CidrCountry.To)); err != nil {
 		return err
 	}
-	if err := geolitePartUpdate(cfg.Geolite.GeonameidCountry.From, path.Join(dir, cfg.Geolite.GeonameidCountry.To)); err != nil {
+	if err := geolitePartUpdate(ctx, cfg.Geolite.GeonameidCountry.From, path.Join(dir, cfg.Geolite.GeonameidCountry.To)); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func geolitePartUpdate(from, to string) error {
+func geolitePartUpdate(ctx context.Context, from, to string) error {
 	cfg := config.Get().Updater
 
 	localHash, err := readLocalHash(to)
@@ -202,7 +202,7 @@ func geolitePartUpdate(from, to string) error {
 		return err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), cfg.Timeout)
+	ctx, cancel := context.WithTimeout(ctx, cfg.Timeout)
 	defer cancel()
 	remoteHash, err := remoteHash(
 		ctx,
@@ -220,7 +220,7 @@ func geolitePartUpdate(from, to string) error {
 	}
 
 	log.Println("geoliteCidrAsUpdate:download", localHash, remoteHash)
-	ctx, cancel = context.WithTimeout(context.Background(), cfg.Timeout)
+	ctx, cancel = context.WithTimeout(ctx, cfg.Timeout)
 	defer cancel()
 	download(ctx, contentUrl(
 		cfg.Geolite.Owner,

@@ -79,6 +79,9 @@ type webhostModel struct {
 }
 
 type updaterModel struct {
+	ctx    context.Context
+	cancel context.CancelFunc
+
 	err             error
 	restartRequired bool
 	fetching        bool

@@ -67,30 +67,36 @@ func webhostConsumerCmd(out checkers.WebhostGochanRunnerOut) tea.Cmd {
 	}
 }
 
-func updaterSelfCmd() tea.Msg {
-	upd, err := updater.SelfCheckUpdates()
-	if err == updater.ErrUnsupportedOsOrArch {
-		// TODO: the user should be warned about this.
-		return updaterSelfNoopMsg{}
-	}
+func updaterSelfCmd(ctx context.Context) tea.Cmd {
+	return func() tea.Msg {
+		upd, err := updater.SelfCheckUpdates(ctx)
+		if err == updater.ErrUnsupportedOsOrArch {
+			// TODO: the user should be warned about this.
+			return updaterSelfNoopMsg{}
+		}
 
-	if err != nil {
-		return updaterErrMsg{err: err}
-	}
+		if err != nil {
+			return updaterErrMsg{err: err}
+		}
 
-	if !upd.Required {
-		return updaterSelfNoopMsg{}
-	}
+		if !upd.Required {
+			return updaterSelfNoopMsg{}
+		}
 
-	if err = updater.SelfUpdate(upd.Name, upd.Url); err != nil {
-		return updaterErrMsg{err: err}
-	}
+		if err = updater.SelfUpdate(ctx, upd.Name, upd.Url); err != nil {
+			return updaterErrMsg{err: err}
+		}
 
-	return updaterSelfDoneMsg{name: upd.Name}
+		return updaterSelfDoneMsg{name: upd.Name}
+	}
 }
 
-func updaterInetlookupCmd() tea.Msg {
-	updater.GeoliteUpdate()
-	inetlookup.Default()
-	return updaterInetlookupDoneMsg{}
+func updaterInetlookupCmd(ctx context.Context) tea.Cmd {
+	return func() tea.Msg {
+		if err := updater.GeoliteUpdate(ctx); err != nil {
+			return updaterErrMsg{err: err}
+		}
+		inetlookup.Default()
+		return updaterDoneMsg{}
+	}
 }

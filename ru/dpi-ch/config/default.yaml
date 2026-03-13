@@ -87,7 +87,7 @@ checkers:
       - https://www.google.com/
 
   whoami:
-      timeout: 30s
+      timeout: 15s
 
 # Internal modules
 

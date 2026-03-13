@@ -38,7 +38,7 @@ func (rm rootModel) View() string {
 	}
 
 	if rm.page == updaterPage && !rm.quitting {
-		s += "\n\n" + subtleStyle.Render(fmt.Sprintf("q, esc: quit\n%s", version.Value))
+		s += "\n\n" + subtleStyle.Render(fmt.Sprintf("m, backspace: skip updater%sq, esc: quit\n%s", dotChar, version.Value))
 	}
 
 	if rm.page != menuPage && rm.page != updaterPage && !rm.quitting {

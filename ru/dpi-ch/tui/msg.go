@@ -33,4 +33,4 @@ type updaterInitMsg struct{ forceInetlookupUpdate bool }
 type updaterErrMsg struct{ err error }
 type updaterSelfNoopMsg struct{}
 type updaterSelfDoneMsg struct{ name string }
-type updaterInetlookupDoneMsg struct{}
+type updaterDoneMsg struct{}

@@ -54,7 +54,7 @@ Example 2: `org("hetzner") && country("he")` — returns a set of subnets that a
 The default configuration already includes default filter options for popular web services and infrastructure providers (see below), but we hope you will be able to take full benefit of this flexible feature to suit your needs. By the way, this mechanism inside dpi-ch is called _subnetfilter_ and it works locally without the internet.
 
 ## How to run the utility
-To start _dpi-ch_, simply download and run the relevant binary from the [latest](https://github.com/hyperion-cs/dpi-checkers/releases/latest) release (this only needs to be done once, after which the utility will update automatically). You can do this manually or via the command line:
+To start _dpi-ch_, simply download and run the relevant binary from the [latest](https://github.com/hyperion-cs/dpi-checkers/releases/latest) release (this only needs to be done once, after which the utility will update automatically). You can do this manually or via the command line.
 
 #### Linux / macOS
 ```bash

@@ -27,7 +27,11 @@ func (rm rootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return rm, tea.Quit
 		}
 
-		if rm.page != updaterPage && (k == "m" || k == "ь" || k == "backspace") {
+		if k == "m" || k == "ь" || k == "backspace" {
+			if rm.page == updaterPage {
+				cmds = append(cmds, func() tea.Msg { return updaterDoneMsg{} })
+			}
+
 			rm.page = menuPage
 			cmds = append(cmds, func() tea.Msg { return returnedToMenuMsg{} })
 		}
@@ -35,7 +39,7 @@ func (rm rootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		rm.page = msg.page
 	case updaterInitMsg:
 		rm.page = updaterPage
-	case updaterInetlookupDoneMsg:
+	case updaterDoneMsg:
 		rm.page = menuPage
 	}
 
@@ -142,19 +146,20 @@ func cidrwhitelistUpdate(model cidrwhitelistModel, msg tea.Msg) (cidrwhitelistMo
 func updaterUpdate(model updaterModel, msg tea.Msg) (updaterModel, tea.Cmd) {
 	switch msg := msg.(type) {
 	case updaterInitMsg:
+		ctx, cancel := context.WithCancel(context.Background())
 		s := spinner.New()
 		s.Spinner = spinnerType
 		s.Style = spinnerStyle
-		model = updaterModel{fetching: true, spinner: s}
+		model = updaterModel{fetching: true, spinner: s, ctx: ctx, cancel: cancel}
 		if msg.forceInetlookupUpdate {
 			return model, func() tea.Msg { return updaterSelfNoopMsg{} }
 		}
 		model.progress = "checking for updates to itself"
-		return model, tea.Batch(updaterSelfCmd, model.spinner.Tick)
+		return model, tea.Batch(updaterSelfCmd(model.ctx), model.spinner.Tick)
 	case updaterSelfNoopMsg:
 		model.progress = "checking for geoip updates"
 		model.fetching = true
-		return model, tea.Batch(updaterInetlookupCmd, model.spinner.Tick)
+		return model, tea.Batch(updaterInetlookupCmd(model.ctx), model.spinner.Tick)
 	case updaterSelfDoneMsg:
 		model.fetching = false
 		model.restartRequired = true
@@ -163,8 +168,14 @@ func updaterUpdate(model updaterModel, msg tea.Msg) (updaterModel, tea.Cmd) {
 	case updaterErrMsg:
 		model.fetching = false
 		model.err = msg.err
+		if isTimeoutErr(model.err) {
+			model.err = fmt.Errorf("network timeout in the update mechanism; you can skip this step or restart the utility")
+		}
 		return model, nil
-	case updaterInetlookupDoneMsg:
+	case updaterDoneMsg:
+		if model.cancel != nil {
+			model.cancel()
+		}
 		model.fetching = false
 		return model, nil
 	case spinner.TickMsg:
