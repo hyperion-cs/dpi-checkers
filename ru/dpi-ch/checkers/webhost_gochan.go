@@ -11,6 +11,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"sync"
 )
 
 type WebhostGochanIn[T any] struct {
@@ -70,6 +71,7 @@ type WebhostGochanRunnerOut struct {
 }
 
 func WebhostGochanRunner(opt WebhostGochanRunnerOpt) WebhostGochanRunnerOut {
+	var wg sync.WaitGroup
 	cfg := config.Get().Checkers.Webhost
 	progressCh := make(chan string, 16)
 	webhostSendProgress(progressCh, "webhost checker => initialization...")
@@ -88,7 +90,7 @@ func WebhostGochanRunner(opt WebhostGochanRunnerOpt) WebhostGochanRunnerOut {
 	farmGochan := webhostfarm.Gochan(webhostfarm.GochanOpt[WebhostGochanBag]{Ctx: opt.Ctx, In: farmGochanIn})
 	webhostSendProgress(progressCh, "webhostfarm => initialized")
 
-	go func() {
+	wg.Go(func() {
 		defer close(farmGochanIn)
 		for x := range sfGochan {
 			webhostSendProgress(
@@ -105,7 +107,7 @@ func WebhostGochanRunner(opt WebhostGochanRunnerOpt) WebhostGochanRunnerOut {
 			case farmGochanIn <- in:
 			}
 		}
-	}()
+	})
 
 	var keyLogWriter io.Writer
 	var klwPostFunc func()
@@ -154,6 +156,8 @@ func WebhostGochanRunner(opt WebhostGochanRunnerOpt) WebhostGochanRunnerOut {
 				}
 			}
 		}
+
+		wg.Wait()
 	}()
 
 	return WebhostGochanRunnerOut{Out: webhostGochan, Progress: progressCh}
