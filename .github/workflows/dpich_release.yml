@@ -129,6 +129,6 @@ jobs:
           gh release create "dpich-${VERSION}" \
             --repo "${GITHUB_REPOSITORY}" \
             --target "${GITHUB_SHA}" \
-            --title "${VERSION}" \
+            --title "dpi-ch ${VERSION}" \
             --generate-notes \
             "${files[@]}"

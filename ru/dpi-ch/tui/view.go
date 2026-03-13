@@ -83,7 +83,8 @@ func whoamiView(model whoamiModel) string {
 	}
 
 	r := model.result
-	return fmt.Sprintf("IP: %s\nSubnet: %s\nOrg: %s (%s)\nLocation: %s", r.Ip, r.Subnet, r.Org, r.Asn, r.Location)
+	emj := countryIsoToFlagEmoji(r.Location)
+	return fmt.Sprintf("IP: %s\nSubnet: %s\nOrg: %s (%s)\nLocation: %s %s", r.Ip, r.Subnet, r.Org, r.Asn, emj, r.Location)
 }
 
 func allView() string {
