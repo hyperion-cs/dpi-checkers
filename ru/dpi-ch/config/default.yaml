@@ -124,7 +124,7 @@ updater:
     bin: dpich
     owner: hyperion-cs
     repo: dpi-checkers
-    tag-prefix: dpich-v
+    tag-prefix: dpich-
   geolite:
     dir: ./geolite
     owner: Loyalsoldier

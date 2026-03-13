@@ -83,8 +83,6 @@ func writeUpdateTimestamp(dst string) error {
 // If the update is successful, it is necessary to restart manually.
 func SelfUpdate(name, url string) error {
 	cfg := config.Get().Updater
-	log.Printf("updater/self: available %s\n", name)
-
 	dir := path.Join(cfg.RootDir, cfg.Self.Dir)
 	zipDst := path.Join(dir, name)
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.Timeout)
@@ -175,6 +173,7 @@ func SelfCheckUpdates() (SelfCheckUpdatesResult, error) {
 	}
 
 	asset := respRaw.Assets[assetIdx]
+	log.Printf("updater/self: available %s (%s => %s)\n", asset.Name, currVer, latestVer)
 	return SelfCheckUpdatesResult{Url: asset.BrowserDownloadUrl, Name: asset.Name, Required: true}, nil
 }
 
