@@ -67,11 +67,12 @@ type Config struct {
 	} `mapstructure:"httputil"`
 
 	Updater struct {
-		Enabled      bool          `mapstructure:"enabled"`
-		Period       time.Duration `mapstructure:"period"`
-		Timeout      time.Duration `mapstructure:"timeout"`
-		RootDir      string        `mapstructure:"root-dir"`
-		UpdateTsFile string        `mapstructure:"update-ts-file"`
+		Enabled               bool          `mapstructure:"enabled"`
+		Period                time.Duration `mapstructure:"period"`
+		Timeout               time.Duration `mapstructure:"timeout"`
+		RootDir               string        `mapstructure:"root-dir"`
+		UpdateTsFile          string        `mapstructure:"update-ts-file"`
+		ForceInetlookupUpdate bool          `mapstructure:"force-inetlookup-update"`
 
 		Self struct {
 			Dir       string `mapstructure:"dir"`
@@ -154,4 +155,8 @@ func Load(path string) error {
 
 func Get() *Config {
 	return cfg
+}
+
+func ForceInetlookupUpdate() {
+	cfg.Updater.ForceInetlookupUpdate = true
 }

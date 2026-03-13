@@ -29,7 +29,7 @@ type webhostProducerDoneMsg struct{}
 type webhostItemMsg checkers.WebhostGochanOut[checkers.WebhostGochanBag]
 type webhostProgressMsg string
 
-type updaterInitMsg struct{}
+type updaterInitMsg struct{ forceInetlookupUpdate bool }
 type updaterErrMsg struct{ err error }
 type updaterSelfNoopMsg struct{}
 type updaterSelfDoneMsg struct{ name string }

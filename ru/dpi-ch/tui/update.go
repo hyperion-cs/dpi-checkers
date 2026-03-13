@@ -145,7 +145,11 @@ func updaterUpdate(model updaterModel, msg tea.Msg) (updaterModel, tea.Cmd) {
 		s := spinner.New()
 		s.Spinner = spinnerType
 		s.Style = spinnerStyle
-		model = updaterModel{fetching: true, spinner: s, progress: "checking for updates to itself"}
+		model = updaterModel{fetching: true, spinner: s}
+		if msg.forceInetlookupUpdate {
+			return model, func() tea.Msg { return updaterSelfNoopMsg{} }
+		}
+		model.progress = "checking for updates to itself"
 		return model, tea.Batch(updaterSelfCmd, model.spinner.Tick)
 	case updaterSelfNoopMsg:
 		model.progress = "checking for geoip updates"

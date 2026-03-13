@@ -215,7 +215,7 @@ func geolitePartUpdate(from, to string) error {
 		return err
 	}
 
-	if localHash == remoteHash {
+	if localHash == remoteHash && !cfg.ForceInetlookupUpdate {
 		return nil
 	}
 

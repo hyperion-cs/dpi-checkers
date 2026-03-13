@@ -13,9 +13,9 @@ import (
 func (rm rootModel) Init() tea.Cmd {
 	updaterCfg := config.Get().Updater
 	ttu, _ := updater.TimeToUpdate()
-	if updaterCfg.Enabled && ttu {
+	if updaterCfg.ForceInetlookupUpdate || (updaterCfg.Enabled && ttu) {
 		return func() tea.Msg {
-			return updaterInitMsg{}
+			return updaterInitMsg{forceInetlookupUpdate: updaterCfg.ForceInetlookupUpdate}
 		}
 	}
 

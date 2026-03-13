@@ -4,9 +4,12 @@ import (
 	"context"
 	"dpich/config"
 	"dpich/httputil"
+	"fmt"
 	"net"
 	"net/http"
 	"net/netip"
+	"os"
+	"path"
 	"sync"
 )
 
@@ -23,6 +26,12 @@ func Default() InetLookup {
 			CidrAsPath:           geolitecsvCfg.CidrAs,
 			CidrCountryPath:      geolitecsvCfg.CidrCountry,
 			GeonameidCountryPath: geolitecsvCfg.GeonameidCountry,
+		}
+		if !fileExists(ilOpt.CidrAsPath) || !fileExists(ilOpt.CidrCountryPath) || !fileExists(ilOpt.CidrCountryPath) {
+			panic(
+				fmt.Sprintf("inetlookup/geolite: some .csv files are missing in ./%s; try running the utility with the --force-inetlookup-update flag",
+					path.Dir(ilOpt.CidrAsPath)),
+			)
 		}
 		defaultInetLookup = NewGeoliteCsv(ilOpt)
 	}
@@ -59,4 +68,9 @@ func GetExternalIpViaYandex(ctx context.Context) (netip.Addr, error) {
 	}
 
 	return netip.ParseAddr(ip)
+}
+
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return !os.IsNotExist(err)
 }

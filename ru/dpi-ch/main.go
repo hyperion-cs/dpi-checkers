@@ -17,7 +17,9 @@ import (
 func main() {
 	ui := flag.String("ui", "t", "ui mode: t | web")
 	ver := flag.Bool("version", false, "print version")
-	upd := flag.Bool("update", false, "update executable")
+	upd := flag.Bool("update", false, "replace the executable with the updated version")
+	forceInetlookupUpd := flag.Bool("force-inetlookup-update", false, "force run the inetlookup update mechanism")
+
 	cfgPath := flag.String("cfg", config.CfgDefPath, ".yaml config path")
 	flag.Parse()
 
@@ -41,6 +43,10 @@ func main() {
 
 	if *upd {
 		updater.SelfUpdateExecutable(flag.Arg(0), flag.Arg(1))
+	}
+
+	if *forceInetlookupUpd {
+		config.ForceInetlookupUpdate()
 	}
 
 	switch *ui {
