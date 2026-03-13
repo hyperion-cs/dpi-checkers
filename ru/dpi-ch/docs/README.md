@@ -53,6 +53,35 @@ Example 2: `org("hetzner") && country("he")` — returns a set of subnets that a
 
 The default configuration already includes default filter options for popular web services and infrastructure providers (see below), but we hope you will be able to take full benefit of this flexible feature to suit your needs. By the way, this mechanism inside dpi-ch is called _subnetfilter_ and it works locally without the internet.
 
+## How to run the utility
+To start _dpi-ch_, simply download and run the relevant binary from the [latest](https://github.com/hyperion-cs/dpi-checkers/releases/latest) release (this only needs to be done once, after which the utility will update automatically). You can do this manually or via the command line:
+
+#### Linux / macOS
+```bash
+# See links to the latest binaries
+curl -s https://api.github.com/repos/hyperion-cs/dpi-checkers/releases/latest | grep browser_download_url
+
+# Paste into :link the link to the latest binary for your OS/architecture here
+curl -L -o dpich.zip :link
+unzip dpich.zip && rm dpich.zip && chmod +x dpich
+./dpich
+```
+
+#### Windows
+We recommend using [Terminal](https://github.com/microsoft/terminal) for adequate tui behavior. 
+
+```powershell
+# See links to the latest binaries
+curl -s https://api.github.com/repos/hyperion-cs/dpi-checkers/releases/latest | Select-String browser_download_url
+
+# Paste into :link the link to the latest binary for your OS/architecture here
+curl -L -o dpich.zip :link
+Expand-Archive dpich.zip && Remove-Item dpich.zip
+.\dpich.exe
+```
+
+\* Of course, you can always compile and run it from [source](https://github.com/hyperion-cs/dpi-checkers/tree/main/ru/dpi-ch).
+
 ## Planned
 - [ ] Comprehensive DNS checker (leak test, detection of response hijacking, server hijacking, etc.);
 - [ ] Trigger blocks checker;
