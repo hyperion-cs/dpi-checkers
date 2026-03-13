@@ -38,11 +38,11 @@ func (rm rootModel) View() string {
 	}
 
 	if rm.page == updaterPage && !rm.quitting {
-		s += "\n\n" + subtleStyle.Render(fmt.Sprintf("q, esc: quit\nv%s", version.Value))
+		s += "\n\n" + subtleStyle.Render(fmt.Sprintf("q, esc: quit\n%s", version.Value))
 	}
 
 	if rm.page != menuPage && rm.page != updaterPage && !rm.quitting {
-		s += "\n\n" + subtleStyle.Render(fmt.Sprintf("m, backspace: menu%sq, esc: quit\nv%s", dotChar, version.Value))
+		s += "\n\n" + subtleStyle.Render(fmt.Sprintf("m, backspace: menu%sq, esc: quit\n%s", dotChar, version.Value))
 	}
 
 	return mainStyle.Render("\n" + s + "\n\n")
@@ -50,7 +50,7 @@ func (rm rootModel) View() string {
 
 func menuView(model menuModel) string {
 	tpl := "Select what you want to check.\n\n%s\n\n" +
-		subtleStyle.Render(fmt.Sprintf("up/down: select%senter: choose%sq, esc: quit\nv%s", dotChar, dotChar, version.Value))
+		subtleStyle.Render(fmt.Sprintf("up/down: select%senter: choose%sq, esc: quit\n%s", dotChar, dotChar, version.Value))
 
 	p := menuOptions[model.optionIdx]
 	var as *lipgloss.Style
