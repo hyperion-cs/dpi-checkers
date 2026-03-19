@@ -90,7 +90,7 @@ Expand-Archive dpich.zip && Remove-Item dpich.zip
 - [ ] Option to temporarily freeze the list of hosts in _webhost_ checker;
 - [ ] Estimation of internet connection speed (including shaping/slowdown detection) in _webhost_ checker;
 - [ ] Detecting subnets for CIDR whitelists;
-- [ ] Detecting hostnamesfor for SNI whitelists;
+- [ ] Detecting hostnames for for SNI whitelists;
 - [ ] Integration with [zapret](https://github.com/bol-van/zapret2) to find optimal strategies;
 - [ ] Android version (via [Termux](https://en.wikipedia.org/wiki/Termux));
 - [ ] Web UI in addition to TUI (backend is already architecturally separated from frontend);
