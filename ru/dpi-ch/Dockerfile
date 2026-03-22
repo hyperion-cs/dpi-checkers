@@ -8,7 +8,7 @@ ARG VERSION=dev
 RUN \
     go build \
     -o dpich \
-    -ldflags "-X dpich/internal/version.Value=${VERSION}" \
+    -ldflags "-s -w -X dpich/internal/version.Value=${VERSION}" \
     -trimpath \
     .
 
