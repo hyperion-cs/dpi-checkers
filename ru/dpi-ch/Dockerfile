@@ -15,8 +15,12 @@ RUN \
 
 FROM alpine:3.23 AS runner
 COPY --from=builder /build/dpich /usr/bin/dpich
+COPY docker/config.yaml /etc/dpich/config.yaml
 
 ENTRYPOINT ["/usr/bin/dpich"]
 
 # Download inetlookup data by default
-CMD ["--force-inetlookup-update"]
+CMD [ \
+    "--cfg", "/etc/dpich/config.yaml", \
+    "--force-inetlookup-update" \
+    ]
