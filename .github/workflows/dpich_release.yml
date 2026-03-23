@@ -138,7 +138,7 @@ jobs:
     env:
       VERSION: ${{ github.event.inputs.version }}
       REGISTRY: ghcr.io
-      GITHUB_REPOSITORY: ${{ github.repository_owner }}
+      GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
       IMAGE_NAME: dpich
 
     permissions:
@@ -165,16 +165,9 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
-      - name: downcase REPO
+      - name: Lowercase OWNER
         run: |
-          echo "IMAGE_REPO=${GITHUB_REPOSITORY,,}" >>${GITHUB_ENV}
-
-      - name: ls ru/dpi-ch/
-        run: |
-          ls ./
-          pwd
-          tree
-          ls ru/dpi-ch/
+          echo "IMAGE_OWNER=${GITHUB_REPOSITORY_OWNER,,}" >>${GITHUB_ENV}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
@@ -186,5 +179,5 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
         env:
-          IMAGE_REF: "${{ env.REGISTRY }}/${{ env.IMAGE_REPO }}/${{ env.IMAGE_NAME }}"
+          IMAGE_REF: "${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_NAME }}"
 
