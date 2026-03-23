@@ -164,11 +164,15 @@ jobs:
         run: |
           echo "IMAGE_REPO=${GITHUB_REPOSITORY,,}" >>${GITHUB_ENV}
 
+      - name: ls ru/dpi-ch/
+        run: |
+          ls ru/dpi-ch/
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
           platforms: linux/amd64,linux/arm64
-          context: ru/dpi-ch
+          context: ru/dpi-ch/
           push: true
           tags: "${{ env.IMAGE_REF }}:${{ env.VERSION }}"
           cache-from: type=gha
