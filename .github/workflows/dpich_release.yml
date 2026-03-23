@@ -136,8 +136,9 @@ jobs:
   build-and-push-image:
     runs-on: ubuntu-latest
     env:
+      REGISTRY: ghcr.io
       VERSION: ${{ github.event.inputs.version }}
-      IMAGE_NAME: "ghcr.io/${{ github.repository_owner }}/dpich"
+      IMAGE_NAME: "${{ env.REGISTRY }}/${{ github.repository_owner }}/dpich"
 
     permissions:
       contents: read
