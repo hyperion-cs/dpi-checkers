@@ -178,6 +178,7 @@ jobs:
           tags: "${{ env.IMAGE_REF }}:${{ env.VERSION }}"
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          build-args: "VERSION=${{ env.VERSION }}"
         env:
           IMAGE_REF: "${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.IMAGE_NAME }}"
 
