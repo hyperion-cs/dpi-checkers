@@ -166,6 +166,9 @@ jobs:
 
       - name: ls ru/dpi-ch/
         run: |
+          ls ./
+          pwd
+          tree
           ls ru/dpi-ch/
 
       - name: Build and push Docker image
