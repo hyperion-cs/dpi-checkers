@@ -138,7 +138,7 @@ jobs:
     env:
       VERSION: ${{ github.event.inputs.version }}
       REGISTRY: ghcr.io
-      IMAGE_REPO: ${{ github.repository_owner }}
+      IMAGE_REPO: ${{ github.repository_owner | lower }}
       IMAGE_NAME: dpich
 
     permissions:
