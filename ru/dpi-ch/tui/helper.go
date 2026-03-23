@@ -2,12 +2,13 @@ package tui
 
 import (
 	"context"
-	"dpich/checkers"
-	"dpich/httputil"
 	"errors"
 	"fmt"
 	"net"
 	"os"
+
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/httputil"
 
 	"github.com/charmbracelet/bubbles/table"
 )

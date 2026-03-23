@@ -2,16 +2,17 @@ package checkers
 
 import (
 	"context"
-	"dpich/config"
-	"dpich/gochan"
-	"dpich/inetlookup"
-	"dpich/subnetfilter"
-	"dpich/webhostfarm"
 	"fmt"
 	"io"
 	"log"
 	"os"
 	"sync"
+
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/gochan"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/inetlookup"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/subnetfilter"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/webhostfarm"
 )
 
 type WebhostGochanIn[T any] struct {

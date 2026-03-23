@@ -4,12 +4,13 @@ package checkers
 
 import (
 	"context"
-	"dpich/config"
-	"dpich/httputil"
 	"errors"
 	"net/http"
 	"sync"
 	"sync/atomic"
+
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/httputil"
 )
 
 var ErrCidrWhitelistDetected = errors.New("cidr whitelist detected")

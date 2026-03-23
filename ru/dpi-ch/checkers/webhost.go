@@ -2,13 +2,14 @@ package checkers
 
 import (
 	"crypto/rand"
-	"dpich/config"
-	"dpich/httputil"
-	"dpich/inetlookup"
 	"errors"
 	"fmt"
 	"io"
 	"net/netip"
+
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/httputil"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/inetlookup"
 
 	tls "github.com/refraction-networking/utls"
 )

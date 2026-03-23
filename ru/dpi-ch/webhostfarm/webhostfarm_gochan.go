@@ -2,8 +2,9 @@ package webhostfarm
 
 import (
 	"context"
-	"dpich/config"
-	"dpich/gochan"
+
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/gochan"
 )
 
 type GochanIn[T any] struct {

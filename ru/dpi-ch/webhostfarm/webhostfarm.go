@@ -1,11 +1,12 @@
 package webhostfarm
 
 import (
-	"dpich/config"
-	"dpich/httputil"
 	"iter"
 	"math/rand/v2"
 	"net/netip"
+
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/httputil"
 
 	"go4.org/netipx"
 )

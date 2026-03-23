@@ -2,9 +2,10 @@ package checkers
 
 import (
 	"context"
-	"dpich/config"
-	"dpich/inetlookup"
 	"fmt"
+
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/inetlookup"
 )
 
 type WhoamiResult struct {

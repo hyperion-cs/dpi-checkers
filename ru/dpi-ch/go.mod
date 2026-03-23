@@ -1,4 +1,4 @@
-module dpich
+module github.com/hyperion-cs/dpi-checkers/ru/dpi-ch
 
 go 1.25
 

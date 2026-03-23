@@ -2,10 +2,11 @@ package subnetfilter
 
 import (
 	"context"
-	"dpich/inetlookup"
 	"net/netip"
 	"slices"
 	"strings"
+
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/inetlookup"
 
 	"github.com/expr-lang/expr"
 	"github.com/expr-lang/expr/ast"

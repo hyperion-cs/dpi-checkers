@@ -1,11 +1,12 @@
 package subnetfilter
 
 import (
-	"dpich/inetlookup"
 	"net/netip"
 	"os"
 	"slices"
 	"testing"
+
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/inetlookup"
 
 	"go4.org/netipx"
 )

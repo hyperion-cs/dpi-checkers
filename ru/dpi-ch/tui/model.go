@@ -2,7 +2,8 @@ package tui
 
 import (
 	"context"
-	"dpich/checkers"
+
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers"
 
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/table"

@@ -1,10 +1,11 @@
 package tui
 
 import (
-	"dpich/checkers"
-	"dpich/internal/version"
 	"fmt"
 	"log"
+
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/internal/version"
 
 	"github.com/charmbracelet/lipgloss"
 )

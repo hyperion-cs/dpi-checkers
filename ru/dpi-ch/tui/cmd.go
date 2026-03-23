@@ -2,10 +2,11 @@ package tui
 
 import (
 	"context"
-	"dpich/checkers"
-	"dpich/config"
-	"dpich/inetlookup"
-	"dpich/updater"
+
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/inetlookup"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/updater"
 
 	tea "github.com/charmbracelet/bubbletea"
 )

@@ -2,8 +2,9 @@ package subnetfilter
 
 import (
 	"context"
-	"dpich/config"
-	"dpich/gochan"
+
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/gochan"
 
 	"github.com/expr-lang/expr/vm"
 	"go4.org/netipx"

@@ -2,10 +2,11 @@ package httputil
 
 import (
 	"context"
-	"dpich/config"
 	"encoding/json"
 	"io"
 	"net/http"
+
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
 )
 
 func Head(ctx context.Context, client *http.Client, url string, browserHeaders bool, close bool) error {

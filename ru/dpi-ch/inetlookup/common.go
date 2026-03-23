@@ -2,8 +2,6 @@ package inetlookup
 
 import (
 	"context"
-	"dpich/config"
-	"dpich/httputil"
 	"fmt"
 	"net"
 	"net/http"
@@ -11,6 +9,9 @@ import (
 	"os"
 	"path"
 	"sync"
+
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/httputil"
 )
 
 var mu sync.Mutex

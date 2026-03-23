@@ -1,6 +1,6 @@
 package tui
 
-import "dpich/checkers"
+import "github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers"
 
 type rootMsg struct {
 	page page

@@ -1,15 +1,16 @@
 package main
 
 import (
-	"dpich/config"
-	"dpich/internal/version"
-	"dpich/tui"
-	"dpich/updater"
-	"dpich/webui"
 	"flag"
 	"fmt"
 	"io"
 	"log"
+
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/internal/version"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/tui"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/updater"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/webui"
 
 	tea "github.com/charmbracelet/bubbletea"
 )

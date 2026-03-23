@@ -3,9 +3,6 @@ package updater
 import (
 	"archive/zip"
 	"context"
-	"dpich/config"
-	"dpich/httputil"
-	"dpich/internal/version"
 	"errors"
 	"fmt"
 	"io"
@@ -21,6 +18,10 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/httputil"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/internal/version"
 )
 
 type SelfCheckUpdatesResult struct {

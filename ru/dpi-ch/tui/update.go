@@ -3,10 +3,11 @@ package tui
 import (
 	"cmp"
 	"context"
-	"dpich/checkers"
-	"dpich/config"
 	"fmt"
 	"slices"
+
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
 
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/table"
