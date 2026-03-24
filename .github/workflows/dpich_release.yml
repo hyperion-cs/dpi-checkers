@@ -173,9 +173,7 @@ jobs:
           platforms: linux/amd64,linux/arm64
           context: ru/dpi-ch/
           push: true
-          tags:
-            - "${{ env.IMAGE_REF }}:${{ env.VERSION }}"
-            - "${{ env.IMAGE_REF }}:latest"
+          tags: "${{ env.IMAGE_REF }}:${{ env.VERSION }},${{ env.IMAGE_REF }}:latest"
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: "VERSION=${{ env.VERSION }}"
