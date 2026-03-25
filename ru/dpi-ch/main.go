@@ -12,7 +12,7 @@ import (
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/updater"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/webui"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 func main() {

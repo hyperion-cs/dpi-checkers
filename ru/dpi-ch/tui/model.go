@@ -5,8 +5,8 @@ import (
 
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers"
 
-	"github.com/charmbracelet/bubbles/spinner"
-	"github.com/charmbracelet/bubbles/table"
+	"charm.land/bubbles/v2/spinner"
+	"charm.land/bubbles/v2/table"
 )
 
 type page int
@@ -18,6 +18,7 @@ const (
 	cidrwhitelistPage
 	webhostPopularPage
 	webhostInfraPage
+	dnsPage
 	updaterPage
 )
 
@@ -29,6 +30,7 @@ func getPageName(p page) string {
 		cidrwhitelistPage:  "Am I under the CIDR whitelist?",
 		webhostPopularPage: "Popular Web Services",
 		webhostInfraPage:   "Infrastructure Providers",
+		dnsPage:            "DNS",
 		updaterPage:        "Updater",
 	}
 
@@ -39,16 +41,18 @@ func getPageName(p page) string {
 }
 
 type rootModel struct {
-	quitting           bool
-	page               page
+	quitting bool
+	page     page
+
 	menuModel          menuModel
 	whoamiModel        whoamiModel
 	cidrwhitelistModel cidrwhitelistModel
 	webhostModel       webhostModel
+	dnsModel           dnsModel
 	updaterModel       updaterModel
 }
 
-var menuOptions = []page{allPage, whoamiPage, cidrwhitelistPage, webhostPopularPage, webhostInfraPage}
+var menuOptions = []page{allPage, whoamiPage, cidrwhitelistPage, webhostPopularPage, webhostInfraPage, dnsPage}
 
 type menuModel struct {
 	optionIdx int
@@ -68,15 +72,43 @@ type cidrwhitelistModel struct {
 }
 
 type webhostModel struct {
+	inited   bool
 	fetching bool
 	spinner  spinner.Model
 	progress string
-	rows     []table.Row
 	table    table.Model
 
 	ctx    context.Context
 	cancel context.CancelFunc
 	out    checkers.WebhostGochanRunnerOut
+}
+
+type dnsChannelModel struct {
+	providerPlain <-chan checkers.DnsVerdict
+	providerDoh   <-chan checkers.DnsVerdict
+	leak          <-chan checkers.DnsLeakWithIpinfoOut
+	progress      chan string
+}
+
+type dnsVerdictModel struct {
+	plainVerdict error
+	dohVerdict   error
+}
+
+type dnsModel struct {
+	inited   bool
+	fetching bool
+	spinner  spinner.Model
+	progress string
+
+	tblHeight     int
+	providerRows  map[string]dnsVerdictModel
+	providerTable table.Model
+	leakTable     table.Model
+
+	out    dnsChannelModel
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
 type updaterModel struct {

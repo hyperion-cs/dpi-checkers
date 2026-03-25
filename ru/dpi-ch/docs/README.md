@@ -11,6 +11,7 @@ Extremely flexible configuration. Written in golang, builds are [available](http
 - **Comprehensive checks** (_incl. alive and tcp 16-20 restrictions_); aka _webhost checker_:
   - **Popular Web Services** like YouTube, Instagram, Discord, Telegram and others;
   - **Infrastructure Providers** like Cloudflare, Akamai, Hetzner, DigitalOcean and others.
+- **DNS** checks if a censor is spoofing dns responses, hijacking servers, DoH blocking, etc; aka _dns checker_;
 - Modern TUI (aka CLI) with flexible parallel workers;
 - Automatic utility update from Github releases;
 - Some killer features.
@@ -83,7 +84,7 @@ Expand-Archive dpich.zip && Remove-Item dpich.zip
 \* Of course, you can always compile and run it from [source](https://github.com/hyperion-cs/dpi-checkers/tree/main/ru/dpi-ch).
 
 ## Planned
-- [ ] Comprehensive DNS checker (leak test, detection of response hijacking, server hijacking, etc.);
+- [x] Comprehensive DNS checker (leak test, detection of response spoofing, server hijacking, etc.);
 - [ ] Trigger blocks checker;
 - [ ] More detailed information in checkers (_statuses, reasons, etc._);
 - [ ] TLS certificate hijacking detection in _webhost_ checker;
@@ -137,6 +138,26 @@ checkers: # checkers, available in the dpi-ch utility
     key-log-path:           # string; if set, the (pre)-master-secret log will be written to this path; useful for wireshark
     table-max-visible-rows: # int; number of visible rows in the results table (if there are more, scrolling is available)
     http-static-headers:    # map[string]string; http headers that will be sent as part of requests to hosts
+
+  dns: # aka dns checker
+    table-max-visible-rows: # int; number of visible rows in results tables (if there are more, scrolling is available)
+
+    targets: # []target-item; list of test targets for resolving
+
+             # target-item structure:
+             # host:   # string; domain name for resolving (e.g. google.com)
+             # filter: # string; filter in subnetfilter notation that determines if a dns resolving occurred without spoofing
+   
+    providers: # []provider-item; list of dns providers (both plain and doh)
+
+               # provider-item structure:
+               # name:  # string; name of the provider
+               # plain: # []string; list of provider's plain dns resolvers in ip:port format
+               # doh:   # provider's doh dns resolvers
+                 # filter: # string; filter in subnetfilter notation that determines if a dns BOOTSTRAP resolving occurred without spoofing
+                 # hosts:  # []string; list of provider's doh dns resolvers in domain name format (e.g. dns.google)
+
+
 
   whoami: # aka whoami checker
     timeout: # time.Duration; total timeout for receiving checker results

@@ -36,6 +36,47 @@ type Config struct {
 			HttpStaticHeaders   map[string]string `mapstructure:"http-static-headers"`
 		} `mapstructure:"webhost"`
 
+		Dns struct {
+			TableMaxVisibleRows int `mapstructure:"table-max-visible-rows"`
+
+			Leak struct {
+				Timeout      time.Duration `mapstructure:"timeout"`
+				Times        int           `mapstructure:"times"`
+				Workers      int           `mapstructure:"workers"`
+				ParentDomain string        `mapstructure:"parent-domain"`
+				LabelLen     int           `mapstructure:"label-len"`
+				LabelAlpha   string        `mapstructure:"label-alpha"`
+			} `mapstructure:"leak"`
+
+			Resolve struct {
+				PlainOpt struct {
+					Timeout time.Duration `mapstructure:"timeout"`
+					Workers int           `mapstructure:"workers"`
+				} `mapstructure:"plain-opt"`
+
+				DohOpt struct {
+					Timeout           time.Duration     `mapstructure:"timeout"`
+					Workers           int               `mapstructure:"workers"`
+					Path              string            `mapstructure:"path"`
+					HttpStaticHeaders map[string]string `mapstructure:"http-static-headers"`
+				} `mapstructure:"doh-opt"`
+
+				Targets []struct {
+					Host   string `mapstructure:"host"`
+					Filter string `mapstructure:"filter"`
+				} `mapstructure:"targets"`
+
+				Providers []struct {
+					Name  string   `mapstructure:"name"`
+					Plain []string `mapstructure:"plain"`
+					DoH   struct {
+						Filter string   `mapstructure:"filter"`
+						Hosts  []string `mapstructure:"hosts"`
+					} `mapstructure:"doh"`
+				} `mapstructure:"providers"`
+			} `mapstructure:"resolve"`
+		} `mapstructure:"dns"`
+
 		Whoami struct {
 			Timeout time.Duration `mapstructure:"timeout"`
 		} `mapstructure:"whoami"`

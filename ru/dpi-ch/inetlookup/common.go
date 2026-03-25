@@ -15,14 +15,14 @@ import (
 )
 
 var mu sync.Mutex
-var defaultInetLookup InetLookup
+var def InetLookup
 
 func Default() InetLookup {
 	mu.Lock()
 	defer mu.Unlock()
 
 	geolitecsvCfg := config.Get().InetlookupGeolitecsv
-	if defaultInetLookup == nil {
+	if def == nil {
 		ilOpt := GeoliteCsvOpt{
 			CidrAsPath:           geolitecsvCfg.CidrAs,
 			CidrCountryPath:      geolitecsvCfg.CidrCountry,
@@ -34,10 +34,10 @@ func Default() InetLookup {
 					path.Dir(ilOpt.CidrAsPath)),
 			)
 		}
-		defaultInetLookup = NewGeoliteCsv(ilOpt)
+		def = NewGeoliteCsv(ilOpt)
 	}
 
-	return defaultInetLookup
+	return def
 }
 
 func LookupIpViaDefault(ctx context.Context, host string) ([]net.IP, error) {

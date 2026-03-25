@@ -3,7 +3,7 @@ package tui
 import (
 	"log"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 func Tui() {

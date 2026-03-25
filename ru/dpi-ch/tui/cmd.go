@@ -8,7 +8,7 @@ import (
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/inetlookup"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/updater"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 func (rm rootModel) Init() tea.Cmd {
@@ -65,6 +65,49 @@ func webhostConsumerCmd(out checkers.WebhostGochanRunnerOut) tea.Cmd {
 		}
 
 		return webhostProducerDoneMsg{}
+	}
+}
+
+func dnsProducerStartCmd(ctx context.Context) tea.Cmd {
+	return func() tea.Msg {
+		return dnsProducerStartedMsg{
+			out: dnsChannelModel{
+				leak:          checkers.DnsLeakGochan(ctx),
+				providerPlain: checkers.DnsPlainGochan(ctx),
+				providerDoh:   checkers.DnsDohGochan(ctx),
+				progress:      make(chan string, 16),
+			},
+		}
+	}
+}
+
+func dnsConsumerCmd(out dnsChannelModel) tea.Cmd {
+	return func() tea.Msg {
+		for out.providerPlain != nil || out.providerDoh != nil || out.leak != nil {
+			select {
+			case v, ok := <-out.providerPlain:
+				if !ok {
+					out.providerPlain = nil
+					continue
+				}
+				return dnsProviderPlainMsg(v)
+			case v, ok := <-out.providerDoh:
+				if !ok {
+					out.providerDoh = nil
+					continue
+				}
+				return dnsProviderDohMsg(v)
+			case v, ok := <-out.leak:
+				if !ok {
+					out.leak = nil
+					continue
+				}
+				return dnsLeakMsg(v)
+			case v := <-out.progress:
+				return dnsProgressMsg(v)
+			}
+		}
+		return dnsProducerDoneMsg{}
 	}
 }
 

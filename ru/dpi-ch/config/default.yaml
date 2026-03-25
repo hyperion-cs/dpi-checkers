@@ -12,16 +12,20 @@ checkers:
         filter: host("www.youtube.com")
       - name: YouTube Image
         filter: host("i.ytimg.com")
-      - name: Instagram
-        filter: host("www.instagram.com")
       - name: X (ex. Twitter)
         filter: host("x.com")
       - name: Discord
         filter: host("discord.com")
       - name: Telegram Web
         filter: host("web.telegram.org")
+      - name: Telegram Api
+        filter: host("api.telegram.org")
+      - name: Facebook
+        filter: host("www.facebook.com")
       - name: WhatsApp Web
         filter: host("web.whatsapp.com")
+      - name: Instagram
+        filter: host("www.instagram.com")
       - name: LinkedIn
         filter: host("www.linkedin.com")
     infra:
@@ -86,8 +90,91 @@ checkers:
       - https://ru.wikipedia.org/
       - https://www.google.com/
 
-  whoami:
+  dns:
+    table-max-visible-rows: 10
+
+    leak:
       timeout: 15s
+      times: 4
+      workers: 4
+      parent-domain: dns4.browserleaks.net
+      label-len: 12
+      label-alpha: abcdefghijkmnopqrstuvwyz0123456789
+
+    resolve:
+      plain-opt:
+        timeout: 10s
+        workers: 5
+
+      doh-opt:
+        timeout: 10s
+        workers: 5
+        path: /dns-query
+        http-static-headers:
+          Content-Type: application/dns-message
+
+      targets:
+        - host: www.youtube.com
+          filter: org("google")
+        - host: x.com
+          filter: org("cloudflare") || org("fastly")
+        - host: discord.com
+          filter: org("cloudflare")
+        - host: www.facebook.com
+          filter: org("facebook")
+        - host: www.instagram.com
+          filter: org("facebook")
+        - host: www.linkedin.com
+          filter: org("cloudflare") || org("microsoft")
+        - host: currenttime.tv
+          filter: org("akamai")
+
+      providers:
+        - name: Cloudflare DNS
+          plain:
+            - 1.1.1.1:53
+            - 1.0.0.1:53
+          doh:
+            filter: org("cloudflare")
+            hosts:
+              - cloudflare-dns.com
+              - dns.cloudflare.com
+              - one.one.one.one
+
+        - name: Google DNS
+          plain:
+            - 8.8.8.8:53
+            - 8.8.4.4:53
+          doh:
+            filter: org("google")
+            hosts:
+              - dns.google
+
+        - name: OpenDNS
+          plain:
+            - 208.67.222.222:53
+            - 208.67.220.220:53
+          doh:
+            filter: org("opendns")
+            hosts:
+              - dns.opendns.com
+
+        - name: AdGuard DNS
+          plain:
+            - 94.140.14.14:53
+            - 94.140.15.15:53
+          doh:
+            filter: org("adguard")
+            hosts:
+              - dns.adguard-dns.com
+
+        - name: Yandex DNS
+          plain:
+            - 77.88.8.8:53
+            - 77.88.8.1:53
+
+  whoami:
+    timeout: 15s
 
 # Internal modules
 
