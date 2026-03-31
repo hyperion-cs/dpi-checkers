@@ -3,17 +3,22 @@ package tui
 import (
 	"cmp"
 	"context"
+	"errors"
 	"fmt"
+	"log"
+	"net/netip"
 	"slices"
+	"strings"
 
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
 
-	"github.com/charmbracelet/bubbles/spinner"
-	"github.com/charmbracelet/bubbles/table"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/spinner"
+	"charm.land/bubbles/v2/table"
+	tea "charm.land/bubbletea/v2"
 )
+
+var ErrPending = errors.New("err: pending")
 
 func (rm rootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
@@ -21,8 +26,13 @@ func (rm rootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// Only root and updater processing here
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		k := msg.String()
+		log.Println("KeyPressMsg", k)
+
+		// this and other tea.ClearScreen; tmp workaround of https://github.com/charmbracelet/bubbletea/issues/1646
+		cmds = append(cmds, tea.ClearScreen)
+
 		if k == "q" || k == "й" || k == "esc" || k == "ctrl+c" {
 			rm.quitting = true
 			return rm, tea.Quit
@@ -61,12 +71,15 @@ func (rm rootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	rm.updaterModel, cmd = updaterUpdate(rm.updaterModel, msg)
 	cmds = append(cmds, cmd)
 
+	rm.dnsModel, cmd = dnsUpdate(rm.dnsModel, msg)
+	cmds = append(cmds, cmd)
+
 	return rm, tea.Batch(cmds...)
 }
 
 func menuUpdate(model menuModel, msg tea.Msg) (menuModel, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "up":
 			model.optionIdx = (model.optionIdx - 1 + len(menuOptions)) % len(menuOptions)
@@ -84,6 +97,8 @@ func menuUpdate(model menuModel, msg tea.Msg) (menuModel, tea.Cmd) {
 				initMsg = webhostInitMsg{Mode: checkers.WebHostModePopular}
 			case webhostInfraPage:
 				initMsg = webhostInitMsg{Mode: checkers.WebHostModeInfra}
+			case dnsPage:
+				initMsg = dnsInitMsg{}
 			}
 
 			return model, tea.Batch(
@@ -191,15 +206,22 @@ func updaterUpdate(model updaterModel, msg tea.Msg) (updaterModel, tea.Cmd) {
 }
 
 func webhostUpdate(model webhostModel, msg tea.Msg) (webhostModel, tea.Cmd) {
+	if !model.inited {
+		switch msg := msg.(type) {
+		case webhostInitMsg:
+			model := webhostInitModel()
+			return model, tea.Batch(model.spinner.Tick, webhostProducerStartCmd(model.ctx, msg.Mode))
+		}
+
+		return model, nil
+	}
+
 	switch msg := msg.(type) {
-	case webhostInitMsg:
-		model := webhostInitModel()
-		return model, tea.Batch(model.spinner.Tick, webhostProducerStartCmd(model.ctx, msg.Mode))
 	case webhostProducerStartedMsg:
 		model.out = msg.out
 		return model, webhostConsumerCmd(model.out)
 	case webhostItemMsg:
-		return webhostProcessItem(msg, model), webhostConsumerCmd(model.out)
+		return webhostProcessItem(msg, model), tea.Batch(webhostConsumerCmd(model.out), tea.ClearScreen)
 	case webhostProgressMsg:
 		model.progress = string(msg)
 		return model, webhostConsumerCmd(model.out)
@@ -234,7 +256,7 @@ func webhostProcessItem(msg webhostItemMsg, model webhostModel) webhostModel {
 		msg.Out.IpInfo.Ip,
 	)
 
-	r := table.Row{
+	row := table.Row{
 		msg.Bag.Name,
 		msg.Out.IpInfo.Org,
 		fmt.Sprintf("AS%d", msg.Out.IpInfo.Asn),
@@ -245,26 +267,27 @@ func webhostProcessItem(msg webhostItemMsg, model webhostModel) webhostModel {
 		webhostPrettyTcp1620(msg.Out.Tcp1620),
 	}
 
-	model.rows = append(model.rows, r)
-	slices.SortFunc(model.rows, func(a, b table.Row) int {
+	rows := model.table.Rows()
+	rows = append(rows, row)
+	slices.SortFunc(rows, func(a, b table.Row) int {
 		return cmp.Compare(a[0], b[0]) // by group
 	})
 
 	columns := []table.Column{
-		{Title: "Group", Width: tableCellMaxLen(model.rows, 0, 5)},
-		{Title: "Org", Width: tableCellMaxLen(model.rows, 1, 3)},
-		{Title: "AS", Width: tableCellMaxLen(model.rows, 2, 7)},
+		{Title: "Group", Width: tableCellMaxLen(rows, 0, 5)},
+		{Title: "Org", Width: tableCellMaxLen(rows, 1, 3)},
+		{Title: "AS", Width: tableCellMaxLen(rows, 2, 7)},
 		{Title: "Location", Width: 8},
-		{Title: "IP", Width: tableCellMaxLen(model.rows, 4, 2)},
-		{Title: "Prefix", Width: tableCellMaxLen(model.rows, 5, 6)},
-		{Title: "Alive", Width: tableCellMaxLen(model.rows, 6, 6)},
-		{Title: "Tcp 16-20", Width: tableCellMaxLen(model.rows, 7, 11)},
+		{Title: "IP", Width: tableCellMaxLen(rows, 4, 2)},
+		{Title: "Prefix", Width: tableCellMaxLen(rows, 5, 6)},
+		{Title: "Alive", Width: tableCellMaxLen(rows, 6, 6)},
+		{Title: "Tcp 16-20", Width: tableCellMaxLen(rows, 7, 11)},
 	}
 
-	const extra = 2 // internal table extra height
 	model.table.SetColumns(columns)
-	model.table.SetHeight(min(cfg.TableMaxVisibleRows, len(model.rows)) + extra)
-	model.table.SetRows(model.rows)
+	model.table.SetRows(rows)
+	model.table.SetHeight(tableHeight(model.table.Rows(), cfg.TableMaxVisibleRows))
+	model.table.SetWidth(tableWidth(model.table.Columns()))
 
 	return model
 }
@@ -276,22 +299,210 @@ func webhostInitModel() webhostModel {
 	spin.Spinner = spinnerType
 	spin.Style = spinnerStyle
 
-	// TODO: move that?
-	s := table.DefaultStyles()
-	s.Header = s.Header.
-		BorderStyle(lipgloss.NormalBorder()).
-		BorderForeground(lipgloss.Color("240")).
-		BorderBottom(true).
-		Bold(false)
-	s.Selected = s.Selected.
-		Foreground(lipgloss.Color("229")).
-		Background(lipgloss.Color("57")).
-		Bold(false)
-
 	t := table.New(
 		table.WithFocused(true),
-		table.WithStyles(s),
+		table.WithStyles(tableStyle(true)),
 	)
 
-	return webhostModel{ctx: ctx, cancel: cancel, fetching: true, table: t, spinner: spin}
+	return webhostModel{
+		inited:   true,
+		ctx:      ctx,
+		cancel:   cancel,
+		fetching: true,
+		table:    t,
+		spinner:  spin,
+	}
+}
+
+func dnsUpdate(model dnsModel, msg tea.Msg) (dnsModel, tea.Cmd) {
+	if !model.inited {
+		switch msg.(type) {
+		case dnsInitMsg:
+			model = dnsInitModel()
+			return model, tea.Batch(model.spinner.Tick, dnsProducerStartCmd(model.ctx))
+		}
+
+		return model, nil
+	}
+
+	switch msg := msg.(type) {
+	case dnsProducerStartedMsg:
+		model.out = msg.out
+		return model, dnsConsumerCmd(model.out)
+	case dnsProviderPlainMsg:
+		return dnsProcessPlainProvider(msg, model), tea.Batch(dnsConsumerCmd(model.out), tea.ClearScreen)
+	case dnsProviderDohMsg:
+		return dnsProcessDohProvider(msg, model), tea.Batch(dnsConsumerCmd(model.out), tea.ClearScreen)
+	case dnsLeakMsg:
+		return dnsProcessLeak(msg, model), tea.Batch(dnsConsumerCmd(model.out), tea.ClearScreen)
+	case dnsProgressMsg:
+		model.progress = string(msg)
+		return model, dnsConsumerCmd(model.out)
+	case dnsProducerDoneMsg:
+		model.fetching = false
+		if model.out.progress != nil {
+			close(model.out.progress)
+		}
+		return model, nil
+	case tea.KeyPressMsg:
+		switch msg.String() {
+		case "left":
+			model.providerTable.Focus()
+			model.providerTable.SetStyles(tableStyle(true))
+			model.leakTable.Blur()
+			model.leakTable.SetStyles(tableStyle(false))
+			return model, nil
+		case "right":
+			model.leakTable.Focus()
+			model.leakTable.SetStyles(tableStyle(true))
+			model.providerTable.Blur()
+			model.providerTable.SetStyles(tableStyle(false))
+			return model, nil
+		}
+	case spinner.TickMsg:
+		if model.fetching {
+			var cmd tea.Cmd
+			model.spinner, cmd = model.spinner.Update(msg)
+			return model, cmd
+		}
+	case returnedToMenuMsg:
+		if model.cancel != nil {
+			model.cancel()
+		}
+		model = dnsModel{}
+		return model, nil
+	}
+
+	var leakCmd, providerCmd tea.Cmd
+	model.leakTable, leakCmd = model.leakTable.Update(msg)
+	model.providerTable, providerCmd = model.providerTable.Update(msg)
+	return model, tea.Batch(leakCmd, providerCmd)
+}
+
+func dnsProcessPlainProvider(msg dnsProviderPlainMsg, model dnsModel) dnsModel {
+	model.out.progress <- fmt.Sprintf("[%s] plain: %s", msg.Provider, dnsPrettyProviderVerdict(msg.Verdict))
+	v, ok := model.providerRows[msg.Provider]
+	if !ok {
+		v.dohVerdict = ErrPending
+	}
+	v.plainVerdict = msg.Verdict
+	model.providerRows[msg.Provider] = v
+	return dnsUpdateProviderTable(model)
+}
+
+func dnsProcessDohProvider(msg dnsProviderDohMsg, model dnsModel) dnsModel {
+	model.out.progress <- fmt.Sprintf("[%s] doh: %s", msg.Provider, dnsPrettyProviderVerdict(msg.Verdict))
+	v, ok := model.providerRows[msg.Provider]
+	if !ok {
+		v.plainVerdict = ErrPending
+	}
+	v.dohVerdict = msg.Verdict
+	model.providerRows[msg.Provider] = v
+	return dnsUpdateProviderTable(model)
+}
+
+func dnsProcessLeak(msg dnsLeakMsg, model dnsModel) dnsModel {
+	if msg.Err != nil {
+		model.out.progress <- "dns leak internal err"
+		return model
+	}
+
+	model.out.progress <- "dns leak received"
+	cfg := config.Get().Checkers.Dns
+
+	newRows := []table.Row{}
+	for _, item := range msg.Items {
+		newRows = append(newRows, table.Row{
+			item.Ip,
+			item.Subnet,
+			item.Asn,
+			item.Org,
+			fmt.Sprintf("%s %s", countryIsoToFlagEmoji(item.Location), item.Location),
+		})
+	}
+	rows := append(model.leakTable.Rows(), newRows...)
+
+	// by ip
+	slices.SortFunc(rows, func(a, b table.Row) int {
+		return netip.MustParseAddr(a[0]).Compare(netip.MustParseAddr(b[0]))
+	})
+	rows = slices.CompactFunc(rows, func(a, b table.Row) bool { return a[0] == b[0] })
+
+	columns := []table.Column{
+		{Title: "IP", Width: tableCellMaxLen(rows, 0, 2)},
+		{Title: "Prefix", Width: tableCellMaxLen(rows, 1, 6)},
+		{Title: "AS", Width: tableCellMaxLen(rows, 2, 7)},
+		{Title: "Org", Width: tableCellMaxLen(rows, 3, 3)},
+		{Title: "Location", Width: 8},
+	}
+
+	model.leakTable.SetColumns(columns)
+	model.leakTable.SetRows(rows)
+
+	model.tblHeight = max(model.tblHeight, tableHeight(model.leakTable.Rows(), cfg.TableMaxVisibleRows))
+	model.leakTable.SetHeight(model.tblHeight)
+	model.providerTable.SetHeight(model.tblHeight)
+	model.leakTable.SetWidth(tableWidth(model.leakTable.Columns()))
+
+	return model
+}
+
+func dnsUpdateProviderTable(model dnsModel) dnsModel {
+	cfg := config.Get().Checkers.Dns
+	rows := []table.Row{}
+
+	for id, s := range model.providerRows {
+		p := dnsPrettyProviderVerdict(s.plainVerdict)
+		doh := dnsPrettyProviderVerdict(s.dohVerdict)
+		row := table.Row{id, p, doh}
+		rows = append(rows, row)
+	}
+
+	slices.SortFunc(rows, func(a, b table.Row) int {
+		return strings.Compare(a[0], b[0]) // by provider name
+	})
+	columns := []table.Column{
+		{Title: "Provider", Width: tableCellMaxLen(rows, 0, 14)},
+		{Title: "Plain", Width: tableCellMaxLen(rows, 1, 14)},
+		{Title: "DoH", Width: tableCellMaxLen(rows, 2, 14)},
+	}
+
+	model.providerTable.SetColumns(columns)
+	model.providerTable.SetRows(rows)
+
+	model.tblHeight = max(model.tblHeight, tableHeight(model.providerTable.Rows(), cfg.TableMaxVisibleRows))
+	model.providerTable.SetHeight(model.tblHeight)
+	model.leakTable.SetHeight(model.tblHeight)
+	model.providerTable.SetWidth(tableWidth(model.providerTable.Columns()))
+
+	return model
+}
+
+func dnsInitModel() dnsModel {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	spin := spinner.New()
+	spin.Spinner = spinnerType
+	spin.Style = spinnerStyle
+
+	providerTable := table.New(
+		table.WithFocused(true),
+		table.WithStyles(tableStyle(true)),
+	)
+
+	leakTable := table.New(
+		table.WithFocused(false),
+		table.WithStyles(tableStyle(false)),
+	)
+
+	return dnsModel{
+		inited:        true,
+		ctx:           ctx,
+		cancel:        cancel,
+		fetching:      true,
+		spinner:       spin,
+		providerRows:  map[string]dnsVerdictModel{},
+		providerTable: providerTable,
+		leakTable:     leakTable,
+	}
 }

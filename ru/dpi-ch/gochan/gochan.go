@@ -10,21 +10,7 @@ type GochanOpt[In any, Out any] struct {
 	Workers  int
 	Input    <-chan In
 	Executor func(In) Out
-	Post     func()
-}
-
-// Push slice into input channel and close it.
-func Push[In any](ctx context.Context, ch chan<- In, items []In) {
-	go func() {
-		defer close(ch)
-		for _, x := range items {
-			select {
-			case <-ctx.Done():
-				return
-			case ch <- x:
-			}
-		}
-	}()
+	Post     func() // will be executed after all workers finish their tasks
 }
 
 func Start[In any, Out any](opt GochanOpt[In, Out]) <-chan Out {
@@ -60,4 +46,32 @@ func Start[In any, Out any](opt GochanOpt[In, Out]) <-chan Out {
 	}()
 
 	return out
+}
+
+// Run goroutine that push slice into ch, then close it
+func Push[In any](ctx context.Context, ch chan<- In, items []In) {
+	go func() {
+		defer close(ch)
+		for _, x := range items {
+			select {
+			case <-ctx.Done():
+				return
+			case ch <- x:
+			}
+		}
+	}()
+}
+
+// Run goroutine that push the same item into ch n times, then close it.
+func Repeat[In any](ctx context.Context, ch chan<- In, item In, n int) {
+	go func() {
+		defer close(ch)
+		for range n {
+			select {
+			case <-ctx.Done():
+				return
+			case ch <- item:
+			}
+		}
+	}()
 }

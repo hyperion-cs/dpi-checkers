@@ -17,7 +17,7 @@ func Head(ctx context.Context, client *http.Client, url string, browserHeaders b
 	}
 
 	if browserHeaders {
-		SetBrowserHeaders(&req.Header)
+		setBrowserHeaders(&req.Header)
 	}
 
 	resp, err := client.Do(req)
@@ -37,7 +37,7 @@ func Get(ctx context.Context, client *http.Client, url string, browserHeaders bo
 	}
 
 	if browserHeaders {
-		SetBrowserHeaders(&req.Header)
+		setBrowserHeaders(&req.Header)
 	}
 
 	resp, err := client.Do(req)
@@ -67,9 +67,13 @@ func GetAndUnmarshal[T any](ctx context.Context, client *http.Client, url string
 	return nil
 }
 
-func SetBrowserHeaders(header *http.Header) {
-	cfg := config.Get().HttpUtil
-	for k, v := range cfg.BrowserHeaders {
-		header.Set(k, v)
+func SetHeaders(out *http.Header, headers map[string]string) {
+	for k, v := range headers {
+		out.Set(k, v)
 	}
+}
+
+func setBrowserHeaders(out *http.Header) {
+	cfg := config.Get().HttpUtil
+	SetHeaders(out, cfg.BrowserHeaders)
 }

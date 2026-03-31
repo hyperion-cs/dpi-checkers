@@ -29,6 +29,16 @@ type webhostProducerDoneMsg struct{}
 type webhostItemMsg checkers.WebhostGochanOut[checkers.WebhostGochanBag]
 type webhostProgressMsg string
 
+type dnsInitMsg struct{}
+type dnsProducerStartedMsg struct {
+	out dnsChannelModel
+}
+type dnsProducerDoneMsg struct{}
+type dnsLeakMsg checkers.DnsLeakWithIpinfoOut
+type dnsProviderPlainMsg checkers.DnsVerdict
+type dnsProviderDohMsg checkers.DnsVerdict
+type dnsProgressMsg string
+
 type updaterInitMsg struct{ forceInetlookupUpdate bool }
 type updaterErrMsg struct{ err error }
 type updaterSelfNoopMsg struct{}

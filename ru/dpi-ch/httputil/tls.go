@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"net/http"
 	"net/netip"
 	"os"
 	"strconv"
@@ -18,18 +19,20 @@ import (
 )
 
 var (
-	ErrTcpConnReset        = errors.New("tcp: connection reset")
-	ErrTcpConnTimeout      = errors.New("tcp: connection timeout")
-	ErrTcpWriteTimeout     = errors.New("tcp: write timeout")
-	ErrTcpReadTimeout      = errors.New("tcp: read timeout")
-	ErrTlsHandshakeTimeout = errors.New("tls: handshake timeout")
-	ErrTlsHandshakeFail    = errors.New("tls: handshake failure")
-	ErrTlsBadRecordMac     = errors.New("tls: bad record MAC")
-	ErrTlsWriteBrokenPipe  = errors.New("tls: broken write pipe")
-	ErrInternal            = errors.New("net: internal error")
+	ErrTcpConnReset          = errors.New("tcp: connection reset")
+	ErrTcpConnTimeout        = errors.New("tcp: connection timeout")
+	ErrTcpWriteTimeout       = errors.New("tcp: write timeout")
+	ErrTcpReadTimeout        = errors.New("tcp: read timeout")
+	ErrTlsCertificateInvalid = errors.New("tls: certificate invalid")
+	ErrTlsHandshakeTimeout   = errors.New("tls: handshake timeout")
+	ErrTlsHandshakeFail      = errors.New("tls: handshake failure")
+	ErrTlsBadRecordMac       = errors.New("tls: bad record MAC")
+	ErrTlsWriteBrokenPipe    = errors.New("tls: broken write pipe")
+	ErrInternal              = errors.New("net: internal error")
 )
 
 type TlsConnOpt struct {
+	Ctx                 context.Context
 	Ip                  netip.Addr
 	Port                int
 	Sni                 string
@@ -38,6 +41,7 @@ type TlsConnOpt struct {
 	TcpReadBuf          int
 	TlsHandshakeTimeout time.Duration
 	KeyLogWriter        io.Writer
+	InsecureVerify      bool
 }
 
 // TODO (options):
@@ -45,16 +49,19 @@ type TlsConnOpt struct {
 // - Set tlsV
 // - Try to extract sni/host from cert
 func GetHandshakedUTlsConn(opt TlsConnOpt) (*tls.UConn, error) {
-	tcpDialer := net.Dialer{Timeout: opt.TcpConnTimeout}
-	addr := net.JoinHostPort(opt.Ip.String(), strconv.Itoa(opt.Port))
+	tcpDialer := net.Dialer{}
+	if opt.TcpConnTimeout != 0 {
+		tcpDialer.Timeout = opt.TcpConnTimeout
+	}
 
+	addr := net.JoinHostPort(opt.Ip.String(), strconv.Itoa(opt.Port))
 	tcpConn, err := tcpDialer.Dial("tcp", addr)
 	if err != nil {
 		if isTimeoutErr(err) {
 			return nil, ErrTcpConnTimeout
 		}
-		if whErr, ok := tryHandleErr(err); ok {
-			return nil, whErr
+		if handledErr, ok := tryHandleErr(err); ok {
+			return nil, handledErr
 		}
 
 		log.Println("getHandshakedUTlsConn/Dial", err)
@@ -62,11 +69,15 @@ func GetHandshakedUTlsConn(opt TlsConnOpt) (*tls.UConn, error) {
 	}
 
 	rawTcpConn := tcpConn.(*net.TCPConn)
-	rawTcpConn.SetWriteBuffer(opt.TcpWriteBuf)
-	rawTcpConn.SetReadBuffer(opt.TcpReadBuf)
+	if opt.TcpWriteBuf != 0 {
+		rawTcpConn.SetWriteBuffer(opt.TcpWriteBuf)
+	}
+	if opt.TcpReadBuf != 0 {
+		rawTcpConn.SetReadBuffer(opt.TcpReadBuf)
+	}
 
 	tlsConf := &tls.Config{
-		InsecureSkipVerify: true,
+		InsecureSkipVerify: !opt.InsecureVerify,
 		KeyLogWriter:       opt.KeyLogWriter,
 	}
 
@@ -81,19 +92,29 @@ func GetHandshakedUTlsConn(opt TlsConnOpt) (*tls.UConn, error) {
 	setUTlsAlpn(&chromeSpec, []string{"http/1.1"})
 	tlsConn.ApplyPreset(&chromeSpec)
 
-	tlsConn.SetDeadline(time.Now().Add(opt.TlsHandshakeTimeout))
-	if err := tlsConn.Handshake(); err != nil {
+	if opt.TlsHandshakeTimeout != 0 {
+		tlsConn.SetDeadline(time.Now().Add(opt.TlsHandshakeTimeout))
+		defer tlsConn.SetDeadline(time.Time{})
+	}
+
+	if opt.Ctx == nil {
+		err = tlsConn.Handshake()
+	} else {
+		err = tlsConn.HandshakeContext(opt.Ctx)
+	}
+
+	if err != nil {
 		if isTimeoutErr(err) {
 			return nil, ErrTlsHandshakeTimeout
 		}
-		if whErr, ok := tryHandleErr(err); ok {
-			return nil, whErr
+		if handledErr, ok := tryHandleErr(err); ok {
+			return nil, handledErr
 		}
 
 		log.Println("getHandshakedUTlsConn/Handshake", err)
 		return nil, ErrInternal
 	}
-	tlsConn.SetDeadline(time.Time{})
+
 	return tlsConn, nil
 }
 
@@ -107,52 +128,75 @@ func setUTlsAlpn(spec *tls.ClientHelloSpec, protos []string) {
 	spec.Extensions = append(spec.Extensions, &tls.ALPNExtension{AlpnProtocols: protos})
 }
 
-func TlsReadHttpHeaders(tlsConn *tls.UConn, timeout time.Duration) ([]byte, error) {
-	tlsConn.SetReadDeadline(time.Now().Add(timeout))
+func TlsReadHttpResponse(ctx context.Context, tlsConn *tls.UConn) (*http.Response, error) {
+	done := make(chan struct{})
+	defer close(done)
 	defer tlsConn.SetReadDeadline(time.Time{})
 
+	go func() {
+		select {
+		case <-ctx.Done():
+			_ = tlsConn.SetReadDeadline(time.Now())
+		case <-done:
+		}
+	}()
+
 	br := bufio.NewReader(tlsConn)
-	var buf []byte
-	needle := []byte("\r\n\r\n")
-
-	for {
-		line, err := br.ReadBytes('\n')
-		if err != nil {
-			// TODO: No error?
-			if err == io.EOF {
-				return buf, nil
-			}
-			if isTimeoutErr(err) {
-				return nil, ErrTcpReadTimeout
-			}
-			if whErr, ok := tryHandleErr(err); ok {
-				return nil, whErr
-			}
-			log.Println("tlsReadHttpHeaders", err)
-			return nil, ErrInternal
+	resp, err := http.ReadResponse(br, nil)
+	if err != nil {
+		if isTimeoutErr(err) {
+			return nil, ErrTcpReadTimeout
 		}
-
-		buf = append(buf, line...)
-		if bytes.HasSuffix(buf, needle) {
-			return buf, nil
+		if handledErr, ok := tryHandleErr(err); ok {
+			return nil, handledErr
 		}
+		log.Println("TlsReadHttpResponse", err)
+		return nil, ErrInternal
 	}
+	return resp, nil
 }
 
-func TlsWriteAll(tlsConn *tls.UConn, data []byte, timeout time.Duration) error {
-	tlsConn.SetWriteDeadline(time.Now().Add(timeout))
+func TlsWriteHttpRequest(ctx context.Context, tlsConn *tls.UConn, req *http.Request) error {
+	done := make(chan struct{})
+	defer close(done)
 	defer tlsConn.SetWriteDeadline(time.Time{})
-	if _, err := tlsConn.Write(data); err != nil {
+
+	go func() {
+		select {
+		case <-ctx.Done():
+			_ = tlsConn.SetWriteDeadline(time.Now())
+		case <-done:
+		}
+	}()
+
+	var writeBuf bytes.Buffer
+	if err := req.Write(&writeBuf); err != nil {
+		return err
+	}
+
+	if _, err := tlsConn.Write(writeBuf.Bytes()); err != nil {
 		if isTimeoutErr(err) {
 			return ErrTcpWriteTimeout
 		}
-		if whErr, ok := tryHandleErr(err); ok {
-			return whErr
+		if handledErr, ok := tryHandleErr(err); ok {
+			return handledErr
 		}
-		log.Println("tlsWriteAll", err)
+		log.Println("TlsHttpRequest", err)
 		return ErrInternal
 	}
 	return nil
+}
+
+func IsHttputilErr(err error) bool {
+	switch err {
+	case ErrTcpConnReset, ErrTcpConnTimeout, ErrTcpWriteTimeout,
+		ErrTcpReadTimeout, ErrTlsCertificateInvalid, ErrTlsHandshakeTimeout,
+		ErrTlsHandshakeFail, ErrTlsBadRecordMac, ErrTlsWriteBrokenPipe,
+		ErrInternal:
+		return true
+	default:
+		return false
+	}
 }
 
 func isTimeoutErr(err error) bool {
@@ -177,6 +221,10 @@ func tryHandleErr(err error) (error, bool) {
 	}
 	if strings.Contains(err.Error(), "bad record MAC") {
 		return ErrTlsBadRecordMac, true
+	}
+
+	if _, ok := errors.AsType[*tls.CertificateVerificationError](err); ok {
+		return ErrTlsCertificateInvalid, true
 	}
 
 	// others
