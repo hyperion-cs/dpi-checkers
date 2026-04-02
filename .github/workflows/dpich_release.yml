@@ -29,30 +29,25 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os_name: windows
-            goos: windows
+          - goos: windows
             goarch: amd64
-            binary_ext: .exe
+            ext: .exe
 
-          - os_name: macos
-            goos: darwin
+          - goos: darwin
             goarch: amd64
-            binary_ext: ""
+            ext: ""
 
-          - os_name: macos
-            goos: darwin
+          - goos: darwin
             goarch: arm64
-            binary_ext: ""
+            ext: ""
 
-          - os_name: linux
-            goos: linux
+          - goos: linux
             goarch: amd64
-            binary_ext: ""
+            ext: ""
 
-          - os_name: linux
-            goos: linux
+          - goos: linux
             goarch: arm64
-            binary_ext: ""
+            ext: ""
 
     env:
       VERSION: ${{ github.event.inputs.version }}
@@ -65,14 +60,21 @@ jobs:
           go-version-file: ru/dpi-ch/go.mod
           cache-dependency-path: ru/dpi-ch/go.sum
 
+      - name: Validate version
+        run: |
+          if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid version: $VERSION"
+            exit 1
+          fi
+
       - name: Build binary
         run: |
           set -euo pipefail
 
           mkdir -p dist
 
-          binary_name="${APP_NAME}${{ matrix.binary_ext }}"
-          archive_name="${APP_NAME}-${VERSION}-${{ matrix.os_name }}-${{ matrix.goarch }}.zip"
+          binary_name="${APP_NAME}${{ matrix.ext }}"
+          archive_name="${APP_NAME}-${VERSION}-${{ matrix.goos }}-${{ matrix.goarch }}.zip"
 
           (
             cd "${GO_MODULE_DIR}"
@@ -82,7 +84,7 @@ jobs:
             GOARCH=${{ matrix.goarch }} \
             go build \
               -trimpath \
-              -ldflags="-s -w -X dpich/internal/version.Value=${VERSION}" \
+              -ldflags="-s -w -X github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/internal/version.Value=${VERSION}" \
               -o "../../dist/${binary_name}" \
               .
           )
@@ -94,8 +96,8 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.os_name }}-${{ matrix.goarch }}
-          path: ${{ env.APP_NAME }}-${{ env.VERSION }}-${{ matrix.os_name }}-${{ matrix.goarch }}.zip
+          name: ${{ matrix.goos }}-${{ matrix.goarch }}
+          path: ${{ env.APP_NAME }}-${{ env.VERSION }}-${{ matrix.goos }}-${{ matrix.goarch }}.zip
           if-no-files-found: error
 
   release:

@@ -203,15 +203,13 @@ httputil:
 updater:
   enabled: true
   period: 24h
-  update-ts-file: update-ts
+  self-ts-file: self-ts
+  inetlookup-ts-file: inetlookup-ts
   timeout: 120s
   root-dir: ./data
   self:
-    dir: ./self
-    bin: dpich
     owner: hyperion-cs
     repo: dpi-checkers
-    tag-prefix: dpich-
   geolite:
     dir: ./geolite
     owner: Loyalsoldier

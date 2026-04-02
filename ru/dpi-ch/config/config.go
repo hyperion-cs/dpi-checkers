@@ -112,15 +112,13 @@ type Config struct {
 		Period                time.Duration `mapstructure:"period"`
 		Timeout               time.Duration `mapstructure:"timeout"`
 		RootDir               string        `mapstructure:"root-dir"`
-		UpdateTsFile          string        `mapstructure:"update-ts-file"`
+		SelfTsFile            string        `mapstructure:"self-ts-file"`
+		InetlookupTsFile      string        `mapstructure:"inetlookup-ts-file"`
 		ForceInetlookupUpdate bool          `mapstructure:"force-inetlookup-update"`
 
 		Self struct {
-			Dir       string `mapstructure:"dir"`
-			Bin       string `mapstructure:"bin"`
-			Owner     string `mapstructure:"owner"`
-			Repo      string `mapstructure:"repo"`
-			TagPrefix string `mapstructure:"tag-prefix"`
+			Owner string `mapstructure:"owner"`
+			Repo  string `mapstructure:"repo"`
 		} `mapstructure:"self"`
 
 		Geolite struct {
