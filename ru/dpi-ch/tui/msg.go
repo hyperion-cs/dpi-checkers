@@ -42,5 +42,5 @@ type dnsProgressMsg string
 type updaterInitMsg struct{ forceInetlookupUpdate bool }
 type updaterErrMsg struct{ err error }
 type updaterSelfNoopMsg struct{}
-type updaterSelfDoneMsg struct{ name string }
+type updaterSelfDoneMsg struct{ version string }
 type updaterDoneMsg struct{}

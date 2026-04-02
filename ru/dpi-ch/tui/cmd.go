@@ -13,14 +13,15 @@ import (
 
 func (rm rootModel) Init() tea.Cmd {
 	updaterCfg := config.Get().Updater
-	ttu, _ := updater.TimeToUpdate()
-	if updaterCfg.ForceInetlookupUpdate || (updaterCfg.Enabled && ttu) {
+	selfTtu, _ := updater.TimeToUpdate(updaterCfg.SelfTsFile)
+	inetlookupTtu, _ := updater.TimeToUpdate(updaterCfg.InetlookupTsFile)
+
+	if updaterCfg.ForceInetlookupUpdate || (updaterCfg.Enabled && (selfTtu || inetlookupTtu)) {
 		return func() tea.Msg {
 			return updaterInitMsg{forceInetlookupUpdate: updaterCfg.ForceInetlookupUpdate}
 		}
 	}
 
-	// if updates are disabled, then user is responsible for maintaining current state
 	return func() tea.Msg {
 		inetlookup.Default()
 		return nil
@@ -127,11 +128,11 @@ func updaterSelfCmd(ctx context.Context) tea.Cmd {
 			return updaterSelfNoopMsg{}
 		}
 
-		if err = updater.SelfUpdate(ctx, upd.Name, upd.Url); err != nil {
+		if err = updater.SelfUpdate(ctx, upd.AssetUrl, upd.AssetFilename, upd.AssetVersion); err != nil {
 			return updaterErrMsg{err: err}
 		}
 
-		return updaterSelfDoneMsg{name: upd.Name}
+		return updaterSelfDoneMsg{version: upd.AssetVersion}
 	}
 }
 

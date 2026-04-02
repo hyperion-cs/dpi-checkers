@@ -1,7 +1,6 @@
 package updater
 
 import (
-	"archive/zip"
 	"context"
 	"errors"
 	"fmt"
@@ -10,48 +9,47 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"os/exec"
 	"path"
 	"path/filepath"
 	"runtime"
-	"slices"
 	"strconv"
-	"strings"
 	"time"
 
+	"github.com/creativeprojects/go-selfupdate"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/httputil"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/internal/version"
 )
 
 type SelfCheckUpdatesResult struct {
-	Url      string
-	Name     string
-	Required bool
+	AssetUrl      string
+	AssetFilename string
+	AssetVersion  string
+	Required      bool
 }
 
 const HASH_POSTFIX = ".hash"
 
-var ErrUnsupportedOsOrArch = errors.New("updater/self: unsupported os or arch")
+var ErrInternal = errors.New("updater/self: internal")
+var ErrUnsupportedOsOrArch = errors.New("updater/self: unsupported os/arch")
 
-// Determines if it is time to update itself and inetlookup.
-// Independently updates the associated timestamp.
-func TimeToUpdate() (bool, error) {
+// Determines if it is time to update using the timestamp file
+func TimeToUpdate(tsfile string) (bool, error) {
 	cfg := config.Get().Updater
-	dst := path.Join(cfg.RootDir, cfg.UpdateTsFile)
+	dst := path.Join(cfg.RootDir, tsfile)
 
 	if _, err := os.Stat(dst); err != nil {
-		return true, writeUpdateTimestamp(dst)
+		return true, nil
 	}
 
 	ts, err := readUpdateTimestamp(dst)
 	if err != nil {
-		return true, writeUpdateTimestamp(dst)
+		return true, nil
 	}
 
 	delta := time.Duration(time.Now().Unix()-ts) * time.Second
 	if delta > cfg.Period {
-		return true, writeUpdateTimestamp(dst)
+		return true, nil
 	}
 
 	return false, nil
@@ -82,100 +80,60 @@ func writeUpdateTimestamp(dst string) error {
 
 // Updates itself. Automatically downloads, unzips, and replaces the executable file.
 // If the update is successful, it is necessary to restart manually.
-func SelfUpdate(ctx context.Context, name, url string) error {
-	cfg := config.Get().Updater
-	dir := path.Join(cfg.RootDir, cfg.Self.Dir)
-	zipDst := path.Join(dir, name)
-	ctx, cancel := context.WithTimeout(ctx, cfg.Timeout)
-	defer cancel()
-
-	if err := download(ctx, url, zipDst); err != nil {
-		return err
-	}
-
-	if err := unzip(zipDst, dir); err != nil {
-		return err
-	}
-
-	if err := os.Remove(zipDst); err != nil {
-		return err
-	}
-
-	log.Println("updater/self: executable downloaded and unzipped")
-	selfPath, err := os.Executable()
+func SelfUpdate(ctx context.Context, url, filename, version string) error {
+	exe, err := selfupdate.ExecutablePath()
 	if err != nil {
-		return err
+		log.Println("updater/self: could not locate executable path")
+		return ErrInternal
 	}
 
-	newPath := path.Join(dir, cfg.Self.Bin)
-	if err := os.Chmod(newPath, 0755); err != nil {
-		return err
+	// TODO: On windows, this hides the previous binary; it's a good idea to run a cleanup when the dpich is restarted.
+	if err := selfupdate.UpdateTo(ctx, url, filename, exe); err != nil {
+		log.Println("updater/self: error occurred while updating binary: ", err)
+		return ErrInternal
 	}
 
-	cmd := exec.Command(selfPath, "--update", selfPath, newPath)
-	if err := cmd.Run(); err != nil {
-		return err
+	log.Printf("updater/self: successfully updated to version %s", version)
+
+	cfg := config.Get().Updater
+	tsfile := path.Join(cfg.RootDir, cfg.SelfTsFile)
+	err = writeUpdateTimestamp(tsfile)
+	if err != nil {
+		log.Printf("updater/self: fail to update ts file: %s", tsfile)
 	}
 
-	return nil
-}
-
-// Replaces the executable file from with to and kills the current process.
-func SelfUpdateExecutable(from, to string) error {
-	if err := os.Remove(from); err != nil {
-		return err
-	}
-	if err := os.Rename(to, from); err != nil {
-		return err
-	}
-	log.Printf("updater/self: executable replaced %s => %s\n", from, to)
-	os.Exit(0)
 	return nil
 }
 
 // Checks if there are new versions of itself.
 func SelfCheckUpdates(ctx context.Context) (SelfCheckUpdatesResult, error) {
 	cfg := config.Get().Updater
-	url := latestReleaseUrl(cfg.Self.Owner, cfg.Self.Repo)
-	ctx, cancel := context.WithTimeout(ctx, cfg.Timeout)
-	defer cancel()
-
-	type assetType struct {
-		Name               string
-		BrowserDownloadUrl string `json:"browser_download_url"`
+	latest, found, err := selfupdate.DetectLatest(context.Background(), selfupdate.NewRepositorySlug(cfg.Self.Owner, cfg.Self.Repo))
+	if err != nil {
+		log.Printf("updater/self: %s\n", err)
+		return SelfCheckUpdatesResult{}, ErrInternal
 	}
 
-	var respRaw struct {
-		TagName string `json:"tag_name"`
-		Assets  []assetType
-	}
-	if err := httputil.GetAndUnmarshal(ctx, http.DefaultClient, url, &respRaw, true, false); err != nil {
-		return SelfCheckUpdatesResult{}, err
-	}
-
-	currVer := version.Value
-	latestVer := strings.TrimPrefix(respRaw.TagName, cfg.Self.TagPrefix)
-
-	if currVer == latestVer {
-		return SelfCheckUpdatesResult{Required: false}, nil
-	}
-
-	goos := runtime.GOOS
-	if goos == "darwin" {
-		goos = "macos"
-	}
-
-	assetIdx := slices.IndexFunc(respRaw.Assets, func(x assetType) bool {
-		return strings.Contains(x.Name, runtime.GOARCH) && strings.Contains(x.Name, goos)
-	})
-
-	if assetIdx == -1 {
+	if !found {
+		log.Printf("updater/self: latest version for %s/%s not found\n", runtime.GOOS, runtime.GOARCH)
 		return SelfCheckUpdatesResult{}, ErrUnsupportedOsOrArch
 	}
 
-	asset := respRaw.Assets[assetIdx]
-	log.Printf("updater/self: available %s (%s => %s)\n", asset.Name, currVer, latestVer)
-	return SelfCheckUpdatesResult{Url: asset.BrowserDownloadUrl, Name: asset.Name, Required: true}, nil
+	if latest.LessOrEqual(version.Value) {
+		tsfile := path.Join(cfg.RootDir, cfg.SelfTsFile)
+		err = writeUpdateTimestamp(tsfile)
+		if err != nil {
+			log.Printf("updater/self: fail to update ts file: %s", tsfile)
+		}
+		return SelfCheckUpdatesResult{Required: false}, nil
+	}
+
+	return SelfCheckUpdatesResult{
+		AssetUrl:      latest.AssetURL,
+		AssetFilename: latest.AssetName,
+		AssetVersion:  latest.Version(),
+		Required:      true,
+	}, nil
 }
 
 func GeoliteUpdate(ctx context.Context) error {
@@ -190,6 +148,13 @@ func GeoliteUpdate(ctx context.Context) error {
 	}
 	if err := geolitePartUpdate(ctx, cfg.Geolite.GeonameidCountry.From, path.Join(dir, cfg.Geolite.GeonameidCountry.To)); err != nil {
 		return err
+	}
+	log.Println("updater/geolite: successfully updated")
+
+	tsfile := path.Join(cfg.RootDir, cfg.InetlookupTsFile)
+	err := writeUpdateTimestamp(tsfile)
+	if err != nil {
+		log.Printf("updater/geolite: fail to update ts file: %s", tsfile)
 	}
 
 	return nil
@@ -316,40 +281,4 @@ func contentUrl(owner, repo, path, branch string) string {
 		url.PathEscape(branch),
 		url.PathEscape(path),
 	)
-}
-
-func latestReleaseUrl(owner, repo string) string {
-	return fmt.Sprintf(
-		"https://api.github.com/repos/%s/%s/releases/latest",
-		url.PathEscape(owner),
-		url.PathEscape(repo),
-	)
-}
-
-func unzip(zipPath, dst string) error {
-	r, err := zip.OpenReader(zipPath)
-	if err != nil {
-		return err
-	}
-	defer r.Close()
-
-	for _, f := range r.File {
-		p := filepath.Join(dst, f.Name)
-
-		if f.FileInfo().IsDir() {
-			os.MkdirAll(p, 0755)
-			continue
-		}
-
-		os.MkdirAll(filepath.Dir(p), 0755)
-
-		in, _ := f.Open()
-		out, _ := os.Create(p)
-
-		io.Copy(out, in)
-
-		in.Close()
-		out.Close()
-	}
-	return nil
 }

@@ -9,7 +9,6 @@ import (
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/internal/version"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/tui"
-	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/updater"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/webui"
 
 	tea "charm.land/bubbletea/v2"
@@ -18,7 +17,6 @@ import (
 func main() {
 	ui := flag.String("ui", "t", "ui mode: t | web")
 	ver := flag.Bool("version", false, "print version")
-	upd := flag.Bool("update", false, "replace the executable with the updated version")
 	forceInetlookupUpd := flag.Bool("force-inetlookup-update", false, "force run the inetlookup update mechanism")
 
 	cfgPath := flag.String("cfg", config.CfgDefPath, ".yaml config path")
@@ -40,10 +38,6 @@ func main() {
 	if *ver {
 		fmt.Println(version.Value)
 		return
-	}
-
-	if *upd {
-		updater.SelfUpdateExecutable(flag.Arg(0), flag.Arg(1))
 	}
 
 	if *forceInetlookupUpd {

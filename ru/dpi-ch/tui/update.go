@@ -179,7 +179,7 @@ func updaterUpdate(model updaterModel, msg tea.Msg) (updaterModel, tea.Cmd) {
 	case updaterSelfDoneMsg:
 		model.fetching = false
 		model.restartRequired = true
-		model.progress = msg.name
+		model.progress = msg.version
 		return model, nil
 	case updaterErrMsg:
 		model.fetching = false
