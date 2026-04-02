@@ -192,3 +192,4 @@ It so happens that similar projects (unrelated to ours) are under development at
 - [expr-lang/expr](https://github.com/expr-lang/expr)
 - [efraction-networking/utls](https://github.com/refraction-networking/utls)
 - [spf13/viper](https://github.com/spf13/viper)
+- [creativeprojects/go-selfupdate](https://github.com/creativeprojects/go-selfupdate)

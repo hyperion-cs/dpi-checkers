@@ -1,4 +1,4 @@
-FROM golang:1.25-alpine AS builder
+FROM golang:1.26-alpine AS builder
 WORKDIR /build
 RUN apk add --no-cache git
 
@@ -8,7 +8,7 @@ ARG VERSION=dev
 RUN \
     go build \
     -o dpich \
-    -ldflags "-s -w -X dpich/internal/version.Value=${VERSION}" \
+    -ldflags "-s -w -X github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/internal/version.Value=${VERSION}" \
     -trimpath \
     .
 

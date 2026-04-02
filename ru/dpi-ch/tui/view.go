@@ -187,6 +187,10 @@ func dnsView(model dnsModel) string {
 	return r
 }
 
+func dnsTableHelpView() string {
+	return subtleStyle.Render("↑/↓ up/down; ←/→ left/right table")
+}
+
 func updaterView(model updaterModel) string {
 	if model.err != nil {
 		return fmt.Sprintf("⚠️ error: %v", model.err)
@@ -201,8 +205,4 @@ func updaterView(model updaterModel) string {
 	}
 
 	return "noop"
-}
-
-func dnsTableHelpView() string {
-	return subtleStyle.Render("↑/↓ up/down; ←/→ left/right table")
 }
