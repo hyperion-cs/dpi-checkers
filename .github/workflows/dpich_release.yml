@@ -53,9 +53,9 @@ jobs:
       VERSION: ${{ github.event.inputs.version }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: ru/dpi-ch/go.mod
           cache-dependency-path: ru/dpi-ch/go.sum
@@ -94,7 +94,7 @@ jobs:
             zip -9 -j "../${archive_name}" "${binary_name}"
           )
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.goos }}-${{ matrix.goarch }}
           path: ${{ env.APP_NAME }}-${{ env.VERSION }}-${{ matrix.goos }}-${{ matrix.goarch }}.zip
@@ -116,7 +116,7 @@ jobs:
       VERSION: ${{ github.event.inputs.version }}
 
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: artifacts
 
