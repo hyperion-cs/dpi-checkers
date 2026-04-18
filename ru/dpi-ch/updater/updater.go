@@ -89,7 +89,7 @@ func SelfUpdate(ctx context.Context, url, filename, version string) error {
 
 	// TODO: On windows, this hides the previous binary; it's a good idea to run a cleanup when the dpich is restarted.
 	if err := selfupdate.UpdateTo(ctx, url, filename, exe); err != nil {
-		log.Println("updater/self: error occurred while updating binary: ", err)
+		log.Println("updater/self: error occurred while updating binary: ", err, url, filename, exe)
 		return ErrInternal
 	}
 
