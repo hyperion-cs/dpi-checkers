@@ -16,6 +16,8 @@ checkers:
         filter: host("x.com")
       - name: Discord
         filter: host("discord.com")
+      - name: Github
+        filter: host("github.com")
       - name: Telegram Web
         filter: host("web.telegram.org")
       - name: Telegram Api
@@ -65,6 +67,8 @@ checkers:
         filter: org("scaleway")
       - name: Vultr
         filter: as(20473)
+      - name: Microsoft/Azure
+        filter: as(8075)
     workers: 8
     tcp-conn-timeout: 3s
     tls-handshake-timeout: 3s
