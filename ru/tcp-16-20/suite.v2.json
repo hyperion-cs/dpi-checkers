@@ -27,7 +27,7 @@
   { "id": "FI.HE-02", "provider": "Hetzner", "country": "🇫🇮", "host": "5fd8bdae.nip.io" },
   { "id": "FI.HE-04", "provider": "Hetzner", "country": "🇫🇮", "host": "5fd8bca5.nip.io" },
   { "id": "US.MBCOM-01", "provider": "Melbicom", "country": "🇺🇸", "host": "elecane.com" },
-  { "id": "CA.MS-01", "provider": "Microsoft/Azure", "country": "🇨🇦", "host": "rob-das-win.azurewebsites.net" },
+  { "id": "NL.MS-01", "provider": "Microsoft/Azure", "country": "🇳🇱", "host": "store.takeda.com" },
   { "id": "ES.OR-01", "provider": "Oracle", "country": "🇪🇸", "host": "sh00065.hostgator.com" },
   { "id": "SG.OR-01", "provider": "Oracle", "country": "🇸🇬", "host": "vps.inprodec.com" },
   { "id": "FR.OVH-01", "provider": "OVH", "country": "🇫🇷", "host": "www.adwin.fr" },
