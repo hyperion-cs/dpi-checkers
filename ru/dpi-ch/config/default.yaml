@@ -30,6 +30,11 @@ checkers:
         filter: host("www.instagram.com")
       - name: LinkedIn
         filter: host("www.linkedin.com")
+      - name: Yandex
+        filter: host("ya.ru")
+      - name: VK
+        filter: host("vk.ru")
+
     infra:
       - name: Cloudflare
         filter: org("cloudflare")
@@ -79,6 +84,7 @@ checkers:
     tcp1620-n-bytes: 65536
     http-static-headers:
       Accept: "*/*"
+      Accept-Encoding: identity
       Content-Type: application/octet-stream
       User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36
     table-max-visible-rows: 20

@@ -1,6 +1,7 @@
 package checkers
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"crypto/rand"
@@ -9,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"net/netip"
+	"time"
 
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/httputil"
@@ -35,6 +37,16 @@ type WebhostSingleResult struct {
 	Host    string
 	Alive   error
 	Tcp1620 error
+
+	// Set only if Tcp1620 == nil
+	Throughput WebhostThroughput
+}
+
+type WebhostThroughput struct {
+	TxBytes   int64
+	RxBytes   int64
+	TxElapsed time.Duration
+	RxElapsed time.Duration
 }
 
 var (
@@ -99,10 +111,13 @@ func WebhostSingle(opt WebhostSingleOpt) WebhostSingleResult {
 		res.Tcp1620 = err
 		return res
 	}
-	if err = webhostTcp1620check(opt, tlsConn); err != nil {
+
+	thp, err := webhostTcp1620check(opt, tlsConn)
+	if err != nil {
 		res.Tcp1620 = err
 	}
 
+	res.Throughput = thp
 	return res
 }
 
@@ -119,13 +134,13 @@ func webhostAliveCheck(opt WebhostSingleOpt, tlsConn *tls.UConn) error {
 
 	writeCtx, cancel := context.WithTimeout(context.Background(), cfg.TcpWriteTimeout)
 	defer cancel()
-	if err := httputil.TlsWriteHttpRequest(writeCtx, tlsConn, req); err != nil {
+	if _, err := httputil.TlsWriteHttpRequest(writeCtx, tlsConn, req); err != nil {
 		return err
 	}
 
 	readCtx, cancel := context.WithTimeout(context.Background(), cfg.TcpReadTimeout)
 	defer cancel()
-	resp, err := httputil.TlsReadHttpResponse(readCtx, tlsConn)
+	resp, err := httputil.TlsReadHttpResponse(readCtx, tlsConn, bufio.NewReader(tlsConn))
 	if err != nil {
 		return err
 	}
@@ -134,7 +149,7 @@ func webhostAliveCheck(opt WebhostSingleOpt, tlsConn *tls.UConn) error {
 	return nil
 }
 
-func webhostTcp1620check(opt WebhostSingleOpt, tlsConn *tls.UConn) error {
+func webhostTcp1620check(opt WebhostSingleOpt, tlsConn *tls.UConn) (WebhostThroughput, error) {
 	defer tlsConn.Close()
 	cfg := config.Get().Checkers.Webhost
 	body, _ := randomBytes(cfg.Tcp1620nBytes)
@@ -142,26 +157,40 @@ func webhostTcp1620check(opt WebhostSingleOpt, tlsConn *tls.UConn) error {
 	// keep-alive increases the chance that we will be able to push enough data into the connection
 	req, err := http.NewRequest("POST", "https://"+opt.Host, bytes.NewReader(body))
 	if err != nil {
-		return err
+		return WebhostThroughput{}, err
 	}
 	req.Close = false
 	httputil.SetHeaders(&req.Header, cfg.HttpStaticHeaders)
 
 	writeCtx, cancel := context.WithTimeout(context.Background(), cfg.TcpWriteTimeout)
 	defer cancel()
-	if err := httputil.TlsWriteHttpRequest(writeCtx, tlsConn, req); err != nil {
-		return err
+	txStart := time.Now()
+	txBytes, err := httputil.TlsWriteHttpRequest(writeCtx, tlsConn, req)
+	if err != nil {
+		return WebhostThroughput{}, err
 	}
+	txElapsed := time.Since(txStart)
 
 	readCtx, cancel := context.WithTimeout(context.Background(), cfg.TcpReadTimeout)
 	defer cancel()
-	resp, err := httputil.TlsReadHttpResponse(readCtx, tlsConn)
+	rxCr := &httputil.CountingReader{Reader: tlsConn}
+	rxStart := time.Now()
+	resp, err := httputil.TlsReadHttpResponse(readCtx, tlsConn, bufio.NewReader(rxCr))
 	if err != nil {
-		return err
+		return WebhostThroughput{}, err
 	}
+	if _, err = io.Copy(io.Discard, resp.Body); err != nil {
+		return WebhostThroughput{}, err
+	}
+	rxElapsed := time.Since(rxStart)
 	resp.Body.Close()
 
-	return nil
+	return WebhostThroughput{
+		TxBytes:   txBytes,
+		TxElapsed: txElapsed,
+		RxBytes:   rxCr.Bytes,
+		RxElapsed: rxElapsed,
+	}, nil
 }
 
 func randomBytes(n int) ([]byte, error) {

@@ -1,6 +1,7 @@
 package checkers
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"errors"
@@ -166,12 +167,12 @@ func dnsDohRaw(ctx context.Context, target DnsTarget, resolverHostname string, r
 
 	httputil.SetHeaders(&req.Header, cfg.DohOpt.HttpStaticHeaders)
 
-	if err := httputil.TlsWriteHttpRequest(innerCtx, tlsConn, req); err != nil {
+	if _, err := httputil.TlsWriteHttpRequest(innerCtx, tlsConn, req); err != nil {
 		res.Err = err
 		return res
 	}
 
-	resp, err := httputil.TlsReadHttpResponse(innerCtx, tlsConn)
+	resp, err := httputil.TlsReadHttpResponse(innerCtx, tlsConn, bufio.NewReader(tlsConn))
 	if err != nil {
 		res.Err = err
 		return res

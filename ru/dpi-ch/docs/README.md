@@ -89,7 +89,7 @@ Expand-Archive dpich.zip && Remove-Item dpich.zip
 - [ ] More detailed information in checkers (_statuses, reasons, etc._);
 - [ ] TLS certificate hijacking detection in _webhost_ checker;
 - [ ] Option to temporarily freeze the list of hosts in _webhost_ checker;
-- [ ] Estimation of internet connection speed (including shaping/slowdown detection) in _webhost_ checker;
+- [x] Estimation of internet connection speed (including shaping/slowdown detection) in _webhost_ checker;
 - [ ] Detecting subnets for CIDR whitelists;
 - [ ] Detecting hostnames for for SNI whitelists;
 - [ ] Integration with [zapret](https://github.com/bol-van/zapret2) to find optimal strategies;

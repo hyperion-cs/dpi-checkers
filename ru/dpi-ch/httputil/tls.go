@@ -128,7 +128,7 @@ func setUTlsAlpn(spec *tls.ClientHelloSpec, protos []string) {
 	spec.Extensions = append(spec.Extensions, &tls.ALPNExtension{AlpnProtocols: protos})
 }
 
-func TlsReadHttpResponse(ctx context.Context, tlsConn *tls.UConn) (*http.Response, error) {
+func TlsReadHttpResponse(ctx context.Context, tlsConn *tls.UConn, br *bufio.Reader) (*http.Response, error) {
 	done := make(chan struct{})
 	defer close(done)
 	defer tlsConn.SetReadDeadline(time.Time{})
@@ -141,7 +141,6 @@ func TlsReadHttpResponse(ctx context.Context, tlsConn *tls.UConn) (*http.Respons
 		}
 	}()
 
-	br := bufio.NewReader(tlsConn)
 	resp, err := http.ReadResponse(br, nil)
 	if err != nil {
 		if isTimeoutErr(err) {
@@ -156,7 +155,7 @@ func TlsReadHttpResponse(ctx context.Context, tlsConn *tls.UConn) (*http.Respons
 	return resp, nil
 }
 
-func TlsWriteHttpRequest(ctx context.Context, tlsConn *tls.UConn, req *http.Request) error {
+func TlsWriteHttpRequest(ctx context.Context, tlsConn *tls.UConn, req *http.Request) (int64, error) {
 	done := make(chan struct{})
 	defer close(done)
 	defer tlsConn.SetWriteDeadline(time.Time{})
@@ -171,20 +170,21 @@ func TlsWriteHttpRequest(ctx context.Context, tlsConn *tls.UConn, req *http.Requ
 
 	var writeBuf bytes.Buffer
 	if err := req.Write(&writeBuf); err != nil {
-		return err
+		return 0, err
 	}
+	n := int64(writeBuf.Len())
 
 	if _, err := tlsConn.Write(writeBuf.Bytes()); err != nil {
 		if isTimeoutErr(err) {
-			return ErrTcpWriteTimeout
+			return 0, ErrTcpWriteTimeout
 		}
 		if handledErr, ok := tryHandleErr(err); ok {
-			return handledErr
+			return 0, handledErr
 		}
 		log.Println("TlsHttpRequest", err)
-		return ErrInternal
+		return 0, ErrInternal
 	}
-	return nil
+	return n, nil
 }
 
 func IsHttputilErr(err error) bool {

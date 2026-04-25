@@ -256,6 +256,16 @@ func webhostProcessItem(msg webhostItemMsg, model webhostModel) webhostModel {
 		msg.Out.IpInfo.Ip,
 	)
 
+	var txMbps, rxMbps float64
+	speed := "⚠️ skip"
+	if msg.Out.Throughput.TxElapsed > 0 && msg.Out.Throughput.RxElapsed > 0 {
+		thp := msg.Out.Throughput
+		const bytesToMegabits = 8.0 / 1_000
+		txMbps = float64(msg.Out.Throughput.TxBytes) / thp.TxElapsed.Seconds() * bytesToMegabits
+		rxMbps = float64(msg.Out.Throughput.RxBytes) / thp.RxElapsed.Seconds() * bytesToMegabits
+		speed = fmt.Sprintf("↑%.1f ↓%.1f", txMbps, rxMbps)
+	}
+
 	row := table.Row{
 		msg.Bag.Name,
 		msg.Out.IpInfo.Org,
@@ -265,6 +275,7 @@ func webhostProcessItem(msg webhostItemMsg, model webhostModel) webhostModel {
 		msg.Out.IpInfo.Subnet.String(),
 		webhostPrettyAlive(msg.Out.Alive),
 		webhostPrettyTcp1620(msg.Out.Tcp1620),
+		speed,
 	}
 
 	rows := model.table.Rows()
@@ -282,6 +293,7 @@ func webhostProcessItem(msg webhostItemMsg, model webhostModel) webhostModel {
 		{Title: "Prefix", Width: tableCellMaxLen(rows, 5, 6)},
 		{Title: "Alive", Width: tableCellMaxLen(rows, 6, 6)},
 		{Title: "Tcp 16-20", Width: tableCellMaxLen(rows, 7, 11)},
+		{Title: "Burst kb/s", Width: tableCellMaxLen(rows, 8, 10)},
 	}
 
 	model.table.SetColumns(columns)
