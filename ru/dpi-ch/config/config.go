@@ -103,9 +103,10 @@ type Config struct {
 		GeonameidCountry string `mapstructure:"geonameid-country"`
 	} `mapstructure:"inetlookup-geolitecsv"`
 
-	HttpUtil struct {
+	InetUtil struct {
+		Iface          string            `mapstructure:"iface"`
 		BrowserHeaders map[string]string `mapstructure:"browser-headers"`
-	} `mapstructure:"httputil"`
+	} `mapstructure:"inetutil"`
 
 	Updater struct {
 		Enabled               bool          `mapstructure:"enabled"`

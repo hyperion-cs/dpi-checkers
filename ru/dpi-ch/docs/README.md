@@ -172,7 +172,8 @@ webhostfarm: # takes sets of subnets (usually from subnetfilter), returns suitab
   tcp-conn-timeout:      # time.Duration; timeout for establishing a tcp connection
   tls-handshake-timeout: # time.Duration; timeout for tls handshake
 
-httputil: # used to perform simple http requests
+inetutil: # used for all network operations (incl. tcp/tls operation and http requests)
+  iface:           # string; name of network interface or its ip address for network operations (currently, only ipv4 is supported)
   browser-headers: # map[string]string; http headers that will be sent as part of requests
 
 updater: # used to automatically update the dpi-ch utility and related stuff (e.g., geoip)

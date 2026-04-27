@@ -1,4 +1,4 @@
-package httputil
+package inetutil
 
 import (
 	"bufio"
@@ -13,6 +13,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	tls "github.com/refraction-networking/utls"
@@ -29,6 +30,10 @@ var (
 	ErrTlsBadRecordMac       = errors.New("tls: bad record MAC")
 	ErrTlsWriteBrokenPipe    = errors.New("tls: broken write pipe")
 	ErrInternal              = errors.New("net: internal error")
+
+	tlsMu                     sync.Mutex
+	tlsDialerLocalAddr        net.Addr
+	tlsDialerLocalAddrHandled bool
 )
 
 type TlsConnOpt struct {
@@ -49,7 +54,7 @@ type TlsConnOpt struct {
 // - Set tlsV
 // - Try to extract sni/host from cert
 func GetHandshakedUTlsConn(opt TlsConnOpt) (*tls.UConn, error) {
-	tcpDialer := net.Dialer{}
+	tcpDialer := net.Dialer{LocalAddr: tlsDefaultDialerLocalAddr()}
 	if opt.TcpConnTimeout != 0 {
 		tcpDialer.Timeout = opt.TcpConnTimeout
 	}
@@ -187,7 +192,7 @@ func TlsWriteHttpRequest(ctx context.Context, tlsConn *tls.UConn, req *http.Requ
 	return n, nil
 }
 
-func IsHttputilErr(err error) bool {
+func IsInetutilErr(err error) bool {
 	switch err {
 	case ErrTcpConnReset, ErrTcpConnTimeout, ErrTcpWriteTimeout,
 		ErrTcpReadTimeout, ErrTlsCertificateInvalid, ErrTlsHandshakeTimeout,
@@ -236,4 +241,24 @@ func tryHandleErr(err error) (error, bool) {
 	}
 
 	return err, false
+}
+
+// Returns default tls dialer local address for inetutil package, considering network interface options in config.
+func tlsDefaultDialerLocalAddr() net.Addr {
+	tlsMu.Lock()
+	defer tlsMu.Unlock()
+
+	if !tlsDialerLocalAddrHandled {
+		if ifaceAddr, err := Iface4(); err == nil {
+			tlsDialerLocalAddr = &net.TCPAddr{
+				IP:   net.IP(ifaceAddr.AsSlice()),
+				Port: 0,
+			}
+		}
+
+		log.Println("inetutil/tls", "network interface options handled", tlsDialerLocalAddr)
+		tlsDialerLocalAddrHandled = true
+	}
+
+	return tlsDialerLocalAddr
 }

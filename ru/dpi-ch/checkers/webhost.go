@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
-	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/httputil"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/inetlookup"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/inetutil"
 
 	tls "github.com/refraction-networking/utls"
 )
@@ -77,7 +77,7 @@ func WebhostSingle(opt WebhostSingleOpt) WebhostSingleResult {
 	}
 
 	cfg := config.Get().Checkers.Webhost
-	tlsConnOpt := httputil.TlsConnOpt{
+	tlsConnOpt := inetutil.TlsConnOpt{
 		Ip:                  opt.Ip,
 		Port:                opt.Port,
 		Sni:                 opt.Sni,
@@ -88,7 +88,7 @@ func WebhostSingle(opt WebhostSingleOpt) WebhostSingleResult {
 		KeyLogWriter:        opt.KeyLogWriter,
 	}
 
-	tlsConn, err := httputil.GetHandshakedUTlsConn(tlsConnOpt)
+	tlsConn, err := inetutil.GetHandshakedUTlsConn(tlsConnOpt)
 	if err != nil {
 		res.Alive = err
 		res.Tcp1620 = ErrWebhostSkip
@@ -106,7 +106,7 @@ func WebhostSingle(opt WebhostSingleOpt) WebhostSingleResult {
 		return res
 	}
 
-	tlsConn, err = httputil.GetHandshakedUTlsConn(tlsConnOpt)
+	tlsConn, err = inetutil.GetHandshakedUTlsConn(tlsConnOpt)
 	if err != nil {
 		res.Tcp1620 = err
 		return res
@@ -130,17 +130,17 @@ func webhostAliveCheck(opt WebhostSingleOpt, tlsConn *tls.UConn) error {
 		return err
 	}
 	req.Close = true
-	httputil.SetHeaders(&req.Header, cfg.HttpStaticHeaders)
+	inetutil.SetHeaders(&req.Header, cfg.HttpStaticHeaders)
 
 	writeCtx, cancel := context.WithTimeout(context.Background(), cfg.TcpWriteTimeout)
 	defer cancel()
-	if _, err := httputil.TlsWriteHttpRequest(writeCtx, tlsConn, req); err != nil {
+	if _, err := inetutil.TlsWriteHttpRequest(writeCtx, tlsConn, req); err != nil {
 		return err
 	}
 
 	readCtx, cancel := context.WithTimeout(context.Background(), cfg.TcpReadTimeout)
 	defer cancel()
-	resp, err := httputil.TlsReadHttpResponse(readCtx, tlsConn, bufio.NewReader(tlsConn))
+	resp, err := inetutil.TlsReadHttpResponse(readCtx, tlsConn, bufio.NewReader(tlsConn))
 	if err != nil {
 		return err
 	}
@@ -160,12 +160,12 @@ func webhostTcp1620check(opt WebhostSingleOpt, tlsConn *tls.UConn) (WebhostThrou
 		return WebhostThroughput{}, err
 	}
 	req.Close = false
-	httputil.SetHeaders(&req.Header, cfg.HttpStaticHeaders)
+	inetutil.SetHeaders(&req.Header, cfg.HttpStaticHeaders)
 
 	writeCtx, cancel := context.WithTimeout(context.Background(), cfg.TcpWriteTimeout)
 	defer cancel()
 	txStart := time.Now()
-	txBytes, err := httputil.TlsWriteHttpRequest(writeCtx, tlsConn, req)
+	txBytes, err := inetutil.TlsWriteHttpRequest(writeCtx, tlsConn, req)
 	if err != nil {
 		return WebhostThroughput{}, err
 	}
@@ -173,9 +173,9 @@ func webhostTcp1620check(opt WebhostSingleOpt, tlsConn *tls.UConn) (WebhostThrou
 
 	readCtx, cancel := context.WithTimeout(context.Background(), cfg.TcpReadTimeout)
 	defer cancel()
-	rxCr := &httputil.CountingReader{Reader: tlsConn}
+	rxCr := &inetutil.CountingReader{Reader: tlsConn}
 	rxStart := time.Now()
-	resp, err := httputil.TlsReadHttpResponse(readCtx, tlsConn, bufio.NewReader(rxCr))
+	resp, err := inetutil.TlsReadHttpResponse(readCtx, tlsConn, bufio.NewReader(rxCr))
 	if err != nil {
 		return WebhostThroughput{}, err
 	}

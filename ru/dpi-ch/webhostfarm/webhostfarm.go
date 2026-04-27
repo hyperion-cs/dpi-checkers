@@ -6,7 +6,7 @@ import (
 	"net/netip"
 
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
-	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/httputil"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/inetutil"
 
 	"go4.org/netipx"
 )
@@ -51,7 +51,7 @@ func Farm(opt FarmOpt) []FarmItem {
 
 func tryConnect(ip netip.Addr, port int, sni string) bool {
 	cfg := config.Get().WebhostFarm
-	conn, err := httputil.GetHandshakedUTlsConn(httputil.TlsConnOpt{
+	conn, err := inetutil.GetHandshakedUTlsConn(inetutil.TlsConnOpt{
 		Ip:                  ip,
 		Port:                port,
 		Sni:                 sni,
