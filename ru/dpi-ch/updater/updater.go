@@ -223,7 +223,7 @@ func readLocalHash(path string) (string, error) {
 func remoteHash(ctx context.Context, owner, repo, path, branch string) (string, error) {
 	url := attrUrl(owner, repo, path, branch)
 	var respRaw struct{ Sha string }
-	if err := inetutil.GetAndUnmarshal(ctx, http.DefaultClient, url, &respRaw, true, false); err != nil {
+	if err := inetutil.GetAndUnmarshal(ctx, url, &respRaw, true, false); err != nil {
 		return "", err
 	}
 

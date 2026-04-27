@@ -291,7 +291,7 @@ func dnsLeakSingle() dnsLeakOut {
 
 	url := "https://" + randString(cfg.Leak.LabelAlpha, cfg.Leak.LabelLen) + "." + cfg.Leak.ParentDomain
 	var respRaw map[string][]string
-	if err := inetutil.GetAndUnmarshal(ctx, http.DefaultClient, url, &respRaw, true, true); err != nil {
+	if err := inetutil.GetAndUnmarshal(ctx, url, &respRaw, true, true); err != nil {
 		return dnsLeakOut{nil, err}
 	}
 

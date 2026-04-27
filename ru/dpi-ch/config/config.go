@@ -104,6 +104,7 @@ type Config struct {
 	} `mapstructure:"inetlookup-geolitecsv"`
 
 	InetUtil struct {
+		Iface          string            `mapstructure:"iface"`
 		BrowserHeaders map[string]string `mapstructure:"browser-headers"`
 	} `mapstructure:"inetutil"`
 

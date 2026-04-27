@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"net/netip"
 	"slices"
 	"strings"
@@ -28,8 +27,6 @@ func (rm rootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
 		k := msg.String()
-		log.Println("KeyPressMsg", k)
-
 		// this and other tea.ClearScreen; tmp workaround of https://github.com/charmbracelet/bubbletea/issues/1646
 		cmds = append(cmds, tea.ClearScreen)
 

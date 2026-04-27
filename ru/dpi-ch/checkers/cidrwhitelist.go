@@ -5,7 +5,6 @@ package checkers
 import (
 	"context"
 	"errors"
-	"net/http"
 	"sync"
 	"sync/atomic"
 
@@ -30,7 +29,7 @@ func CidrWhitelist() error {
 
 	for _, url := range cfg.Regular {
 		wg.Go(func() {
-			if err := inetutil.Head(regCtx, http.DefaultClient, url, true, true); err == nil {
+			if err := inetutil.Head(regCtx, url, true, true); err == nil {
 				regCancel()
 				wlCancel() // results are already clear
 				atomic.AddInt32(&regCount, 1)
@@ -40,7 +39,7 @@ func CidrWhitelist() error {
 
 	for _, url := range cfg.Whitelisted {
 		wg.Go(func() {
-			if err := inetutil.Head(wlCtx, http.DefaultClient, url, true, true); err == nil {
+			if err := inetutil.Head(wlCtx, url, true, true); err == nil {
 				wlCancel()
 				atomic.AddInt32(&wlCount, 1)
 			}
