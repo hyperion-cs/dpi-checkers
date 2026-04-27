@@ -9,14 +9,14 @@ import (
 	"os"
 
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers"
-	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/httputil"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/inetutil"
 
 	"charm.land/bubbles/v2/table"
 	"charm.land/lipgloss/v2"
 )
 
 func dnsPrettyProviderVerdict(err error) string {
-	if httputil.IsHttputilErr(err) {
+	if inetutil.IsInetutilErr(err) {
 		return fmt.Sprintf("❗️ %s", err)
 	}
 
@@ -35,7 +35,7 @@ func dnsPrettyProviderVerdict(err error) string {
 		return "❗️bootstrap spoofing"
 	case checkers.ErrDnsDohBootstrapEmpty:
 		return "⚠️ empty bootstrap"
-	case checkers.ErrDnsDohInsecure, httputil.ErrTlsCertificateInvalid:
+	case checkers.ErrDnsDohInsecure, inetutil.ErrTlsCertificateInvalid:
 		return "❗️invalid https certificate"
 	case checkers.ErrDnsDohNon2xxResp:
 		return "⚠️ non-2xx response"
@@ -59,11 +59,11 @@ func webhostPrettyTcp1620(err error) string {
 	switch err {
 	case nil:
 		return "✅ no"
-	case httputil.ErrTcpWriteTimeout, httputil.ErrTcpReadTimeout:
+	case inetutil.ErrTcpWriteTimeout, inetutil.ErrTcpReadTimeout:
 		return "❗️detected"
 	case checkers.ErrWebhostSkip:
 		return "⚠️ skip"
-	case httputil.ErrTlsWriteBrokenPipe:
+	case inetutil.ErrTlsWriteBrokenPipe:
 		return "⚠️ not supported by host"
 	default:
 		return fmt.Sprintf("⚠️ %s", err)

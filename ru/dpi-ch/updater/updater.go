@@ -17,7 +17,7 @@ import (
 
 	"github.com/creativeprojects/go-selfupdate"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
-	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/httputil"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/inetutil"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/internal/version"
 )
 
@@ -223,7 +223,7 @@ func readLocalHash(path string) (string, error) {
 func remoteHash(ctx context.Context, owner, repo, path, branch string) (string, error) {
 	url := attrUrl(owner, repo, path, branch)
 	var respRaw struct{ Sha string }
-	if err := httputil.GetAndUnmarshal(ctx, http.DefaultClient, url, &respRaw, true, false); err != nil {
+	if err := inetutil.GetAndUnmarshal(ctx, http.DefaultClient, url, &respRaw, true, false); err != nil {
 		return "", err
 	}
 

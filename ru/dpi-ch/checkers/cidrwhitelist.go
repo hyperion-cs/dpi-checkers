@@ -10,7 +10,7 @@ import (
 	"sync/atomic"
 
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
-	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/httputil"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/inetutil"
 )
 
 var ErrCidrWhitelistDetected = errors.New("cidr whitelist detected")
@@ -30,7 +30,7 @@ func CidrWhitelist() error {
 
 	for _, url := range cfg.Regular {
 		wg.Go(func() {
-			if err := httputil.Head(regCtx, http.DefaultClient, url, true, true); err == nil {
+			if err := inetutil.Head(regCtx, http.DefaultClient, url, true, true); err == nil {
 				regCancel()
 				wlCancel() // results are already clear
 				atomic.AddInt32(&regCount, 1)
@@ -40,7 +40,7 @@ func CidrWhitelist() error {
 
 	for _, url := range cfg.Whitelisted {
 		wg.Go(func() {
-			if err := httputil.Head(wlCtx, http.DefaultClient, url, true, true); err == nil {
+			if err := inetutil.Head(wlCtx, http.DefaultClient, url, true, true); err == nil {
 				wlCancel()
 				atomic.AddInt32(&wlCount, 1)
 			}

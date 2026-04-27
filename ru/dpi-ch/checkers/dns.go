@@ -16,8 +16,8 @@ import (
 	"golang.org/x/net/dns/dnsmessage"
 
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
-	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/httputil"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/inetlookup"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/inetutil"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/subnetfilter"
 )
 
@@ -132,7 +132,7 @@ func dnsDohRaw(ctx context.Context, target DnsTarget, resolverHostname string, r
 	innerCtx, cancel := context.WithTimeout(ctx, cfg.DohOpt.Timeout)
 	defer cancel()
 
-	tlsConnOpt := httputil.TlsConnOpt{
+	tlsConnOpt := inetutil.TlsConnOpt{
 		Ctx:            innerCtx,
 		Ip:             resolverIp,
 		Port:           443, // TODO: config that
@@ -140,10 +140,10 @@ func dnsDohRaw(ctx context.Context, target DnsTarget, resolverHostname string, r
 		InsecureVerify: true,
 	}
 
-	tlsConn, err := httputil.GetHandshakedUTlsConn(tlsConnOpt)
+	tlsConn, err := inetutil.GetHandshakedUTlsConn(tlsConnOpt)
 	if err != nil {
 		res.Err = err
-		if err == httputil.ErrTlsCertificateInvalid {
+		if err == inetutil.ErrTlsCertificateInvalid {
 			res.Err = ErrDnsDohInsecure
 		}
 
@@ -165,14 +165,14 @@ func dnsDohRaw(ctx context.Context, target DnsTarget, resolverHostname string, r
 	req.Close = true // TODO: it is better to keep one connection open to each resolver
 	req.Header.Set("Content-Type", "application/dns-message")
 
-	httputil.SetHeaders(&req.Header, cfg.DohOpt.HttpStaticHeaders)
+	inetutil.SetHeaders(&req.Header, cfg.DohOpt.HttpStaticHeaders)
 
-	if _, err := httputil.TlsWriteHttpRequest(innerCtx, tlsConn, req); err != nil {
+	if _, err := inetutil.TlsWriteHttpRequest(innerCtx, tlsConn, req); err != nil {
 		res.Err = err
 		return res
 	}
 
-	resp, err := httputil.TlsReadHttpResponse(innerCtx, tlsConn, bufio.NewReader(tlsConn))
+	resp, err := inetutil.TlsReadHttpResponse(innerCtx, tlsConn, bufio.NewReader(tlsConn))
 	if err != nil {
 		res.Err = err
 		return res
@@ -230,7 +230,7 @@ func plainErrImportance(err error) int {
 }
 
 func dohErrImportance(err error) int {
-	if httputil.IsHttputilErr(err) {
+	if inetutil.IsInetutilErr(err) {
 		return 3
 	}
 	switch err {
@@ -291,7 +291,7 @@ func dnsLeakSingle() dnsLeakOut {
 
 	url := "https://" + randString(cfg.Leak.LabelAlpha, cfg.Leak.LabelLen) + "." + cfg.Leak.ParentDomain
 	var respRaw map[string][]string
-	if err := httputil.GetAndUnmarshal(ctx, http.DefaultClient, url, &respRaw, true, true); err != nil {
+	if err := inetutil.GetAndUnmarshal(ctx, http.DefaultClient, url, &respRaw, true, true); err != nil {
 		return dnsLeakOut{nil, err}
 	}
 

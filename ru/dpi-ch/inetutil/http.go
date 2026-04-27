@@ -1,4 +1,4 @@
-package httputil
+package inetutil
 
 import (
 	"context"
@@ -74,6 +74,6 @@ func SetHeaders(out *http.Header, headers map[string]string) {
 }
 
 func setBrowserHeaders(out *http.Header) {
-	cfg := config.Get().HttpUtil
+	cfg := config.Get().InetUtil
 	SetHeaders(out, cfg.BrowserHeaders)
 }

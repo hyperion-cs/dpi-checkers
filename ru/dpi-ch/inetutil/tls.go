@@ -1,4 +1,4 @@
-package httputil
+package inetutil
 
 import (
 	"bufio"
@@ -187,7 +187,7 @@ func TlsWriteHttpRequest(ctx context.Context, tlsConn *tls.UConn, req *http.Requ
 	return n, nil
 }
 
-func IsHttputilErr(err error) bool {
+func IsInetutilErr(err error) bool {
 	switch err {
 	case ErrTcpConnReset, ErrTcpConnTimeout, ErrTcpWriteTimeout,
 		ErrTcpReadTimeout, ErrTlsCertificateInvalid, ErrTlsHandshakeTimeout,
