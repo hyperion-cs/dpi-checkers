@@ -17,7 +17,7 @@ Extremely flexible configuration. Written in golang, builds are [available](http
 - Some killer features.
 
 ## How to run/install the dpi-ch
-To start _dpi-ch_, simply download and run the relevant binary from the [latest](https://github.com/hyperion-cs/dpi-checkers/releases/latest) release (this only needs to be done once, after which the utility will update automatically). Alternatively, you can "install" the utility from the command line:
+To start _dpi-ch_, simply download and run the relevant binary from the [latest](https://github.com/hyperion-cs/dpi-checkers/releases/latest) release (this only needs to be done once, after which the utility will update automatically). Alternatively, you can "install" the utility from the command line or use Docker:
 
 #### Linux / macOS
 ```bash
@@ -32,6 +32,34 @@ We recommend using [Terminal](https://github.com/microsoft/terminal) for adequat
 iwr https://hyperion-cs.github.io/dpi-checkers/ru/dpi-ch/install/windows.ps1 -UseB | iex
 ```
 💡 This script will just find the latest release that matches your architecture, and download, extract, and set it up in the following path: `%LOCALAPPDATA%\dpi-ch\dpich.exe`
+
+#### Docker
+We recommend using the version without Docker, but you are welcome to use it if you prefer.
+
+Launch the latest version in "_delete all data after exiting dpi-ch_" mode:
+```bash
+docker run --rm -it --pull=always ghcr.io/hyperion-cs/dpich:latest
+```
+
+Specific version:
+```bash
+docker run --rm -it --pull=always ghcr.io/hyperion-cs/dpich:v0.6.0
+```
+
+With a custom configuration (example for Linux/macOS):
+```bash
+docker run --rm -it --pull=always \
+  -v "$(pwd)/config.yaml:/etc/dpich/config.yaml:ro" \
+  ghcr.io/hyperion-cs/dpich:latest
+```
+
+💡 If you have your own configuration file, then, in the case where `--pull=always`, you should add something like this to it:
+```yml
+updater:
+  enabled: false
+```
+Because there's no point in trying to update the utility when it's obviously running the latest version.
+This is already set up in the default configuration.
 
 ## Killer features
 #### ⚡ New method for tcp 16-20
