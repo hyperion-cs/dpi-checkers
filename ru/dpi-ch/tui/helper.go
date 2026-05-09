@@ -7,12 +7,21 @@ import (
 	"log"
 	"net"
 	"os"
+	"slices"
 
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/inetutil"
 
+	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/table"
 	"charm.land/lipgloss/v2"
+)
+
+var (
+	KM_UP    = []string{"up", "k", "л", "ctrl+p", "ctrl+з"}
+	KM_DOWN  = []string{"down", "j", "о", "ctrl+n", "ctrl+т"}
+	KM_LEFT  = []string{"left", "h", "р", "ctrl+b", "ctrl+и"}
+	KM_RIGHT = []string{"right", "l", "д", "ctrl+f", "ctrl+а"}
 )
 
 func dnsPrettyProviderVerdict(err error) string {
@@ -125,4 +134,36 @@ func isTimeoutErr(err error) bool {
 		}
 	}
 	return false
+}
+
+// Normalizes control keys. Supports vim-style key bindings.
+func normKey(s string) string {
+	switch {
+	case slices.Contains(KM_UP, s):
+		return "up"
+	case slices.Contains(KM_DOWN, s):
+		return "down"
+	case slices.Contains(KM_LEFT, s):
+		return "left"
+	case slices.Contains(KM_RIGHT, s):
+		return "right"
+	}
+
+	return s
+}
+
+func tableKeyMap() table.KeyMap {
+	km := table.DefaultKeyMap()
+
+	km.LineUp = key.NewBinding(
+		key.WithKeys(KM_UP...),
+		key.WithHelp("↑/k", "up"),
+	)
+
+	km.LineDown = key.NewBinding(
+		key.WithKeys(KM_DOWN...),
+		key.WithHelp("↓/j", "down"),
+	)
+
+	return km
 }

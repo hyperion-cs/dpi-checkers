@@ -30,7 +30,7 @@ func (rm rootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// this and other tea.ClearScreen; tmp workaround of https://github.com/charmbracelet/bubbletea/issues/1646
 		cmds = append(cmds, tea.ClearScreen)
 
-		if k == "q" || k == "й" || k == "esc" || k == "ctrl+c" {
+		if k == "q" || k == "й" || k == "esc" || k == "ctrl+c" || k == "ctrl+с" {
 			rm.quitting = true
 			return rm, tea.Quit
 		}
@@ -77,7 +77,7 @@ func (rm rootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func menuUpdate(model menuModel, msg tea.Msg) (menuModel, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
-		switch msg.String() {
+		switch normKey(msg.String()) {
 		case "up":
 			model.optionIdx = (model.optionIdx - 1 + len(menuOptions)) % len(menuOptions)
 		case "down":
@@ -311,6 +311,7 @@ func webhostInitModel() webhostModel {
 	t := table.New(
 		table.WithFocused(true),
 		table.WithStyles(tableStyle(true)),
+		table.WithKeyMap(tableKeyMap()),
 	)
 
 	return webhostModel{
@@ -354,7 +355,7 @@ func dnsUpdate(model dnsModel, msg tea.Msg) (dnsModel, tea.Cmd) {
 		}
 		return model, nil
 	case tea.KeyPressMsg:
-		switch msg.String() {
+		switch normKey(msg.String()) {
 		case "left":
 			model.providerTable.Focus()
 			model.providerTable.SetStyles(tableStyle(true))
@@ -497,11 +498,13 @@ func dnsInitModel() dnsModel {
 	providerTable := table.New(
 		table.WithFocused(true),
 		table.WithStyles(tableStyle(true)),
+		table.WithKeyMap(tableKeyMap()),
 	)
 
 	leakTable := table.New(
 		table.WithFocused(false),
 		table.WithStyles(tableStyle(false)),
+		table.WithKeyMap(tableKeyMap()),
 	)
 
 	return dnsModel{
