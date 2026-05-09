@@ -1,9 +1,9 @@
 # DPI Checkers
 [![dpi-ch release](https://github.com/hyperion-cs/dpi-checkers/actions/workflows/dpich_release.yml/badge.svg)](https://github.com/hyperion-cs/dpi-checkers/actions/workflows/dpich_release.yml)
 
-🚀 This repository contains checkers that allow you to determine if your residential ISP has DPI, as well as the specific methods (and their parameters) the censor uses for restrictions.
+🚀 This repository contains checkers that allow you to determine if your residential ISP (or a server in a data center) has DPI, as well as the specific methods (and their parameters) the censor uses for restrictions.
 
-> [!WARNING]  
+> [!WARNING]
 > All content in this repository is provided **for research and educational purposes only**.  
 > You are **solely responsible** for ensuring that your use of any code, data, or information from this repository complies with all applicable laws and regulations in your jurisdiction.  
 > The authors and contributors **assume no liability** for any misuse or violations arising from the use of this materials.
@@ -14,7 +14,7 @@ preload checker in your browser.
 
 - ❗ **RU :: DPI-CH** (dpi comprehensive checker)<br>
   This is the "big brother" of all other checkers, not limited by the browser sandbox. It is an attempt to create a powerful tool for general-purpose DPI analysis (incl. an improved _tcp 16-20_ checker and much more).<br>
-  Extremely flexible configuration. Written in golang, builds are [available](https://github.com/hyperion-cs/dpi-checkers/releases/) for windows/macos/linux (android coming soon). See [its page](https://github.com/hyperion-cs/dpi-checkers/tree/main/ru/dpi-ch/docs) for a detailed description.
+  Extremely flexible configuration. Written in golang, builds are [available](https://github.com/hyperion-cs/dpi-checkers/releases/) for Windows/macOS/Linux (Android coming soon). See [its page](https://github.com/hyperion-cs/dpi-checkers/tree/main/ru/dpi-ch/docs) for a detailed description.
   ![gif](https://raw.githubusercontent.com/hyperion-cs/dpi-checkers/refs/heads/main/static/images/dpich_v0.4.0_demo.gif)
 
 - **RU :: TCP 16-20** => [https://hyperion-cs.github.io/dpi-checkers/ru/tcp-16-20](https://hyperion-cs.github.io/dpi-checkers/ru/tcp-16-20)<br>

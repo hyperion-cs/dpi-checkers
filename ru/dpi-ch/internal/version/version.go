@@ -1,3 +1,5 @@
 package version
 
-var Value = "v0.0.0"
+const Init = "v0.0.0"
+
+var Value = Init

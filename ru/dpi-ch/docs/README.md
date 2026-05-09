@@ -2,7 +2,7 @@
 [![dpi-ch release](https://github.com/hyperion-cs/dpi-checkers/actions/workflows/dpich_release.yml/badge.svg)](https://github.com/hyperion-cs/dpi-checkers/actions/workflows/dpich_release.yml)
 
 This is the "big brother" of all other checkers, not limited by the browser sandbox. It is an attempt to create a powerful tool for general-purpose DPI analysis (incl. an improved _tcp 16-20_ checker and much more).<br>
-Extremely flexible configuration. Written in golang, builds are [available](https://github.com/hyperion-cs/dpi-checkers/releases/) for windows/macos/linux (android coming soon).
+Extremely flexible configuration. Written in golang, builds are [available](https://github.com/hyperion-cs/dpi-checkers/releases/) for Windows/macOS/Linux (Android coming soon).
 ![gif](https://raw.githubusercontent.com/hyperion-cs/dpi-checkers/refs/heads/main/static/images/dpich_v0.4.0_demo.gif)
 
 ## Implemented features
@@ -15,6 +15,23 @@ Extremely flexible configuration. Written in golang, builds are [available](http
 - Modern TUI (aka CLI) with flexible parallel workers;
 - Automatic utility update from Github releases;
 - Some killer features.
+
+## How to run/install the dpi-ch
+To start _dpi-ch_, simply download and run the relevant binary from the [latest](https://github.com/hyperion-cs/dpi-checkers/releases/latest) release (this only needs to be done once, after which the utility will update automatically). Alternatively, you can "install" the utility from the command line:
+
+#### Linux / macOS
+```bash
+bash <(curl -Ls https://hyperion-cs.github.io/dpi-checkers/ru/dpi-ch/install/unix.sh)
+```
+💡 This script will just find the latest release that matches your OS and architecture, and download, extract, and set it up in the following path: `~/.local/bin/dpich`
+
+#### Windows
+We recommend using [Terminal](https://github.com/microsoft/terminal) for adequate tui behavior. 
+
+```powershell
+iwr https://hyperion-cs.github.io/dpi-checkers/ru/dpi-ch/install/windows.ps1 | iex
+```
+💡 This script will just find the latest release that matches your architecture, and download, extract, and set it up in the following path: `%LOCALAPPDATA%\dpi-ch\dpich.exe`
 
 ## Killer features
 #### ⚡ New method for tcp 16-20
@@ -53,33 +70,6 @@ Example 1: `(org("hetzner", "digitalocean") && country("de", "fi")) || as(199524
 Example 2: `org("hetzner") && country("he")` — returns a set of subnets that are owned by Hetzner and used in hosts in Germany.
 
 The default configuration already includes default filter options for popular web services and infrastructure providers (see below), but we hope you will be able to take full benefit of this flexible feature to suit your needs. By the way, this mechanism inside dpi-ch is called _subnetfilter_ and it works locally without the internet.
-
-## How to run the utility
-To start _dpi-ch_, simply download and run the relevant binary from the [latest](https://github.com/hyperion-cs/dpi-checkers/releases/latest) release (this only needs to be done once, after which the utility will update automatically). You can do this manually or via the command line.
-
-#### Linux / macOS
-```bash
-# See links to the latest binaries
-curl -s https://api.github.com/repos/hyperion-cs/dpi-checkers/releases/latest | grep browser_download_url
-
-# Paste into :link the link to the latest binary for your OS/architecture here
-curl -L -o dpich.zip :link
-unzip dpich.zip && rm dpich.zip && chmod +x dpich
-./dpich
-```
-
-#### Windows
-We recommend using [Terminal](https://github.com/microsoft/terminal) for adequate tui behavior. 
-
-```powershell
-# See links to the latest binaries
-curl -s https://api.github.com/repos/hyperion-cs/dpi-checkers/releases/latest | Select-String browser_download_url
-
-# Paste into :link the link to the latest binary for your OS/architecture here
-curl -L -o dpich.zip :link
-Expand-Archive dpich.zip && Remove-Item dpich.zip
-.\dpich.exe
-```
 
 \* Of course, you can always compile and run it from [source](https://github.com/hyperion-cs/dpi-checkers/tree/main/ru/dpi-ch).
 

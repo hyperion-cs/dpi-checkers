@@ -109,7 +109,7 @@ func cidrwhitelistView(model cidrwhitelistModel) string {
 	}
 
 	if model.err == checkers.ErrCidrWhitelistDetected {
-		return dangerStyle.Render("You're UNDER one. :(")
+		return dangerStyle.Render("You're UNDER one :(")
 	}
 
 	if model.err == checkers.ErrCidrWhitelistNoInetAccess {

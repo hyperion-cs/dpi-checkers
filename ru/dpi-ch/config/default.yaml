@@ -90,7 +90,7 @@ checkers:
     table-max-visible-rows: 20
 
   cidrwhitelist:
-    timeout: 15s
+    timeout: 10s
     whitelisted:
       - https://max.ru/
       - https://ya.ru/

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"os"
+	"path/filepath"
 
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/internal/version"
@@ -15,6 +17,10 @@ import (
 )
 
 func main() {
+	if err := chdirToBin(); err != nil {
+		panic(err)
+	}
+
 	ui := flag.String("ui", "t", "ui mode: t | web")
 	ver := flag.Bool("version", false, "print version")
 	forceInetlookupUpd := flag.Bool("force-inetlookup-update", false, "force run the inetlookup update mechanism")
@@ -52,4 +58,18 @@ func main() {
 	default:
 		log.Fatalf("unknown --ui value: %s", *ui)
 	}
+}
+
+func chdirToBin() error {
+	// Don't change workdir in dev environment
+	if version.Value == version.Init {
+		return nil
+	}
+
+	binPath, err := os.Executable()
+	if err != nil {
+		return err
+	}
+
+	return os.Chdir(filepath.Dir(binPath))
 }
