@@ -29,7 +29,7 @@ bash <(curl -Ls https://hyperion-cs.github.io/dpi-checkers/ru/dpi-ch/install/uni
 We recommend using [Terminal](https://github.com/microsoft/terminal) for adequate tui behavior. 
 
 ```powershell
-iwr https://hyperion-cs.github.io/dpi-checkers/ru/dpi-ch/install/windows.ps1 | iex
+iwr https://hyperion-cs.github.io/dpi-checkers/ru/dpi-ch/install/windows.ps1 -UseB | iex
 ```
 💡 This script will just find the latest release that matches your architecture, and download, extract, and set it up in the following path: `%LOCALAPPDATA%\dpi-ch\dpich.exe`
 

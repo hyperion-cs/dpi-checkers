@@ -8,10 +8,14 @@ if (-not $env:LOCALAPPDATA) {
     exit 1
 }
 
-$OsArch = [Runtime.InteropServices.RuntimeInformation]::OSArchitecture
+$Arch = if ($env:PROCESSOR_ARCHITEW6432) {
+    $env:PROCESSOR_ARCHITEW6432
+} else {
+    $env:PROCESSOR_ARCHITECTURE
+}
 
-if (-not [Environment]::Is64BitProcess -or $OsArch -ne "X64") {
-    Write-Error "Unsupported architecture: $OsArch"
+if ($Arch -ne "AMD64") {
+    Write-Error "Unsupported architecture: $Arch"
     exit 1
 }
 
