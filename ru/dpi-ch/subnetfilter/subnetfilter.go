@@ -5,6 +5,7 @@ import (
 	"net/netip"
 	"slices"
 	"strings"
+	"sync"
 
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/inetlookup"
 
@@ -13,6 +14,20 @@ import (
 	"github.com/expr-lang/expr/vm"
 	"go4.org/netipx"
 )
+
+var mu sync.Mutex
+var def *Subnetfilter
+
+func Default() *Subnetfilter {
+	mu.Lock()
+	defer mu.Unlock()
+
+	if def == nil {
+		def = New(inetlookup.Default())
+	}
+
+	return def
+}
 
 type Subnetfilter struct {
 	inetlookup inetlookup.InetLookup

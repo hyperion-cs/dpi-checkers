@@ -5,20 +5,24 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"os"
+	"path/filepath"
 
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/internal/version"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/tui"
-	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/updater"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/webui"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 func main() {
+	if err := chdirToBin(); err != nil {
+		panic(err)
+	}
+
 	ui := flag.String("ui", "t", "ui mode: t | web")
 	ver := flag.Bool("version", false, "print version")
-	upd := flag.Bool("update", false, "replace the executable with the updated version")
 	forceInetlookupUpd := flag.Bool("force-inetlookup-update", false, "force run the inetlookup update mechanism")
 
 	cfgPath := flag.String("cfg", config.CfgDefPath, ".yaml config path")
@@ -42,10 +46,6 @@ func main() {
 		return
 	}
 
-	if *upd {
-		updater.SelfUpdateExecutable(flag.Arg(0), flag.Arg(1))
-	}
-
 	if *forceInetlookupUpd {
 		config.ForceInetlookupUpdate()
 	}
@@ -58,4 +58,18 @@ func main() {
 	default:
 		log.Fatalf("unknown --ui value: %s", *ui)
 	}
+}
+
+func chdirToBin() error {
+	// Don't change workdir in dev environment
+	if version.Value == version.Init {
+		return nil
+	}
+
+	binPath, err := os.Executable()
+	if err != nil {
+		return err
+	}
+
+	return os.Chdir(filepath.Dir(binPath))
 }

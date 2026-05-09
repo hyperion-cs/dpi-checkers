@@ -1,15 +1,20 @@
 package checkers
 
 import (
+	"bufio"
+	"bytes"
+	"context"
 	"crypto/rand"
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"net/netip"
+	"time"
 
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
-	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/httputil"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/inetlookup"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/inetutil"
 
 	tls "github.com/refraction-networking/utls"
 )
@@ -32,13 +37,16 @@ type WebhostSingleResult struct {
 	Host    string
 	Alive   error
 	Tcp1620 error
+
+	// Set only if Tcp1620 == nil
+	Throughput WebhostThroughput
 }
 
-type webhostHttpReq struct {
-	method    string
-	host      string
-	body      []byte
-	keepalive bool
+type WebhostThroughput struct {
+	TxBytes   int64
+	RxBytes   int64
+	TxElapsed time.Duration
+	RxElapsed time.Duration
 }
 
 var (
@@ -69,7 +77,7 @@ func WebhostSingle(opt WebhostSingleOpt) WebhostSingleResult {
 	}
 
 	cfg := config.Get().Checkers.Webhost
-	tlsConnOpt := httputil.TlsConnOpt{
+	tlsConnOpt := inetutil.TlsConnOpt{
 		Ip:                  opt.Ip,
 		Port:                opt.Port,
 		Sni:                 opt.Sni,
@@ -80,7 +88,7 @@ func WebhostSingle(opt WebhostSingleOpt) WebhostSingleResult {
 		KeyLogWriter:        opt.KeyLogWriter,
 	}
 
-	tlsConn, err := httputil.GetHandshakedUTlsConn(tlsConnOpt)
+	tlsConn, err := inetutil.GetHandshakedUTlsConn(tlsConnOpt)
 	if err != nil {
 		res.Alive = err
 		res.Tcp1620 = ErrWebhostSkip
@@ -98,70 +106,91 @@ func WebhostSingle(opt WebhostSingleOpt) WebhostSingleResult {
 		return res
 	}
 
-	tlsConn, err = httputil.GetHandshakedUTlsConn(tlsConnOpt)
+	tlsConn, err = inetutil.GetHandshakedUTlsConn(tlsConnOpt)
 	if err != nil {
 		res.Tcp1620 = err
 		return res
 	}
-	if err = webhostTcp1620check(opt, tlsConn); err != nil {
+
+	thp, err := webhostTcp1620check(opt, tlsConn)
+	if err != nil {
 		res.Tcp1620 = err
 	}
 
+	res.Throughput = thp
 	return res
 }
 
 func webhostAliveCheck(opt WebhostSingleOpt, tlsConn *tls.UConn) error {
 	defer tlsConn.Close()
 	cfg := config.Get().Checkers.Webhost
-	req := prepareHttpReq(webhostHttpReq{method: "HEAD", host: opt.Host})
-	if err := httputil.TlsWriteAll(tlsConn, req, cfg.TcpWriteTimeout); err != nil {
+
+	req, err := http.NewRequest("HEAD", "https://"+opt.Host, http.NoBody)
+	if err != nil {
 		return err
 	}
-	if _, err := httputil.TlsReadHttpHeaders(tlsConn, cfg.TcpReadTimeout); err != nil {
+	req.Close = true
+	inetutil.SetHeaders(&req.Header, cfg.HttpStaticHeaders)
+
+	writeCtx, cancel := context.WithTimeout(context.Background(), cfg.TcpWriteTimeout)
+	defer cancel()
+	if _, err := inetutil.TlsWriteHttpRequest(writeCtx, tlsConn, req); err != nil {
 		return err
 	}
+
+	readCtx, cancel := context.WithTimeout(context.Background(), cfg.TcpReadTimeout)
+	defer cancel()
+	resp, err := inetutil.TlsReadHttpResponse(readCtx, tlsConn, bufio.NewReader(tlsConn))
+	if err != nil {
+		return err
+	}
+	resp.Body.Close()
+
 	return nil
 }
 
-func webhostTcp1620check(opt WebhostSingleOpt, tlsConn *tls.UConn) error {
+func webhostTcp1620check(opt WebhostSingleOpt, tlsConn *tls.UConn) (WebhostThroughput, error) {
 	defer tlsConn.Close()
 	cfg := config.Get().Checkers.Webhost
 	body, _ := randomBytes(cfg.Tcp1620nBytes)
 
 	// keep-alive increases the chance that we will be able to push enough data into the connection
-	req := prepareHttpReq(webhostHttpReq{method: "POST", host: opt.Host, body: body, keepalive: true})
-	if err := httputil.TlsWriteAll(tlsConn, req, cfg.TcpWriteTimeout); err != nil {
-		return err
+	req, err := http.NewRequest("POST", "https://"+opt.Host, bytes.NewReader(body))
+	if err != nil {
+		return WebhostThroughput{}, err
 	}
-	if _, err := httputil.TlsReadHttpHeaders(tlsConn, cfg.TcpReadTimeout); err != nil {
-		return err
-	}
-	return nil
-}
+	req.Close = false
+	inetutil.SetHeaders(&req.Header, cfg.HttpStaticHeaders)
 
-func prepareHttpReq(opt webhostHttpReq) []byte {
-	cfg := config.Get().Checkers.Webhost
-	reqStr := opt.method + " / HTTP/1.1\r\n"
-	for k, v := range cfg.HttpStaticHeaders {
-		reqStr += fmt.Sprintf("%s: %s\r\n", k, v)
+	writeCtx, cancel := context.WithTimeout(context.Background(), cfg.TcpWriteTimeout)
+	defer cancel()
+	txStart := time.Now()
+	txBytes, err := inetutil.TlsWriteHttpRequest(writeCtx, tlsConn, req)
+	if err != nil {
+		return WebhostThroughput{}, err
 	}
-	if len(opt.host) > 0 {
-		reqStr += fmt.Sprintf("Host: %s\r\n", opt.host)
-	}
-	if opt.body != nil {
-		reqStr += fmt.Sprintf("Content-Length: %d\r\n", len(opt.body))
-	}
+	txElapsed := time.Since(txStart)
 
-	conn := "close"
-	if opt.keepalive {
-		conn = "keep-alive"
+	readCtx, cancel := context.WithTimeout(context.Background(), cfg.TcpReadTimeout)
+	defer cancel()
+	rxCr := &inetutil.CountingReader{Reader: tlsConn}
+	rxStart := time.Now()
+	resp, err := inetutil.TlsReadHttpResponse(readCtx, tlsConn, bufio.NewReader(rxCr))
+	if err != nil {
+		return WebhostThroughput{}, err
 	}
-	reqStr += fmt.Sprintf("Connection: %s\r\n\r\n", conn)
+	if _, err = io.Copy(io.Discard, resp.Body); err != nil {
+		return WebhostThroughput{}, err
+	}
+	rxElapsed := time.Since(rxStart)
+	resp.Body.Close()
 
-	req := make([]byte, 0, len(reqStr)+len(opt.body))
-	req = append(req, []byte(reqStr)...)
-	req = append(req, opt.body...)
-	return req
+	return WebhostThroughput{
+		TxBytes:   txBytes,
+		TxElapsed: txElapsed,
+		RxBytes:   rxCr.Bytes,
+		RxElapsed: rxElapsed,
+	}, nil
 }
 
 func randomBytes(n int) ([]byte, error) {

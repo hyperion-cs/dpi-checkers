@@ -2,8 +2,8 @@
 [![dpi-ch release](https://github.com/hyperion-cs/dpi-checkers/actions/workflows/dpich_release.yml/badge.svg)](https://github.com/hyperion-cs/dpi-checkers/actions/workflows/dpich_release.yml)
 
 This is the "big brother" of all other checkers, not limited by the browser sandbox. It is an attempt to create a powerful tool for general-purpose DPI analysis (incl. an improved _tcp 16-20_ checker and much more).<br>
-Extremely flexible configuration. Written in golang, builds are [available](https://github.com/hyperion-cs/dpi-checkers/releases/) for windows/macos/linux (android coming soon).
-![gif](https://raw.githubusercontent.com/hyperion-cs/dpi-checkers/refs/heads/main/static/images/dpich_v0.2.1.gif)
+Extremely flexible configuration. Written in golang, builds are [available](https://github.com/hyperion-cs/dpi-checkers/releases/) for Windows/macOS/Linux (Android coming soon).
+![gif](https://raw.githubusercontent.com/hyperion-cs/dpi-checkers/refs/heads/main/static/images/dpich_v0.4.0_demo.gif)
 
 ## Implemented features
 - **Who am I?** about your internet connection; aka _whoami checker_;
@@ -11,9 +11,27 @@ Extremely flexible configuration. Written in golang, builds are [available](http
 - **Comprehensive checks** (_incl. alive and tcp 16-20 restrictions_); aka _webhost checker_:
   - **Popular Web Services** like YouTube, Instagram, Discord, Telegram and others;
   - **Infrastructure Providers** like Cloudflare, Akamai, Hetzner, DigitalOcean and others.
+- **DNS** checks if a censor is spoofing dns responses, hijacking servers, DoH blocking, etc; aka _dns checker_;
 - Modern TUI (aka CLI) with flexible parallel workers;
 - Automatic utility update from Github releases;
 - Some killer features.
+
+## How to run/install the dpi-ch
+To start _dpi-ch_, simply download and run the relevant binary from the [latest](https://github.com/hyperion-cs/dpi-checkers/releases/latest) release (this only needs to be done once, after which the utility will update automatically). Alternatively, you can "install" the utility from the command line:
+
+#### Linux / macOS
+```bash
+bash <(curl -Ls https://hyperion-cs.github.io/dpi-checkers/ru/dpi-ch/install/unix.sh)
+```
+💡 This script will just find the latest release that matches your OS and architecture, and download, extract, and set it up in the following path: `~/.local/bin/dpich`
+
+#### Windows
+We recommend using [Terminal](https://github.com/microsoft/terminal) for adequate tui behavior. 
+
+```powershell
+iwr https://hyperion-cs.github.io/dpi-checkers/ru/dpi-ch/install/windows.ps1 | iex
+```
+💡 This script will just find the latest release that matches your architecture, and download, extract, and set it up in the following path: `%LOCALAPPDATA%\dpi-ch\dpich.exe`
 
 ## Killer features
 #### ⚡ New method for tcp 16-20
@@ -53,42 +71,15 @@ Example 2: `org("hetzner") && country("he")` — returns a set of subnets that a
 
 The default configuration already includes default filter options for popular web services and infrastructure providers (see below), but we hope you will be able to take full benefit of this flexible feature to suit your needs. By the way, this mechanism inside dpi-ch is called _subnetfilter_ and it works locally without the internet.
 
-## How to run the utility
-To start _dpi-ch_, simply download and run the relevant binary from the [latest](https://github.com/hyperion-cs/dpi-checkers/releases/latest) release (this only needs to be done once, after which the utility will update automatically). You can do this manually or via the command line.
-
-#### Linux / macOS
-```bash
-# See links to the latest binaries
-curl -s https://api.github.com/repos/hyperion-cs/dpi-checkers/releases/latest | grep browser_download_url
-
-# Paste into :link the link to the latest binary for your OS/architecture here
-curl -L -o dpich.zip :link
-unzip dpich.zip && rm dpich.zip && chmod +x dpich
-./dpich
-```
-
-#### Windows
-We recommend using [Terminal](https://github.com/microsoft/terminal) for adequate tui behavior. 
-
-```powershell
-# See links to the latest binaries
-curl -s https://api.github.com/repos/hyperion-cs/dpi-checkers/releases/latest | Select-String browser_download_url
-
-# Paste into :link the link to the latest binary for your OS/architecture here
-curl -L -o dpich.zip :link
-Expand-Archive dpich.zip && Remove-Item dpich.zip
-.\dpich.exe
-```
-
 \* Of course, you can always compile and run it from [source](https://github.com/hyperion-cs/dpi-checkers/tree/main/ru/dpi-ch).
 
 ## Planned
-- [ ] Comprehensive DNS checker (leak test, detection of response hijacking, server hijacking, etc.);
+- [x] Comprehensive DNS checker (leak test, detection of response spoofing, server hijacking, etc.);
 - [ ] Trigger blocks checker;
 - [ ] More detailed information in checkers (_statuses, reasons, etc._);
 - [ ] TLS certificate hijacking detection in _webhost_ checker;
 - [ ] Option to temporarily freeze the list of hosts in _webhost_ checker;
-- [ ] Estimation of internet connection speed (including shaping/slowdown detection) in _webhost_ checker;
+- [x] Estimation of internet connection speed (including shaping/slowdown detection) in _webhost_ checker;
 - [ ] Detecting subnets for CIDR whitelists;
 - [ ] Detecting hostnames for for SNI whitelists;
 - [ ] Integration with [zapret](https://github.com/bol-van/zapret2) to find optimal strategies;
@@ -138,6 +129,26 @@ checkers: # checkers, available in the dpi-ch utility
     table-max-visible-rows: # int; number of visible rows in the results table (if there are more, scrolling is available)
     http-static-headers:    # map[string]string; http headers that will be sent as part of requests to hosts
 
+  dns: # aka dns checker
+    table-max-visible-rows: # int; number of visible rows in results tables (if there are more, scrolling is available)
+
+    targets: # []target-item; list of test targets for resolving
+
+             # target-item structure:
+             # host:   # string; domain name for resolving (e.g. google.com)
+             # filter: # string; filter in subnetfilter notation that determines if a dns resolving occurred without spoofing
+   
+    providers: # []provider-item; list of dns providers (both plain and doh)
+
+               # provider-item structure:
+               # name:  # string; name of the provider
+               # plain: # []string; list of provider's plain dns resolvers in ip:port format
+               # doh:   # provider's doh dns resolvers
+                 # filter: # string; filter in subnetfilter notation that determines if a dns BOOTSTRAP resolving occurred without spoofing
+                 # hosts:  # []string; list of provider's doh dns resolvers in domain name format (e.g. dns.google)
+
+
+
   whoami: # aka whoami checker
     timeout: # time.Duration; total timeout for receiving checker results
 
@@ -151,7 +162,8 @@ webhostfarm: # takes sets of subnets (usually from subnetfilter), returns suitab
   tcp-conn-timeout:      # time.Duration; timeout for establishing a tcp connection
   tls-handshake-timeout: # time.Duration; timeout for tls handshake
 
-httputil: # used to perform simple http requests
+inetutil: # used for all network operations (incl. tcp/tls operation and http requests)
+  iface:           # string; name of network interface or its ip address for network operations (currently, only ipv4 is supported)
   browser-headers: # map[string]string; http headers that will be sent as part of requests
 
 updater: # used to automatically update the dpi-ch utility and related stuff (e.g., geoip)
@@ -171,3 +183,4 @@ It so happens that similar projects (unrelated to ours) are under development at
 - [expr-lang/expr](https://github.com/expr-lang/expr)
 - [efraction-networking/utls](https://github.com/refraction-networking/utls)
 - [spf13/viper](https://github.com/spf13/viper)
+- [creativeprojects/go-selfupdate](https://github.com/creativeprojects/go-selfupdate)

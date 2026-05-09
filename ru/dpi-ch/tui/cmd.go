@@ -8,19 +8,20 @@ import (
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/inetlookup"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/updater"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 func (rm rootModel) Init() tea.Cmd {
 	updaterCfg := config.Get().Updater
-	ttu, _ := updater.TimeToUpdate()
-	if updaterCfg.ForceInetlookupUpdate || (updaterCfg.Enabled && ttu) {
+	selfTtu, _ := updater.TimeToUpdate(updaterCfg.SelfTsFile)
+	inetlookupTtu, _ := updater.TimeToUpdate(updaterCfg.InetlookupTsFile)
+
+	if updaterCfg.ForceInetlookupUpdate || (updaterCfg.Enabled && (selfTtu || inetlookupTtu)) {
 		return func() tea.Msg {
 			return updaterInitMsg{forceInetlookupUpdate: updaterCfg.ForceInetlookupUpdate}
 		}
 	}
 
-	// if updates are disabled, then user is responsible for maintaining current state
 	return func() tea.Msg {
 		inetlookup.Default()
 		return nil
@@ -68,6 +69,49 @@ func webhostConsumerCmd(out checkers.WebhostGochanRunnerOut) tea.Cmd {
 	}
 }
 
+func dnsProducerStartCmd(ctx context.Context) tea.Cmd {
+	return func() tea.Msg {
+		return dnsProducerStartedMsg{
+			out: dnsChannelModel{
+				leak:          checkers.DnsLeakGochan(ctx),
+				providerPlain: checkers.DnsPlainGochan(ctx),
+				providerDoh:   checkers.DnsDohGochan(ctx),
+				progress:      make(chan string, 16),
+			},
+		}
+	}
+}
+
+func dnsConsumerCmd(out dnsChannelModel) tea.Cmd {
+	return func() tea.Msg {
+		for out.providerPlain != nil || out.providerDoh != nil || out.leak != nil {
+			select {
+			case v, ok := <-out.providerPlain:
+				if !ok {
+					out.providerPlain = nil
+					continue
+				}
+				return dnsProviderPlainMsg(v)
+			case v, ok := <-out.providerDoh:
+				if !ok {
+					out.providerDoh = nil
+					continue
+				}
+				return dnsProviderDohMsg(v)
+			case v, ok := <-out.leak:
+				if !ok {
+					out.leak = nil
+					continue
+				}
+				return dnsLeakMsg(v)
+			case v := <-out.progress:
+				return dnsProgressMsg(v)
+			}
+		}
+		return dnsProducerDoneMsg{}
+	}
+}
+
 func updaterSelfCmd(ctx context.Context) tea.Cmd {
 	return func() tea.Msg {
 		upd, err := updater.SelfCheckUpdates(ctx)
@@ -84,11 +128,11 @@ func updaterSelfCmd(ctx context.Context) tea.Cmd {
 			return updaterSelfNoopMsg{}
 		}
 
-		if err = updater.SelfUpdate(ctx, upd.Name, upd.Url); err != nil {
+		if err = updater.SelfUpdate(ctx, upd.AssetUrl, upd.AssetFilename, upd.AssetVersion); err != nil {
 			return updaterErrMsg{err: err}
 		}
 
-		return updaterSelfDoneMsg{name: upd.Name}
+		return updaterSelfDoneMsg{version: upd.AssetVersion}
 	}
 }
 

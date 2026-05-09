@@ -4,25 +4,24 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"net/http"
 	"net/netip"
 	"os"
 	"path"
 	"sync"
 
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
-	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/httputil"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/inetutil"
 )
 
 var mu sync.Mutex
-var defaultInetLookup InetLookup
+var def InetLookup
 
 func Default() InetLookup {
 	mu.Lock()
 	defer mu.Unlock()
 
 	geolitecsvCfg := config.Get().InetlookupGeolitecsv
-	if defaultInetLookup == nil {
+	if def == nil {
 		ilOpt := GeoliteCsvOpt{
 			CidrAsPath:           geolitecsvCfg.CidrAs,
 			CidrCountryPath:      geolitecsvCfg.CidrCountry,
@@ -34,10 +33,10 @@ func Default() InetLookup {
 					path.Dir(ilOpt.CidrAsPath)),
 			)
 		}
-		defaultInetLookup = NewGeoliteCsv(ilOpt)
+		def = NewGeoliteCsv(ilOpt)
 	}
 
-	return defaultInetLookup
+	return def
 }
 
 func LookupIpViaDefault(ctx context.Context, host string) ([]net.IP, error) {
@@ -52,7 +51,7 @@ func GetExternalIpViaRipe(ctx context.Context) (netip.Addr, error) {
 	cfg := config.Get().InetLookup
 
 	var ipRaw struct{ Data struct{ Ip string } }
-	if err := httputil.GetAndUnmarshal(ctx, http.DefaultClient, cfg.RipeApiUrl+"whats-my-ip/data.json", &ipRaw, true, true); err != nil {
+	if err := inetutil.GetAndUnmarshal(ctx, cfg.RipeApiUrl+"whats-my-ip/data.json", &ipRaw, true, true); err != nil {
 		return netip.Addr{}, err
 	}
 
@@ -63,7 +62,7 @@ func GetExternalIpViaYandex(ctx context.Context) (netip.Addr, error) {
 	cfg := config.Get().InetLookup
 
 	var ip string
-	err := httputil.GetAndUnmarshal(ctx, http.DefaultClient, cfg.YandexApiUrl+"ip", &ip, true, true)
+	err := inetutil.GetAndUnmarshal(ctx, cfg.YandexApiUrl+"ip", &ip, true, true)
 	if err != nil {
 		return netip.Addr{}, err
 	}

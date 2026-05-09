@@ -3,6 +3,7 @@ package checkers
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/inetlookup"
@@ -14,6 +15,7 @@ type WhoamiResult struct {
 	Asn      string
 	Org      string
 	Location string
+	Ttlb     time.Duration
 }
 
 func Whoami() (WhoamiResult, error) {
@@ -21,13 +23,16 @@ func Whoami() (WhoamiResult, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.Timeout)
 	defer cancel()
 
+	ttlbStart := time.Now()
 	ip, err := inetlookup.GetExternalIpViaYandex(ctx)
 	if err != nil {
+		ttlbStart = time.Now()
 		ip, err = inetlookup.GetExternalIpViaRipe(ctx)
 	}
 	if err != nil {
 		return WhoamiResult{}, err
 	}
+	ttlb := time.Since(ttlbStart)
 
 	il := inetlookup.Default()
 	info := il.IpInfo(ip)
@@ -38,5 +43,6 @@ func Whoami() (WhoamiResult, error) {
 		Asn:      fmt.Sprintf("AS%d", info.Asn),
 		Org:      info.Org,
 		Location: info.CountryIso,
+		Ttlb:     ttlb,
 	}, nil
 }
