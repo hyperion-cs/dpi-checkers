@@ -12,7 +12,6 @@ RUN \
     -trimpath \
     .
 
-
 FROM alpine:3.23 AS runner
 COPY --from=builder /build/dpich /usr/bin/dpich
 COPY docker/config.yaml /etc/dpich/config.yaml
