@@ -62,8 +62,10 @@ Because there's no point in trying to update the utility when it's obviously run
 This is already set up in the default configuration.
 
 ## Killer features
-#### ⚡ New method for tcp 16-20
+#### ⚡ New method for tcp 16-20 (aka l4-25)
 Now, to check for restrictions using the _tcp 16-20_ method, we send data to the host instead of trying to get/download something from it. Research shows that outgoing traffic is restricted by censors in the same way as incoming traffic. This really lowers the requirements for hosts (they just must be able to establish a tcp connection and not close it when they see a stream of data coming from us that's big enough). A similar method is now implemented in the [web version](https://hyperion-cs.github.io/dpi-checkers/ru/tcp-16-20/) of the _tcp 16-20_ checker.
+
+It is now also known that what is actually restricted is not the total amount of data transmitted, but the number of packets transmitted in both directions (incoming and outgoing). This is typically limited to 25 packets, and this applies to both tcp and udp. Thus, it was proposed to change the name `tcp 16-20` to `l4-25`. Raw experiments with tcp can be performed using [this](https://github.com/hyperion-cs/dpi-checkers/blob/main/utils/l4-25_prober.py) script, and [nping](https://nmap.org/nping/) can be used for udp.
 
 #### ⚡ The era of dynamic: extremely flexible configuration of hosts for checking (for webhost checker)
 Now, in the _dpi-ch_ utility, we **do not use** fixed host lists (especially for checking infrastructure providers), incl. for checking _tcp 16-20_, etc. Instead, we obtain such hosts dynamically for each check.
