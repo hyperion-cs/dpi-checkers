@@ -38,6 +38,8 @@ func dnsPrettyProviderVerdict(err error) string {
 		return "✅ not detected"
 	case ErrPending:
 		return "⏰ checking..."
+	case checkers.ErrDnsNxdomainSpoofing:
+		return "❗️nxdomain spoofing"
 	case checkers.ErrDnsResolveSpoofing:
 		return "❗️response spoofing"
 	case checkers.ErrDnsDohBootstrapSpoofing:

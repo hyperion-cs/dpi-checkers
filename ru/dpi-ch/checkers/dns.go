@@ -73,6 +73,7 @@ var (
 	// There may also be network errors
 	ErrDnsSkip                 = errors.New("dns: skip")
 	ErrDnsResolveSpoofing      = errors.New("dns: response spoofing")
+	ErrDnsNxdomainSpoofing     = errors.New("dns: nxdomain spoofing")
 	ErrDnsDohBootstrapSpoofing = errors.New("dns: doh bootstrap spoofing")
 	ErrDnsDohBootstrapEmpty    = errors.New("dns: doh bootstrap empty")
 	ErrDnsDohInsecure          = errors.New("dns: doh insecure")
@@ -195,6 +196,10 @@ func dnsPlainVerdict(matrix []DnsPlainAnswer) error {
 			err = m.Err
 		}
 	}
+
+	if err != nil {
+		log.Println("dnsPlainVerdict", matrix)
+	}
 	return err
 }
 
@@ -202,7 +207,6 @@ func dnsDohVerdict(matrix []DnsDohAnswer) error {
 	// We need to make a single verdict on DNS providers,
 	// so choose the most dangerous case.
 	var err error
-	log.Println("dnsDohVerdict", matrix)
 	for _, m := range matrix {
 		if dohErrImportance(m.BootstrapErr) > dohErrImportance(err) {
 			err = m.BootstrapErr
@@ -215,12 +219,18 @@ func dnsDohVerdict(matrix []DnsDohAnswer) error {
 			}
 		}
 	}
+
+	if err != nil {
+		log.Println("dnsDohVerdict", matrix)
+	}
 	return err
 }
 
 func plainErrImportance(err error) int {
 	switch err {
 	case ErrDnsResolveSpoofing:
+		return 3
+	case ErrDnsNxdomainSpoofing:
 		return 2
 	case nil:
 		return 0
@@ -258,6 +268,13 @@ func dnsPlainMatrix(ctx context.Context, provider DnsPlainProvider, targets []Dn
 			func() {
 				ips, err := dnsPlainA(ctx, addr, target.Hostname)
 				if err != nil {
+					if dnsErr, ok := errors.AsType[*net.DNSError](err); ok {
+						if dnsErr.IsNotFound {
+							item.Err = ErrDnsNxdomainSpoofing
+							return
+						}
+					}
+
 					item.Err = err
 					return
 				}
