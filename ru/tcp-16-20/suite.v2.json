@@ -3,7 +3,7 @@
   { "id": "PL.AKM-01", "provider": "Akamai", "country": "🇵🇱", "host": "www.mobil.com.se" },
   { "id": "SE.AKM-01", "provider": "Akamai", "country": "🇸🇪", "host": "cdn.apple-mapkit.com" },
   { "id": "DE.AWS-01", "provider": "AWS", "country": "🇩🇪", "host": "amplifon.com" },
-  { "id": "US.AWS-01", "provider": "AWS", "country": "🇺🇸", "host": "marsh.com" },
+  { "id": "US.AWS-01", "provider": "AWS", "country": "🇺🇸", "host": "optout.aboutads.info" },
   { "id": "US.CDN77-01", "provider": "CDN77", "country": "🇺🇸", "host": "cdn.eso.org" },
   { "id": "CA.CF-01", "provider": "Cloudflare", "country": "🇨🇦", "host": "go.coveo.com" },
   { "id": "CA.CF-02", "provider": "Cloudflare", "country": "🇨🇦", "host": "justice.gov" },
