@@ -47,6 +47,8 @@ type TlsConnOpt struct {
 	TlsHandshakeTimeout time.Duration
 	KeyLogWriter        io.Writer
 	InsecureVerify      bool
+	ClientHelloId       tls.ClientHelloID
+	OriginalAlpn        bool
 }
 
 // TODO (options):
@@ -91,11 +93,16 @@ func GetHandshakedUTlsConn(opt TlsConnOpt) (*tls.UConn, error) {
 	}
 
 	tlsConn := tls.UClient(tcpConn, tlsConf, tls.HelloCustom)
-
-	// chrome fingerprint originally contains ALPN for h2
-	chromeSpec, _ := tls.UTLSIdToSpec(tls.HelloChrome_133)
-	setUTlsAlpn(&chromeSpec, []string{"http/1.1"})
-	tlsConn.ApplyPreset(&chromeSpec)
+	spec, _ := tls.UTLSIdToSpec(tls.HelloFirefox_Auto) // firefox is not observed in the "siberian" restrictions
+	if opt.ClientHelloId.Client != "" || opt.ClientHelloId.Version != "" {
+		spec, _ = tls.UTLSIdToSpec(opt.ClientHelloId)
+	}
+	if !opt.OriginalAlpn {
+		// WARN: this change breaks fingerprint
+		// make sure that ClientHello does not contain ALPN for h2
+		setUTlsAlpn(&spec, []string{"http/1.1"})
+	}
+	tlsConn.ApplyPreset(&spec)
 
 	if opt.TlsHandshakeTimeout != 0 {
 		tlsConn.SetDeadline(time.Now().Add(opt.TlsHandshakeTimeout))

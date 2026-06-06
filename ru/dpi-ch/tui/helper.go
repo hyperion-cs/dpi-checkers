@@ -81,6 +81,19 @@ func webhostPrettyTcp1620(err error) string {
 	}
 }
 
+func webhostPrettySiberian(err error) string {
+	switch err {
+	case nil:
+		return "✅ no"
+	case inetutil.ErrTlsHandshakeTimeout, inetutil.ErrTlsHandshakeFail:
+		return "❗️detected"
+	case checkers.ErrWebhostSkip:
+		return "⚠️ skip"
+	default:
+		return fmt.Sprintf("⚠️ %s", err)
+	}
+}
+
 func countryIsoToFlagEmoji(iso string) string {
 	if len(iso) != 2 {
 		return ""

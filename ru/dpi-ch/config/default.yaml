@@ -82,6 +82,7 @@ checkers:
     tcp-write-buf: 4096
     tcp-read-buf: 4096
     tcp1620-n-bytes: 65536
+    siberian-conn-count: 4
     http-static-headers:
       Accept: "*/*"
       Accept-Encoding: identity

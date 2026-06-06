@@ -15,6 +15,7 @@ import (
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/inetlookup"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/inetutil"
+	"golang.org/x/sync/errgroup"
 
 	tls "github.com/refraction-networking/utls"
 )
@@ -26,17 +27,19 @@ type WebhostSingleOpt struct {
 	Sni            string
 	Host           string
 	Tcp1620skip    bool
+	SiberianSkip   bool
 	RandomHostname bool
 }
 
 type WebhostSingleResult struct {
-	IpInfo  inetlookup.IpInfo
-	Port    int
-	TlsV    uint16
-	Sni     string
-	Host    string
-	Alive   error
-	Tcp1620 error
+	IpInfo   inetlookup.IpInfo
+	Port     int
+	TlsV     uint16
+	Sni      string
+	Host     string
+	Alive    error
+	Tcp1620  error
+	Siberian error
 
 	// Set only if Tcp1620 == nil
 	Throughput WebhostThroughput
@@ -88,36 +91,41 @@ func WebhostSingle(opt WebhostSingleOpt) WebhostSingleResult {
 		KeyLogWriter:        opt.KeyLogWriter,
 	}
 
+	// TODO: Move conn setup to webhostAliveCheck
 	tlsConn, err := inetutil.GetHandshakedUTlsConn(tlsConnOpt)
 	if err != nil {
 		res.Alive = err
 		res.Tcp1620 = ErrWebhostSkip
+		res.Siberian = ErrWebhostSkip
 		return res
 	}
 	res.TlsV = tlsConn.ConnectionState().Version
+
+	// The order of the checks is important.
+
 	if err = webhostAliveCheck(opt, tlsConn); err != nil {
 		res.Alive = err
 		res.Tcp1620 = ErrWebhostSkip
+		res.Siberian = ErrWebhostSkip
 		return res
 	}
 
 	if opt.Tcp1620skip {
 		res.Tcp1620 = ErrWebhostSkip
-		return res
+	} else {
+		thp, err := webhostTcp1620check(opt, tlsConnOpt)
+		if err != nil {
+			res.Tcp1620 = err
+		}
+		res.Throughput = thp
 	}
 
-	tlsConn, err = inetutil.GetHandshakedUTlsConn(tlsConnOpt)
-	if err != nil {
-		res.Tcp1620 = err
-		return res
+	if opt.SiberianSkip {
+		res.Siberian = ErrWebhostSkip
+	} else {
+		res.Siberian = webhostSiberianCheck(tlsConnOpt)
 	}
 
-	thp, err := webhostTcp1620check(opt, tlsConn)
-	if err != nil {
-		res.Tcp1620 = err
-	}
-
-	res.Throughput = thp
 	return res
 }
 
@@ -149,8 +157,13 @@ func webhostAliveCheck(opt WebhostSingleOpt, tlsConn *tls.UConn) error {
 	return nil
 }
 
-func webhostTcp1620check(opt WebhostSingleOpt, tlsConn *tls.UConn) (WebhostThroughput, error) {
+func webhostTcp1620check(opt WebhostSingleOpt, tlsConnOpt inetutil.TlsConnOpt) (WebhostThroughput, error) {
+	tlsConn, err := inetutil.GetHandshakedUTlsConn(tlsConnOpt)
+	if err != nil {
+		return WebhostThroughput{}, err
+	}
 	defer tlsConn.Close()
+
 	cfg := config.Get().Checkers.Webhost
 	body, _ := randomBytes(cfg.Tcp1620nBytes)
 
@@ -191,6 +204,44 @@ func webhostTcp1620check(opt WebhostSingleOpt, tlsConn *tls.UConn) (WebhostThrou
 		RxBytes:   rxCr.Bytes,
 		RxElapsed: rxElapsed,
 	}, nil
+}
+
+func webhostSiberianCheck(tlsConnOpt inetutil.TlsConnOpt) error {
+	cfg := config.Get().Checkers.Webhost
+	tlsConnOpt.ClientHelloId = tls.HelloChrome_Auto // chrome observed in "siberian" restrictions
+	tlsConnOpt.OriginalAlpn = true
+
+	tlsConnOpt.Sni, _ = randomHostname() // random sni allows to reset restriction context
+	alpha := siberianCheckSeq(tlsConnOpt, cfg.SiberianConnCount)
+
+	tlsConnOpt.Sni, _ = randomHostname()
+	beta := siberianCheckSeq(tlsConnOpt, 1)
+
+	if alpha != nil && beta == nil {
+		return alpha
+	}
+	return nil
+}
+
+func siberianCheckSeq(tlsConnOpt inetutil.TlsConnOpt, count int) error {
+	// TODO: remove tlsConnOpt control from here
+	if tlsConnOpt.Ctx == nil {
+		tlsConnOpt.Ctx = context.Background()
+	}
+	g, ctx := errgroup.WithContext(tlsConnOpt.Ctx)
+	tlsConnOpt.Ctx = ctx
+
+	for range count {
+		g.Go(func() error {
+			tlsConn, err := inetutil.GetHandshakedUTlsConn(tlsConnOpt)
+			if err != nil {
+				return err
+			}
+			defer tlsConn.Close()
+			return nil
+		})
+	}
+	return g.Wait()
 }
 
 func randomBytes(n int) ([]byte, error) {

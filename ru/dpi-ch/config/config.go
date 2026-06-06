@@ -31,6 +31,7 @@ type Config struct {
 			TcpWriteBuf         int               `mapstructure:"tcp-write-buf"`
 			TcpReadBuf          int               `mapstructure:"tcp-read-buf"`
 			Tcp1620nBytes       int               `mapstructure:"tcp1620-n-bytes"`
+			SiberianConnCount   int               `mapstructure:"siberian-conn-count"`
 			KeyLogPath          string            `mapstructure:"key-log-path"`
 			TableMaxVisibleRows int               `mapstructure:"table-max-visible-rows"`
 			HttpStaticHeaders   map[string]string `mapstructure:"http-static-headers"`
@@ -154,6 +155,7 @@ type WebhostItem struct {
 	Host           string `mapstructure:"host"`
 	Sni            string `mapstructure:"sni"`
 	Tcp1620skip    bool   `mapstructure:"tcp1620-skip"`
+	SiberianSkip   bool   `mapstructure:"siberian-skip"`
 	RandomHostname bool   `mapstructure:"random-hostname"`
 }
 

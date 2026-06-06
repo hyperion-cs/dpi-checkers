@@ -272,6 +272,7 @@ func webhostProcessItem(msg webhostItemMsg, model webhostModel) webhostModel {
 		msg.Out.IpInfo.Subnet.String(),
 		webhostPrettyAlive(msg.Out.Alive),
 		webhostPrettyTcp1620(msg.Out.Tcp1620),
+		webhostPrettySiberian(msg.Out.Siberian),
 		speed,
 	}
 
@@ -289,8 +290,9 @@ func webhostProcessItem(msg webhostItemMsg, model webhostModel) webhostModel {
 		{Title: "IP", Width: tableCellMaxLen(rows, 4, 2)},
 		{Title: "Prefix", Width: tableCellMaxLen(rows, 5, 6)},
 		{Title: "Alive", Width: tableCellMaxLen(rows, 6, 6)},
-		{Title: "Tcp 16-20", Width: tableCellMaxLen(rows, 7, 11)},
-		{Title: "Burst kb/s", Width: tableCellMaxLen(rows, 8, 10)},
+		{Title: "Tcp 16-20", Width: tableCellMaxLen(rows, 7, 9)},
+		{Title: "Siberian", Width: tableCellMaxLen(rows, 8, 8)},
+		{Title: "Burst kb/s", Width: tableCellMaxLen(rows, 9, 10)},
 	}
 
 	model.table.SetColumns(columns)
