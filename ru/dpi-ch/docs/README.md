@@ -8,7 +8,7 @@ Extremely flexible configuration. Written in golang, builds are [available](http
 ## Implemented features
 - **Who am I?** about your internet connection; aka _whoami checker_;
 - **Am I under the CIDR whitelist?** checks if a censor restricts tcp/udp connections by ip subnets; aka _cidrwhitelist_ checker;
-- **Comprehensive checks** (_incl. alive and tcp 16-20 restrictions_); aka _webhost checker_:
+- **Comprehensive checks** (_incl. alive, tcp 16-20 and "siberian" restrictions_); aka _webhost checker_:
   - **Popular Web Services** like YouTube, Instagram, Discord, Telegram and others;
   - **Infrastructure Providers** like Cloudflare, Akamai, Hetzner, DigitalOcean and others.
 - **DNS** checks if a censor is spoofing dns responses, hijacking servers, DoH blocking, etc; aka _dns checker_;
@@ -144,7 +144,8 @@ checkers: # checkers, available in the dpi-ch utility
              #	port:            # int; port for establishing a tcp connection with hosts
              #	host:            # string; http host header for hosts
              #	sni:             # string; sni for tls handshake
-             #	tcp1620-skip:    # bool; skip tcp 16-20 check for hosts
+             #	tcp1620-skip:    # bool; skip "tcp 16-20" check for hosts
+             #	siberian-skip:   # bool; skip "siberian restriction" check for hosts
              #	random-hostname: # bool; generate a random http host header for each host
 
     workers:                # int; number of parallel workers that will find and analyze hosts
@@ -155,6 +156,7 @@ checkers: # checkers, available in the dpi-ch utility
     tcp-write-buf:          # int; tcp/tls write buffer size (expert warn: only change if you know what you are doing)
     tcp-read-buf:           # int; tcp/tls read buffer size (also only for experts)
     tcp1620-n-bytes:        # int; size of random payload for tcp 16-20 (also only for experts)
+    siberian-conn-count:    # int; number of connections to "suspicious" server that is sufficient to trigger restriction
     key-log-path:           # string; if set, the (pre)-master-secret log will be written to this path; useful for wireshark
     table-max-visible-rows: # int; number of visible rows in the results table (if there are more, scrolling is available)
     http-static-headers:    # map[string]string; http headers that will be sent as part of requests to hosts
