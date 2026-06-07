@@ -71,6 +71,9 @@ func (s *Subnetfilter) RunFilter(filter *vm.Program) (*netipx.IPSet, error) {
 // If filter is the single host() call with a single string argument, that argument will be returned.
 func (s *Subnetfilter) ExtractHostname(filter *vm.Program) (string, bool) {
 	const funcName = "host"
+	if filter == nil {
+		return "", false
+	}
 	root := filter.Node()
 	call, isCall := root.(*ast.CallNode)
 	if !isCall || len(call.Arguments) != 1 {

@@ -85,7 +85,13 @@ func WebhostGochanRunner(opt WebhostGochanRunnerOpt) WebhostGochanRunnerOut {
 		In:           sfGochanIn,
 	})
 	webhostSendProgress(progressCh, "subnetfilter => initialized")
-	gochan.Push(opt.Ctx, sfGochanIn, getSubnetfilterItems(sf, opt.Mode))
+
+	sfItems, err := getSubnetfilterItems(sf, opt.Mode)
+	if err != nil {
+		webhostSendProgress(progressCh, "subnetfilter => internal error (enable debug and check logs)")
+		return WebhostGochanRunnerOut{Progress: progressCh}
+	}
+	gochan.Push(opt.Ctx, sfGochanIn, sfItems)
 
 	farmGochanIn := make(chan webhostfarm.GochanIn[WebhostGochanBag])
 	farmGochan := webhostfarm.Gochan(webhostfarm.GochanOpt[WebhostGochanBag]{Ctx: opt.Ctx, In: farmGochanIn})
@@ -175,7 +181,7 @@ func webhostSendProgress(ch chan<- string, p string) {
 	}
 }
 
-func getSubnetfilterItems(sf *subnetfilter.Subnetfilter, mode WebHostMode) []subnetfilter.GochanIn[WebhostGochanBag] {
+func getSubnetfilterItems(sf *subnetfilter.Subnetfilter, mode WebHostMode) ([]subnetfilter.GochanIn[WebhostGochanBag], error) {
 	cfg := config.Get().Checkers.Webhost
 
 	iter := cfg.Infra
@@ -185,10 +191,13 @@ func getSubnetfilterItems(sf *subnetfilter.Subnetfilter, mode WebHostMode) []sub
 
 	items := []subnetfilter.GochanIn[WebhostGochanBag]{}
 	for _, v := range iter {
-		// TODO: handle errors
-		f, _ := sf.CompileFilter(v.Filter)
-		port, count, sni, host := 443, 1, "", ""
+		f, err := sf.CompileFilter(v.Filter)
+		if err != nil {
+			log.Println("Subnetfilter/CompileFilter", err)
+			return nil, err
+		}
 
+		port, count, sni, host := 443, 1, "", ""
 		if filterHost, ok := sf.ExtractHostname(f); ok {
 			sni = filterHost
 			host = filterHost
@@ -220,5 +229,5 @@ func getSubnetfilterItems(sf *subnetfilter.Subnetfilter, mode WebHostMode) []sub
 			In: subnetfilter.SubnetfilterIn{Filter: f},
 		})
 	}
-	return items
+	return items, nil
 }
