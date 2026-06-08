@@ -181,7 +181,7 @@ checkers:
         - host: www.instagram.com
           filter: org("facebook")
         - host: www.linkedin.com
-          filter: org("cloudflare") || org("microsoft")
+          filter: org("cloudflare") || org("microsoft") || org("google")
         - host: currenttime.tv
           filter: org("akamai")
 
