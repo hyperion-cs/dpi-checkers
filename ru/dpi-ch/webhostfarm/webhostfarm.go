@@ -36,6 +36,7 @@ func Farm(opt FarmOpt) []FarmItem {
 		}
 		last = FarmItem{Ip: ip, Port: opt.Port}
 		if tryConnect(ip, opt.Port, opt.Sni) {
+			// TODO: consider returning items immediately via channel
 			items = append(items, last)
 		}
 	}

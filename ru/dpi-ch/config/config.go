@@ -20,9 +20,7 @@ type Config struct {
 		} `mapstructure:"cidrwhitelist"`
 
 		Webhost struct {
-			Popular []WebhostItem `mapstructure:"popular"`
-			Infra   []WebhostItem `mapstructure:"infra"`
-
+			Sections            []WebhostSection  `mapstructure:"sections"`
 			Workers             int               `mapstructure:"workers"`
 			TcpConnTimeout      time.Duration     `mapstructure:"tcp-conn-timeout"`
 			TlsHandshakeTimeout time.Duration     `mapstructure:"tls-handshake-timeout"`
@@ -147,7 +145,13 @@ type Config struct {
 	} `mapstructure:"updater"`
 }
 
-type WebhostItem struct {
+type WebhostSection struct {
+	Name    string          `mapstructure:"name"`
+	Desc    string          `mapstructure:"desc"`
+	Targets []WebhostTarget `mapstructure:"targets"`
+}
+
+type WebhostTarget struct {
 	Name           string `mapstructure:"name"`
 	Filter         string `mapstructure:"filter"`
 	Count          int    `mapstructure:"count"`

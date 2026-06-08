@@ -9,7 +9,6 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
 
 	"charm.land/bubbles/v2/spinner"
@@ -36,23 +35,21 @@ func (rm rootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		if k == "m" || k == "ь" || k == "backspace" {
-			if rm.page == updaterPage {
+			if rm.router.Tab == updaterTab {
 				cmds = append(cmds, func() tea.Msg { return updaterDoneMsg{} })
 			}
 
-			rm.page = menuPage
+			rm.router.Tab = menuTab
 			cmds = append(cmds, func() tea.Msg { return returnedToMenuMsg{} })
 		}
-	case rootMsg:
-		rm.page = msg.page
 	case updaterInitMsg:
-		rm.page = updaterPage
+		rm.router.Tab = updaterTab
 	case updaterDoneMsg:
-		rm.page = menuPage
+		rm.router.Tab = menuTab
 	}
 
-	if rm.page == menuPage {
-		rm.menuModel, cmd = menuUpdate(rm.menuModel, msg)
+	if rm.router.Tab == menuTab {
+		rm.router, cmd = routerUpdate(rm.router, msg)
 		cmds = append(cmds, cmd)
 	}
 
@@ -74,38 +71,22 @@ func (rm rootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return rm, tea.Batch(cmds...)
 }
 
-func menuUpdate(model menuModel, msg tea.Msg) (menuModel, tea.Cmd) {
+func routerUpdate(router *router, msg tea.Msg) (*router, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
 		switch normKey(msg.String()) {
 		case "up":
-			model.optionIdx = (model.optionIdx - 1 + len(menuOptions)) % len(menuOptions)
+			router.Menu.Prev()
 		case "down":
-			model.optionIdx = (model.optionIdx + 1) % len(menuOptions)
+			router.Menu.Next()
 		case "enter":
-			var initMsg tea.Msg
-			p := menuOptions[model.optionIdx]
-			switch p {
-			case whoamiPage:
-				initMsg = whoamiInitMsg{}
-			case cidrwhitelistPage:
-				initMsg = cidrwhitelistInitMsg{}
-			case webhostPopularPage:
-				initMsg = webhostInitMsg{Mode: checkers.WebHostModePopular}
-			case webhostInfraPage:
-				initMsg = webhostInitMsg{Mode: checkers.WebHostModeInfra}
-			case dnsPage:
-				initMsg = dnsInitMsg{}
-			}
-
-			return model, tea.Batch(
-				func() tea.Msg { return rootMsg{page: p} },
-				func() tea.Msg { return initMsg },
-			)
+			curr := router.Menu.Curr()
+			router.Tab = curr.Tab
+			return router, func() tea.Msg { return curr.InitMsg }
 		}
 	}
 
-	return model, nil
+	return router, nil
 }
 
 func whoamiUpdate(model whoamiModel, msg tea.Msg) (whoamiModel, tea.Cmd) {
@@ -207,7 +188,7 @@ func webhostUpdate(model webhostModel, msg tea.Msg) (webhostModel, tea.Cmd) {
 		switch msg := msg.(type) {
 		case webhostInitMsg:
 			model := webhostInitModel()
-			return model, tea.Batch(model.spinner.Tick, webhostProducerStartCmd(model.ctx, msg.Mode))
+			return model, tea.Batch(model.spinner.Tick, webhostProducerStartCmd(model.ctx, msg.Targets))
 		}
 
 		return model, nil
@@ -278,7 +259,17 @@ func webhostProcessItem(msg webhostItemMsg, model webhostModel) webhostModel {
 
 	rows := model.table.Rows()
 	rows = append(rows, row)
+
 	slices.SortFunc(rows, func(a, b table.Row) int {
+		// by country (russia first)
+		const ru = "🇷🇺 RU"
+		if a[3] == ru && b[3] != ru {
+			return 1
+		}
+		if a[3] != ru && b[3] == ru {
+			return -1
+		}
+
 		return cmp.Compare(a[0], b[0]) // by group
 	})
 

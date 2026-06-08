@@ -44,16 +44,9 @@ func WebhostGochan[T any](opt WebhostGochanOpt[T]) <-chan WebhostGochanOut[T] {
 	})
 }
 
-type WebHostMode int
-
-const (
-	WebHostModePopular WebHostMode = iota
-	WebHostModeInfra
-)
-
 type WebhostGochanRunnerOpt struct {
-	Ctx  context.Context
-	Mode WebHostMode
+	Ctx     context.Context
+	Targets []config.WebhostTarget
 }
 
 type WebhostGochanBag struct {
@@ -86,7 +79,7 @@ func WebhostGochanRunner(opt WebhostGochanRunnerOpt) WebhostGochanRunnerOut {
 	})
 	webhostSendProgress(progressCh, "subnetfilter => initialized")
 
-	sfItems, err := getSubnetfilterItems(sf, opt.Mode)
+	sfItems, err := getSubnetfilterItems(sf, opt.Targets)
 	if err != nil {
 		webhostSendProgress(progressCh, "subnetfilter => internal error (enable debug and check logs)")
 		return WebhostGochanRunnerOut{Progress: progressCh}
@@ -181,19 +174,13 @@ func webhostSendProgress(ch chan<- string, p string) {
 	}
 }
 
-func getSubnetfilterItems(sf *subnetfilter.Subnetfilter, mode WebHostMode) ([]subnetfilter.GochanIn[WebhostGochanBag], error) {
-	cfg := config.Get().Checkers.Webhost
-
-	iter := cfg.Infra
-	if mode == WebHostModePopular {
-		iter = cfg.Popular
-	}
-
+func getSubnetfilterItems(sf *subnetfilter.Subnetfilter, targets []config.WebhostTarget) ([]subnetfilter.GochanIn[WebhostGochanBag], error) {
+	const logPrefix = "Subnetfilter/CompileFilter"
 	items := []subnetfilter.GochanIn[WebhostGochanBag]{}
-	for _, v := range iter {
+	for _, v := range targets {
 		f, err := sf.CompileFilter(v.Filter)
 		if err != nil {
-			log.Println("Subnetfilter/CompileFilter", err)
+			log.Println(logPrefix, err)
 			return nil, err
 		}
 

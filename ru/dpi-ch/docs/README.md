@@ -8,9 +8,12 @@ Extremely flexible configuration. Written in golang, builds are [available](http
 ## Implemented features
 - **Who am I?** about your internet connection; aka _whoami checker_;
 - **Am I under the CIDR whitelist?** checks if a censor restricts tcp/udp connections by ip subnets; aka _cidrwhitelist_ checker;
-- **Comprehensive checks** (_incl. alive, tcp 16-20 and "siberian" restrictions_); aka _webhost checker_:
+- **Comprehensive services/providers checks** (_incl. alive, tcp 16-20 and "siberian" restrictions_); aka _webhost checker_.
+  
+  The following sections are available in the standard configuration (they can be replaced with any others):
   - **Popular Web Services** like YouTube, Instagram, Discord, Telegram and others;
-  - **Infrastructure Providers** like Cloudflare, Akamai, Hetzner, DigitalOcean and others.
+  - **Foreign Infrastructure Providers** like Cloudflare, Akamai, Hetzner, DigitalOcean and others;
+  - **Russian Infrastructure Providers** like Selectel, Reg.ru, Yandex Cloud and others.
 - **DNS** checks if a censor is spoofing dns responses, hijacking servers, DoH blocking, etc; aka _dns checker_;
 - Modern TUI (aka CLI) with flexible parallel workers;
 - Automatic utility update from Github releases;
@@ -134,19 +137,24 @@ checkers: # checkers, available in the dpi-ch utility
     regular:     # []string; list of url endpoints that are available during "normal hours"
 
   webhost: # aka webhost checker
-    popular: # []webhost-item; list of popular web services
-    infra:   # []webhost-item; list of infrastructure providers
+    sections: # []webhost-section; just webhost logical sections: in dpi-ch menu, it'll be able to run each one separately
 
-             #  webhost-item structure:
-             #	name:            # string; name of hosts group
-             #	filter:          # string; filter in subnetfilter notation (see above); if it is one host(), then sni/host will be obtained from there
-             #	count:           # int; how many hosts do we need to farm through webhostfarm
-             #	port:            # int; port for establishing a tcp connection with hosts
-             #	host:            # string; http host header for hosts
-             #	sni:             # string; sni for tls handshake
-             #	tcp1620-skip:    # bool; skip "tcp 16-20" check for hosts
-             #	siberian-skip:   # bool; skip "siberian restriction" check for hosts
-             #	random-hostname: # bool; generate a random http host header for each host
+              # webhost-section structure:
+              # name:    # string; section name
+              # desc:    # string; section description
+              # targets: # []webhost-target; list of targets
+
+                         # webhost-target structure:
+                         # name:            # string; name of hosts group
+                         # filter:          # string; filter in subnetfilter notation (see above); if it is one host(),
+                                            #         then sni/host will be obtained from there
+                         # count:           # int; how many hosts do we need to farm through webhostfarm
+                         # port:            # int; port for establishing a tcp connection with hosts
+                         # host:            # string; http host header for hosts
+                         # sni:             # string; sni for tls handshake
+                         # tcp1620-skip:    # bool; skip "tcp 16-20" check for hosts
+                         # siberian-skip:   # bool; skip "siberian restriction" check for hosts
+                         # random-hostname: # bool; generate a random http host header for each host
 
     workers:                # int; number of parallel workers that will find and analyze hosts
     tcp-conn-timeout:       # time.Duration; timeout for establishing a tcp connection
@@ -176,7 +184,8 @@ checkers: # checkers, available in the dpi-ch utility
                # name:  # string; name of the provider
                # plain: # []string; list of provider's plain dns resolvers in ip:port format
                # doh:   # provider's doh dns resolvers
-                 # filter: # string; filter in subnetfilter notation that determines if a dns BOOTSTRAP resolving occurred without spoofing
+                 # filter: # string; filter in subnetfilter notation that determines
+                           #         if a dns BOOTSTRAP resolving occurred without spoofing
                  # hosts:  # []string; list of provider's doh dns resolvers in domain name format (e.g. dns.google)
 
 
@@ -195,7 +204,8 @@ webhostfarm: # takes sets of subnets (usually from subnetfilter), returns suitab
   tls-handshake-timeout: # time.Duration; timeout for tls handshake
 
 inetutil: # used for all network operations (incl. tcp/tls operation and http requests)
-  iface:           # string; name of network interface or its ip address for network operations (currently, only ipv4 is supported)
+  iface:           # string; name of network interface or its ip address for network operations
+                   #         (currently, only ipv4 is supported)
   browser-headers: # map[string]string; http headers that will be sent as part of requests
 
 updater: # used to automatically update the dpi-ch utility and related stuff (e.g., geoip)

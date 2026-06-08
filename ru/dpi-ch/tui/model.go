@@ -9,53 +9,15 @@ import (
 	"charm.land/bubbles/v2/table"
 )
 
-type page int
-
-const (
-	menuPage page = iota
-	allPage
-	whoamiPage
-	cidrwhitelistPage
-	webhostPopularPage
-	webhostInfraPage
-	dnsPage
-	updaterPage
-)
-
-func getPageName(p page) string {
-	pageNames := map[page]string{
-		menuPage:           "Menu",
-		allPage:            "ALL",
-		whoamiPage:         "Who am I?",
-		cidrwhitelistPage:  "Am I under the CIDR whitelist?",
-		webhostPopularPage: "Popular Web Services",
-		webhostInfraPage:   "Infrastructure Providers",
-		dnsPage:            "DNS",
-		updaterPage:        "Updater",
-	}
-
-	if pn, ex := pageNames[p]; ex {
-		return pn
-	}
-	return "Unknown"
-}
-
 type rootModel struct {
 	quitting bool
-	page     page
+	router   *router
 
-	menuModel          menuModel
 	whoamiModel        whoamiModel
 	cidrwhitelistModel cidrwhitelistModel
 	webhostModel       webhostModel
 	dnsModel           dnsModel
 	updaterModel       updaterModel
-}
-
-var menuOptions = []page{allPage, whoamiPage, cidrwhitelistPage, webhostPopularPage, webhostInfraPage, dnsPage}
-
-type menuModel struct {
-	optionIdx int
 }
 
 type whoamiModel struct {

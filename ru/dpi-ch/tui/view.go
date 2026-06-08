@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/internal/version"
 
 	tea "charm.land/bubbletea/v2"
@@ -15,69 +16,44 @@ func (rm rootModel) View() tea.View {
 	var v tea.View
 	var s string
 
-	if rm.page == menuPage && rm.quitting {
+	if rm.router.Tab == menuTab && rm.quitting {
 		s = fmt.Sprintf("See you later! Please star our repository on GitHub:\n%s",
 			selectedStyle.Render("https://github.com/hyperion-cs/dpi-checkers/"))
 		v.SetContent(mainStyle.Render("\n" + s + "\n\n"))
 		return v
 	}
 
-	if rm.page != menuPage {
-		s += fmt.Sprintf("Tab: %s\n\n", getPageName(rm.page))
+	if rm.router.Tab != menuTab {
+		s += fmt.Sprintf("Tab: %s\n\n", rm.router.TabName())
 	}
 
-	switch rm.page {
-	case allPage:
+	switch rm.router.Tab {
+	case allTab:
 		s += allView()
-	case menuPage:
-		s += menuView(rm.menuModel)
-	case whoamiPage:
+	case menuTab:
+		s += rm.router.Menu.View()
+	case whoamiTab:
 		s += whoamiView(rm.whoamiModel)
-	case cidrwhitelistPage:
+	case cidrwhitelistTab:
 		s += cidrwhitelistView(rm.cidrwhitelistModel)
-	case webhostInfraPage, webhostPopularPage:
-		s += webhostView(rm.webhostModel)
-	case dnsPage:
+	case webhostTab:
+		s += webhostView(rm.webhostModel) // тут че то надо выдумать
+	case dnsTab:
 		s += dnsView(rm.dnsModel)
-	case updaterPage:
+	case updaterTab:
 		s += updaterView(rm.updaterModel)
 	}
 
-	if rm.page == updaterPage && !rm.quitting {
+	if rm.router.Tab == updaterTab && !rm.quitting {
 		s += "\n\n" + subtleStyle.Render(fmt.Sprintf("m, backspace: skip updater%sq, esc: quit\n%s", dotChar, version.Value))
 	}
 
-	if rm.page != menuPage && rm.page != updaterPage && !rm.quitting {
+	if rm.router.Tab != menuTab && rm.router.Tab != updaterTab && !rm.quitting {
 		s += "\n\n" + subtleStyle.Render(fmt.Sprintf("m, backspace: menu%sq, esc: quit\n%s", dotChar, version.Value))
 	}
 
 	v.SetContent(mainStyle.Render("\n" + s + "\n\n"))
 	return v
-}
-
-func menuView(model menuModel) string {
-	tpl := "Select what you want to check.\n\n%s\n\n" +
-		subtleStyle.Render(fmt.Sprintf("up/down: select%senter: choose%sq, esc: quit\n%s", dotChar, dotChar, version.Value))
-
-	p := menuOptions[model.optionIdx]
-	var as *lipgloss.Style
-	at := "ALL"
-	if p == allPage {
-		as = &warningStyle
-		at = "ALL (warn: run all checks)"
-	}
-
-	choices := fmt.Sprintf(
-		"%s\n%s\n%s\n%s\n%s\n%s",
-		checkbox(at, p == allPage, as),
-		checkbox("Who am I? "+subtleStyle.Render("about your internet connection"), p == whoamiPage, nil),
-		checkbox("Am I under the CIDR whitelist? "+subtleStyle.Render("checks if a censor restricts tcp/udp connections by ip subnets"), p == cidrwhitelistPage, nil),
-		checkbox("Popular Web Services "+subtleStyle.Render("like YouTube, Instagram, Discord, Telegram and others"), p == webhostPopularPage, nil),
-		checkbox("Infrastructure Providers "+subtleStyle.Render("like Cloudflare, Akamai, Hetzner, DigitalOcean and others"), p == webhostInfraPage, nil),
-		checkbox("DNS "+subtleStyle.Render("checks if a censor is spoofing dns responses, hijacking servers, DoH blocking, etc"), p == dnsPage, nil),
-	)
-
-	return fmt.Sprintf(tpl, choices)
 }
 
 func whoamiView(model whoamiModel) string {
@@ -121,14 +97,19 @@ func cidrwhitelistView(model cidrwhitelistModel) string {
 
 func webhostView(model webhostModel) string {
 	var r string
+	cfg := config.Get().Checkers.Webhost
 	total := len(model.table.Rows())
 
 	if total > 0 {
 		cursor := model.table.Cursor() + 1
+		over := ""
+		if total > cfg.TableMaxVisibleRows {
+			over = " 👀"
+		}
 
 		inner := model.table.View() +
 			"\n " + model.table.HelpView() +
-			subtleStyle.Render(fmt.Sprintf("; cursor: %d/%d", cursor, total))
+			subtleStyle.Render(fmt.Sprintf("; cursor: %d/%d%s", cursor, total, over))
 
 		r += tableOuterBorderStyle(true).Render(inner) + "\n\n"
 	}

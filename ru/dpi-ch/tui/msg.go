@@ -1,12 +1,12 @@
 package tui
 
-import "github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers"
-
-type rootMsg struct {
-	page page
-}
+import (
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
+)
 
 type returnedToMenuMsg struct{}
+type allInitMsg struct{}
 
 type whoamiInitMsg struct{}
 type whoamiResultMsg struct {
@@ -20,7 +20,7 @@ type cidrwhitelistResultMsg struct {
 }
 
 type webhostInitMsg struct {
-	Mode checkers.WebHostMode
+	Targets []config.WebhostTarget
 }
 type webhostProducerStartedMsg struct {
 	out checkers.WebhostGochanRunnerOut

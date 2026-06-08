@@ -3,77 +3,122 @@
 
 checkers:
   webhost:
-    popular:
-      - name: Google
-        filter: host("www.google.com")
-      - name: Google Gstatic
-        filter: host("www.gstatic.com")
-      - name: YouTube Web
-        filter: host("www.youtube.com")
-      - name: YouTube Image
-        filter: host("i.ytimg.com")
-      - name: X (ex. Twitter)
-        filter: host("x.com")
-      - name: Discord
-        filter: host("discord.com")
-      - name: Github
-        filter: host("github.com")
-      - name: Telegram Web
-        filter: host("web.telegram.org")
-      - name: Telegram Api
-        filter: host("api.telegram.org")
-      - name: Facebook
-        filter: host("www.facebook.com")
-      - name: WhatsApp Web
-        filter: host("web.whatsapp.com")
-      - name: Instagram
-        filter: host("www.instagram.com")
-      - name: LinkedIn
-        filter: host("www.linkedin.com")
-      - name: Yandex
-        filter: host("ya.ru")
-      - name: VK
-        filter: host("vk.ru")
+    sections:
+      - name: Popular Web Services
+        desc: like YouTube, Instagram, Discord, Telegram and others
+        targets:
+          - name: Google
+            filter: host("www.google.com")
+          - name: Google Gstatic
+            filter: host("www.gstatic.com")
+          - name: YouTube Web
+            filter: host("www.youtube.com")
+          - name: YouTube Image
+            filter: host("i.ytimg.com")
+          - name: X (ex. Twitter)
+            filter: host("x.com")
+          - name: Discord
+            filter: host("discord.com")
+          - name: Github
+            filter: host("github.com")
+          - name: Telegram Web
+            filter: host("web.telegram.org")
+          - name: Telegram Api
+            filter: host("api.telegram.org")
+          - name: Facebook
+            filter: host("www.facebook.com")
+          - name: WhatsApp Web
+            filter: host("web.whatsapp.com")
+          - name: Instagram
+            filter: host("www.instagram.com")
+          - name: LinkedIn
+            filter: host("www.linkedin.com")
+          - name: Yandex
+            filter: host("ya.ru")
+          - name: VK
+            filter: host("vk.ru")
 
-    infra:
-      - name: Cloudflare
-        filter: org("cloudflare")
-      - name: Akamai
-        filter: org("akamai")
-      - name: Amazon
-        filter: as(16509)
-      - name: Fastly
-        filter: org("fastly")
-      - name: Oracle
-        filter: org("oracle")
-      - name: Contabo
-        filter: org("contabo")
-      - name: CDN77 / DataCamp
-        filter: org("datacamp")
-      - name: DigitalOcean
-        filter: org("digitalocean")
-        count: 2
-      - name: Hetzner:de
-        filter: org("hetzner") && country("de")
-      - name: Hetzner:fi
-        filter: org("hetzner") && country("fi")
-      - name: OVH
-        filter: as(16276)
-        count: 2
-      - name: Gcore
-        filter: as(199524)
-      - name: FT/BuyVM
-        filter: as(53667)
-      - name: Google Cloud
-        filter: as(396982)
-      - name: Melbicom
-        filter: org("melbikomas")
-      - name: Scaleway
-        filter: org("scaleway")
-      - name: Vultr
-        filter: as(20473)
-      - name: Microsoft/Azure
-        filter: as(8075)
+      - name: Foreign Infrastructure Providers
+        desc: like Cloudflare, Akamai, Hetzner, DigitalOcean and others
+        targets:
+          - name: Cloudflare
+            filter: org("cloudflare")
+          - name: Akamai
+            filter: org("akamai")
+          - name: Amazon
+            filter: as(16509)
+          - name: Fastly
+            filter: org("fastly")
+          - name: Oracle
+            filter: org("oracle")
+          - name: Contabo
+            filter: org("contabo")
+          - name: CDN77 / DataCamp
+            filter: org("datacamp")
+          - name: DigitalOcean
+            filter: org("digitalocean")
+          - name: Hetzner:de
+            filter: org("hetzner") && country("de")
+          - name: Hetzner:fi
+            filter: org("hetzner") && country("fi")
+          - name: OVH
+            filter: as(16276)
+          - name: Gcore
+            filter: as(199524)
+          - name: FT/BuyVM
+            filter: as(53667)
+          - name: Google Cloud
+            filter: as(396982)
+          - name: Melbicom
+            filter: org("melbikomas")
+          - name: Scaleway
+            filter: org("scaleway")
+          - name: Vultr
+            filter: as(20473)
+          - name: Microsoft/Azure
+            filter: as(8075)
+
+      - name: Russian Infrastructure Providers
+        desc: like Selectel, Reg.ru, Yandex Cloud and others
+        targets:
+          - name: Selectel
+            filter: org("selectel") && country("ru")
+            tcp1620-skip: true
+          - name: Timeweb
+            filter: org("timeweb") && country("ru")
+            tcp1620-skip: true
+          - name: Reg.ru
+            filter: org("reg.ru") && country("ru")
+            tcp1620-skip: true
+          - name: Beget
+            filter: org("beget") && country("ru")
+            tcp1620-skip: true
+          - name: RuVDS
+            filter: as(48347) && country("ru")
+            tcp1620-skip: true
+          - name: FirstVDS
+            filter: as(29182) && country("ru")
+            tcp1620-skip: true
+          - name: AdminVPS
+            filter: org("adminvps") && country("ru")
+            tcp1620-skip: true
+          - name: Yandex Cloud
+            filter: org("yandex.cloud") && country("ru")
+            tcp1620-skip: true
+          - name: Cloud.ru
+            filter: org("cloud.ru") && country("ru")
+            tcp1620-skip: true
+          - name: VK Cloud
+            filter: >
+              as(47764) && (subnet("89.208.220.0/22")
+              || subnet("90.156.212.0/22")
+              || subnet("91.219.224.0/22")
+              || subnet("94.139.244.0/24")
+              || subnet("212.233.72.0/21")
+              || subnet("217.16.16.0/20"))
+              && country("ru")
+            tcp1620-skip: true
+  
     workers: 8
     tcp-conn-timeout: 3s
     tls-handshake-timeout: 3s

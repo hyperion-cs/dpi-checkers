@@ -7,7 +7,8 @@ import (
 )
 
 func Tui() {
-	p := tea.NewProgram(rootModel{})
+	router := NewRouter()
+	p := tea.NewProgram(rootModel{router: router})
 	if _, err := p.Run(); err != nil {
 		log.Fatalf("could not start tui: %v", err)
 	}

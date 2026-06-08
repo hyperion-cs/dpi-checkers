@@ -21,14 +21,9 @@ var (
 	spinnerStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("212"))
 )
 
-func checkbox(label string, checked bool, style *lipgloss.Style) string {
-	s := &selectedStyle
-	if style != nil {
-		s = style
-	}
-
+func checkbox(label string, checked bool) string {
 	if checked {
-		return s.Render("[x] " + label)
+		return selectedStyle.Render("[x] " + label)
 	}
 	return fmt.Sprintf("[ ] %s", label)
 }
