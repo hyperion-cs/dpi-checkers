@@ -65,11 +65,13 @@ func chdirToBin() error {
 	if version.Value == version.Init {
 		return nil
 	}
-
-	binPath, err := os.Executable()
+	path, err := os.Executable()
 	if err != nil {
 		return err
 	}
-
-	return os.Chdir(filepath.Dir(binPath))
+	realPath, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return err
+	}
+	return os.Chdir(filepath.Dir(realPath))
 }
