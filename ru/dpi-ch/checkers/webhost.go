@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/netip"
 	"time"
@@ -211,13 +212,32 @@ func webhostSiberianCheck(tlsConnOpt inetutil.TlsConnOpt) error {
 	tlsConnOpt.ClientHelloId = tls.HelloChrome_Auto // chrome observed in "siberian" restrictions
 	tlsConnOpt.OriginalAlpn = true
 
-	tlsConnOpt.Sni, _ = randomHostname() // random sni allows to reset restriction context
-	alpha := siberianCheckSeq(tlsConnOpt, cfg.SiberianConnCount)
+	origSni := tlsConnOpt.Sni       // "valid" only if there is info in config
+	alphaSni, _ := randomHostname() // random sni allows to reset restriction context
+	betaSni, _ := randomHostname()
 
-	tlsConnOpt.Sni, _ = randomHostname()
+	tlsConnOpt.Sni = alphaSni
+	alpha := siberianCheckSeq(tlsConnOpt, cfg.SiberianConnCount)
+	tlsConnOpt.Sni = betaSni
 	beta := siberianCheckSeq(tlsConnOpt, 1)
 
-	if alpha != nil && beta == nil {
+	// Some services may return a TLS error if the SNI is random.
+	// In this case, it makes sense to try with a valid SNI first, and then with an empty one.
+	if alpha == inetutil.ErrTlsInternal || beta == inetutil.ErrTlsInternal {
+		alphaSni = origSni
+		betaSni = "" // as far as we know, empty SNI does not trigger "siberian" restrictions
+
+		tlsConnOpt.Sni = alphaSni
+		alpha = siberianCheckSeq(tlsConnOpt, cfg.SiberianConnCount)
+		tlsConnOpt.Sni = betaSni
+		beta = siberianCheckSeq(tlsConnOpt, 1)
+	}
+
+	log.Println("webhost: webhostSiberianCheck ip:", tlsConnOpt.Ip, "port:",
+		tlsConnOpt.Port, "alpha sni:", alphaSni, "result:", alpha, "beta sni:", betaSni, "res:", beta)
+
+	if (alpha != nil && beta == nil) ||
+		(alpha == inetutil.ErrTlsHandshakeTimeout && beta == inetutil.ErrTlsHandshakeTimeout) {
 		return alpha
 	}
 	return nil

@@ -27,6 +27,7 @@ var (
 	ErrTlsCertificateInvalid = errors.New("tls: certificate invalid")
 	ErrTlsHandshakeTimeout   = errors.New("tls: handshake timeout")
 	ErrTlsHandshakeFail      = errors.New("tls: handshake failure")
+	ErrTlsInternal           = errors.New("tls: internal error")
 	ErrTlsBadRecordMac       = errors.New("tls: bad record MAC")
 	ErrTlsWriteBrokenPipe    = errors.New("tls: broken write pipe")
 	ErrInternal              = errors.New("net: internal error")
@@ -230,6 +231,9 @@ func tryHandleErr(err error) (error, bool) {
 	// alert errors: https://go.dev/src/crypto/tls/alert.go
 	if strings.Contains(err.Error(), "handshake failure") {
 		return ErrTlsHandshakeFail, true
+	}
+	if strings.Contains(err.Error(), "tls: internal error") {
+		return ErrTlsInternal, true
 	}
 	if strings.Contains(err.Error(), "bad record MAC") {
 		return ErrTlsBadRecordMac, true
