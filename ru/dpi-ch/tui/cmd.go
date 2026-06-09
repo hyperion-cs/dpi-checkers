@@ -16,9 +16,12 @@ func (rm rootModel) Init() tea.Cmd {
 	selfTtu, _ := updater.TimeToUpdate(updaterCfg.SelfTsFile)
 	inetlookupTtu, _ := updater.TimeToUpdate(updaterCfg.InetlookupTsFile)
 
-	if updaterCfg.ForceInetlookupUpdate || (updaterCfg.Enabled && (selfTtu || inetlookupTtu)) {
+	if updaterCfg.ForceUpdate || updaterCfg.ForceInetlookupUpdate || (updaterCfg.Enabled && (selfTtu || inetlookupTtu)) {
 		return func() tea.Msg {
-			return updaterInitMsg{forceInetlookupUpdate: updaterCfg.ForceInetlookupUpdate}
+			return updaterInitMsg{
+				forceUpdate:           updaterCfg.ForceUpdate,
+				forceInetlookupUpdate: updaterCfg.ForceInetlookupUpdate,
+			}
 		}
 	}
 
@@ -112,20 +115,22 @@ func dnsConsumerCmd(out dnsChannelModel) tea.Cmd {
 	}
 }
 
-func updaterSelfCmd(ctx context.Context) tea.Cmd {
+func updaterSelfCmd(ctx context.Context, force bool) tea.Cmd {
 	return func() tea.Msg {
 		upd, err := updater.SelfCheckUpdates(ctx)
 		if err == updater.ErrUnsupportedOsOrArch {
 			// TODO: the user should be warned about this.
-			return updaterSelfNoopMsg{}
+			return updaterStartInetlookupMsg{}
 		}
 
 		if err != nil {
 			return updaterErrMsg{err: err}
 		}
-
 		if !upd.Required {
-			return updaterSelfNoopMsg{}
+			if force {
+				return updaterDoneMsg{}
+			}
+			return updaterStartInetlookupMsg{}
 		}
 
 		if err = updater.SelfUpdate(ctx, upd.AssetUrl, upd.AssetFilename, upd.AssetVersion); err != nil {

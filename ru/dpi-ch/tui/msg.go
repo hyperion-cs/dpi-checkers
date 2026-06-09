@@ -39,8 +39,12 @@ type dnsProviderPlainMsg checkers.DnsVerdict
 type dnsProviderDohMsg checkers.DnsVerdict
 type dnsProgressMsg string
 
-type updaterInitMsg struct{ forceInetlookupUpdate bool }
+type updaterInitMsg struct {
+	forceUpdate           bool
+	forceInetlookupUpdate bool
+}
+
 type updaterErrMsg struct{ err error }
-type updaterSelfNoopMsg struct{}
+type updaterStartInetlookupMsg struct{}
 type updaterSelfDoneMsg struct{ version string }
 type updaterDoneMsg struct{}

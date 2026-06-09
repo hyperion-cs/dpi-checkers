@@ -116,6 +116,7 @@ type Config struct {
 		RootDir               string        `mapstructure:"root-dir"`
 		SelfTsFile            string        `mapstructure:"self-ts-file"`
 		InetlookupTsFile      string        `mapstructure:"inetlookup-ts-file"`
+		ForceUpdate           bool          `mapstructure:"force-update"`
 		ForceInetlookupUpdate bool          `mapstructure:"force-inetlookup-update"`
 
 		Self struct {
@@ -236,4 +237,8 @@ func ConfigPath() (string, error) {
 
 func ForceInetlookupUpdate() {
 	_cfg.Updater.ForceInetlookupUpdate = true
+}
+
+func ForceUpdate() {
+	_cfg.Updater.ForceUpdate = true
 }

@@ -23,6 +23,7 @@ func main() {
 	ui := flag.String("ui", "t", "ui mode: t | web")
 	ver := flag.Bool("version", false, "print version")
 	forceInetlookupUpd := flag.Bool("force-inetlookup-update", false, "force run the inetlookup update mechanism")
+	forceUpd := flag.Bool("force-update", false, "force run the dpi-ch update mechanism")
 
 	cfgPath := flag.String("cfg", config.CfgDefPath, ".yaml config path")
 	flag.Parse()
@@ -44,7 +45,9 @@ func main() {
 		fmt.Println(version.Value)
 		return
 	}
-
+	if *forceUpd {
+		config.ForceUpdate()
+	}
 	if *forceInetlookupUpd {
 		config.ForceInetlookupUpdate()
 	}
