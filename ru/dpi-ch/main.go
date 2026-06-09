@@ -6,7 +6,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"path/filepath"
 
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/internal/version"
@@ -65,13 +64,11 @@ func chdirToBin() error {
 	if version.Value == version.Init {
 		return nil
 	}
-	path, err := os.Executable()
+
+	binFolder, err := config.BinFolder()
 	if err != nil {
 		return err
 	}
-	realPath, err := filepath.EvalSymlinks(path)
-	if err != nil {
-		return err
-	}
-	return os.Chdir(filepath.Dir(realPath))
+
+	return os.Chdir(binFolder)
 }

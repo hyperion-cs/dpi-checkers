@@ -45,13 +45,19 @@ func (rm rootModel) View() tea.View {
 	}
 
 	if rm.router.Tab == updaterTab && !rm.quitting {
-		s += "\n\n" + subtleStyle.Render(fmt.Sprintf("m, backspace: skip updater%sq, esc: quit\n%s", dotChar, version.Value))
+		s += "\n\n" + subtleStyle.Render(fmt.Sprintf("m, backspace: skip updater%sq, esc: quit", dotChar))
 	}
 
 	if rm.router.Tab != menuTab && rm.router.Tab != updaterTab && !rm.quitting {
-		s += "\n\n" + subtleStyle.Render(fmt.Sprintf("m, backspace: menu%sq, esc: quit\n%s", dotChar, version.Value))
+		s += "\n\n" + subtleStyle.Render(fmt.Sprintf("m, backspace: menu%sq, esc: quit", dotChar))
 	}
 
+	cfgPath, err := config.ConfigPath()
+	if err == nil {
+		s += subtleStyle.Render(fmt.Sprintf("\n%s%sconfig path: %s", version.Value, dotChar, cfgPath))
+	} else {
+		s += subtleStyle.Render("\n" + version.Value)
+	}
 	v.SetContent(mainStyle.Render("\n" + s + "\n\n"))
 	return v
 }

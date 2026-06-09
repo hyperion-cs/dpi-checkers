@@ -6,7 +6,6 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
-	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/internal/version"
 )
 
 type tab int
@@ -83,7 +82,7 @@ func (m *MenuState) View() string {
 	for i, x := range m.items {
 		tpl.WriteString(checkbox(x.Name+" "+subtleStyle.Render(x.Desc), i == m.pos) + "\n")
 	}
-	tpl.WriteString("\n\n" + subtleStyle.Render(fmt.Sprintf("up/down: select%senter: choose%sq, esc: quit\n%s", dotChar, dotChar, version.Value)))
+	tpl.WriteString("\n\n" + subtleStyle.Render(fmt.Sprintf("up/down: select%senter: choose%sq, esc: quit", dotChar, dotChar)))
 	return tpl.String()
 }
 

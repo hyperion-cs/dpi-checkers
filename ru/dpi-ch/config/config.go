@@ -4,6 +4,8 @@ import (
 	"bytes"
 	_ "embed"
 	"os"
+	"path"
+	"path/filepath"
 	"time"
 
 	"github.com/spf13/viper"
@@ -165,15 +167,16 @@ type WebhostTarget struct {
 
 const CfgDefPath = "config.yaml"
 
-var cfg = &Config{}
+var _cfg = &Config{}
+var _path = CfgDefPath // absolute path
 
 //go:embed default.yaml
-var defRaw []byte
+var _defRaw []byte
 
 func Load(path string) error {
 	v := viper.New()
 	v.SetConfigType("yaml")
-	if err := v.ReadConfig(bytes.NewReader(defRaw)); err != nil {
+	if err := v.ReadConfig(bytes.NewReader(_defRaw)); err != nil {
 		return err
 	}
 
@@ -191,18 +194,46 @@ func Load(path string) error {
 		}
 	}
 
-	if err := v.Unmarshal(cfg); err != nil {
+	if err := v.Unmarshal(_cfg); err != nil {
 		return err
 	}
 
 	// TODO: add config validator
+	_path = path
 	return nil
 }
 
 func Get() *Config {
-	return cfg
+	return _cfg
+}
+
+// Returns the absolute path to the folder with the dpi-ch binary file
+func BinFolder() (string, error) {
+	path, err := os.Executable()
+	if err != nil {
+		return "", err
+	}
+
+	realPath, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Dir(realPath), nil
+}
+
+// Returns the absolute path to the current configuration
+func ConfigPath() (string, error) {
+	if path.IsAbs(_path) {
+		return filepath.Clean(_path), nil
+	}
+
+	binFolder, err := BinFolder()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Clean(filepath.Join(binFolder, _path)), nil
 }
 
 func ForceInetlookupUpdate() {
-	cfg.Updater.ForceInetlookupUpdate = true
+	_cfg.Updater.ForceInetlookupUpdate = true
 }
