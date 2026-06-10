@@ -1,7 +1,7 @@
 # RU :: DPI-CH (dpi comprehensive checker)
 [![dpi-ch release](https://github.com/hyperion-cs/dpi-checkers/actions/workflows/dpich_release.yml/badge.svg)](https://github.com/hyperion-cs/dpi-checkers/actions/workflows/dpich_release.yml)
 
-This is the "big brother" of all other checkers, not limited by the browser sandbox. It is an attempt to create a powerful tool for general-purpose DPI analysis (incl. an improved _tcp 16-20_, "siberian" restrictions checkers and much more).<br>
+This is the "big brother" of all other checkers, not limited by the browser sandbox. It is an attempt to create a powerful tool for general-purpose DPI analysis (incl. an improved _[tcp 16-20](https://github.com/net4people/bbs/issues/490)_, "[siberian](https://habr.com/ru/articles/1044396/)" restrictions checkers and much more).<br>
 Extremely flexible configuration. Written in golang, builds are [available](https://github.com/hyperion-cs/dpi-checkers/releases/) for Windows/macOS/Linux (Android coming soon).
 ![gif](https://raw.githubusercontent.com/hyperion-cs/dpi-checkers/refs/heads/main/static/images/dpich_v0.8.0_demo.gif)
 
@@ -93,7 +93,9 @@ A logical question comes up: how do we set this up? With a new approach — "fil
   - _subnet_ — just a subnet specified manually in cidr notation (up to `/32` for ipv4);
   - _ip_ — for the specified IP addr, an minimal subnet is obtained (from AS that announce this IP), and it is then used as _subnet_ (two-phase search);
 
-  Example: `subnet("1.1.1.1/32")` — returns a set from one subnet (one IP address).<br>
+  Example1: `subnet("1.1.1.1")` — returns the smallest subnet (but **larger** than /32) for 1.1.1.1 (from AS that announce this IP);<br>
+  Example2: `subnet("1.1.1.1/32")` — returns a set from **one IP** address;<br>
+  Example3: `subnet("1.1.1.0/24")` — returns the 1.1.1.0/24 subnet.<br>
 - `host(x1,...,xn)`, where `x` is a hostname
 
   Example: `host("google.com")` — returns a set of subnets to which DNS resolves the specified hostname.

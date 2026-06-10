@@ -13,7 +13,7 @@
 preload checker in your browser.
 
 - ❗ **RU :: DPI-CH** (dpi comprehensive checker)<br>
-  This is the "big brother" of all other checkers, not limited by the browser sandbox. It is an attempt to create a powerful tool for general-purpose DPI analysis (incl. an improved _tcp 16-20_, "siberian" restrictions checkers and much more).<br>
+  This is the "big brother" of all other checkers, not limited by the browser sandbox. It is an attempt to create a powerful tool for general-purpose DPI analysis (incl. an improved _[tcp 16-20](https://github.com/net4people/bbs/issues/490)_, "[siberian](https://habr.com/ru/articles/1044396/)" restrictions checkers and much more).<br>
   Extremely flexible configuration. Written in golang, builds are [available](https://github.com/hyperion-cs/dpi-checkers/releases/) for Windows/macOS/Linux (Android coming soon). See [documentation](https://github.com/hyperion-cs/dpi-checkers/tree/main/ru/dpi-ch/docs) for a detailed description.
   ![gif](https://raw.githubusercontent.com/hyperion-cs/dpi-checkers/refs/heads/main/static/images/dpich_v0.8.0_demo.gif)
 
@@ -25,6 +25,8 @@ preload checker in your browser.
   | timeout | int | `15000` | Timeout for connecting/fetching data from endpoint (in ms). |
   | host | string | — | A custom host to check in addition to the default ones (e.g. your steal-oneself server). It doesn't matter what the CORS policy is. |
   | provider | string | _Custom_ | Provider name for the custom endpoint (you can set any name). |
+
+  See [here](https://github.com/net4people/bbs/issues/490) for details on this blocking method.
 
 - **RU :: IPv4 Whitelisted Subnets** => [https://hyperion-cs.github.io/dpi-checkers/ru/ipv4-whitelisted-subnets](https://hyperion-cs.github.io/dpi-checkers/ru/ipv4-whitelisted-subnets)<br>
   Allows to detect [IPv4 subnets](https://en.wikipedia.org/wiki/Subnet) from the so-called "whitelist" in cases where a censor restricts TCP/UDP/etc connections by IP subnets (aka [CIDR](https://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing) censorship). There are three control buttons:<br>
@@ -48,7 +50,6 @@ preload checker in your browser.
   - It is prohibited to minimize the browser or lock the screen on phones during the check (_however, you can share Wi-Fi from your phone to your computer — this is more convenient_);
   - Even with performance optimizations, the checker can take quite a while to run (_several tens of minutes_). In the worst case, the time ≈ "_number of suitable subnets_" × `timeout` (_see above_). 
 
-  See [here](https://github.com/net4people/bbs/issues/490) for details on this blocking method.
 - **RU :: TCP 16-20 DWC** (domain whitelist checker)<br>
   Allows to find out whitelisted items on DPIs where _TCP 16-20_ blocking method is applied. This kind of information can be interesting in its own right as well as useful for bypassing limitations.<br>
   A list of domains is required as input. Also requires _Python 3_, the _curl_ utility, and a specially configured server on "limited" networks. See [here](ru/tcp-16-20_dwc) for details (ready-to-use results are also available for download there).
