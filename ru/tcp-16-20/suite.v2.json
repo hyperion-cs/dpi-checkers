@@ -12,7 +12,7 @@
   { "id": "FR.CNTB-01", "provider": "Contabo", "country": "🇫🇷", "host": "antoniotartaglia.it" },
   { "id": "FR.CNTB-02", "provider": "Contabo", "country": "🇫🇷", "host": "status.moow.info" },
   { "id": "DE.DO-01", "provider": "DigitalOcean", "country": "🇩🇪", "host": "ui-arts.com" },
-  { "id": "UK.DO-01", "provider": "DigitalOcean", "country": "🇬🇧", "host": "kingswoodssweets.co.uk" },
+  { "id": "UK.DO-01", "provider": "DigitalOcean", "country": "🇬🇧", "host": "app.thecuriositylibrary.com" },
   { "id": "UK.DO-02", "provider": "DigitalOcean", "country": "🇬🇧", "host": "admin.survey54.com" },
   { "id": "CA.FST-01", "provider": "Fastly", "country": "🇨🇦", "host": "ssl.p.jwpcdn.com" },
   { "id": "US.FST-01", "provider": "Fastly", "country": "🇺🇸", "host": "www.jetblue.com" },
