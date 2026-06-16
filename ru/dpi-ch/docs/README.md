@@ -14,6 +14,8 @@ Extremely flexible configuration. Written in golang, builds are [available](http
   - **Popular Web Services** like YouTube, Instagram, Discord, Telegram and others;
   - **Foreign Infrastructure Providers** like Cloudflare, Akamai, Hetzner, DigitalOcean and others;
   - **Russian Infrastructure Providers** like Selectel, Reg.ru, Yandex Cloud and others.
+
+  It can also be used for detecting subnets from a CIDR whitelist, and much more.
 - **DNS** checks if a censor is spoofing dns responses, hijacking servers, DoH blocking, etc; aka _dns checker_;
 - Modern TUI (aka CLI) with flexible parallel workers;
 - Automatic utility update from Github releases;
@@ -111,11 +113,11 @@ The default configuration already includes default filter options for popular we
 ## Planned
 - [x] Comprehensive DNS checker (leak test, detection of response spoofing, server hijacking, etc.);
 - [ ] Trigger blocks checker;
-- [ ] More detailed information in checkers (_statuses, reasons, etc._);
+- [x] More detailed information in checkers (_statuses, reasons, etc._);
 - [ ] TLS certificate hijacking detection in _webhost_ checker;
 - [ ] Option to temporarily freeze the list of hosts in _webhost_ checker;
 - [x] Estimation of internet connection speed (including shaping/slowdown detection) in _webhost_ checker;
-- [ ] Detecting subnets for CIDR whitelists;
+- [x] Detecting subnets for CIDR whitelists;
 - [ ] Detecting hostnames for for SNI whitelists;
 - [ ] Integration with [zapret](https://github.com/bol-van/zapret2) to find optimal strategies;
 - [ ] Android version (via [Termux](https://en.wikipedia.org/wiki/Termux));
@@ -167,6 +169,9 @@ checkers: # checkers, available in the dpi-ch utility
     tcp-read-buf:           # int; tcp/tls read buffer size (also only for experts)
     tcp1620-n-bytes:        # int; size of random payload for tcp 16-20 (also only for experts)
     siberian-conn-count:    # int; number of connections to "suspicious" server that is sufficient to trigger restriction
+    siberian-fingerprint:   # string; specifies which browser fingerprint will be used for "siberian" restrictions check;
+                            #         has higher priority than inetutil => fingerprint;
+                            #         supported values: chrome, firefox, safari, ios, android, edge, 360, qq
     key-log-path:           # string; if set, the (pre)-master-secret log will be written to this path; useful for wireshark
     table-max-visible-rows: # int; number of visible rows in the results table (if there are more, scrolling is available)
     http-static-headers:    # map[string]string; http headers that will be sent as part of requests to hosts
@@ -208,6 +213,9 @@ webhostfarm: # takes sets of subnets (usually from subnetfilter), returns suitab
 inetutil: # used for all network operations (incl. tcp/tls operation and http requests)
   iface:           # string; name of network interface or its ip address for network operations
                    #         (currently, only ipv4 is supported)
+  fingerprint:     # string; specifies which browser fingerprint will be used for all tls connections;
+                   #         (if there is no individual option in the config for a specific tls connection);
+                   #         supported values: chrome, firefox, safari, ios, android, edge, 360, qq
   browser-headers: # map[string]string; http headers that will be sent as part of requests
 
 updater: # used to automatically update the dpi-ch utility and related stuff (e.g., geoip)

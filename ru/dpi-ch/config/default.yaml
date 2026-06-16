@@ -128,6 +128,7 @@ checkers:
     tcp-read-buf: 4096
     tcp1620-n-bytes: 65536
     siberian-conn-count: 4
+    siberian-fingerprint: chrome # chrome observed in the "siberian" restrictions
     http-static-headers:
       Accept: "*/*"
       Accept-Encoding: identity
@@ -263,6 +264,7 @@ inetlookup-geolitecsv:
 
 inetutil:
   iface: "" # empty is default network interface
+  fingerprint: firefox # firefox is not observed in the "siberian" restrictions
   browser-headers:
     Accept-Language: ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7
     User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36

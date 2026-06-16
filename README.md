@@ -13,7 +13,7 @@
 preload checker in your browser.
 
 - ❗ **RU :: DPI-CH** (dpi comprehensive checker)<br>
-  This is the "big brother" of all other checkers, not limited by the browser sandbox. It is an attempt to create a powerful tool for general-purpose DPI analysis (incl. an improved _[tcp 16-20](https://github.com/net4people/bbs/issues/490)_, "[siberian](https://habr.com/ru/articles/1044396/)" restrictions checkers and much more).<br>
+  This is the "big brother" of all other checkers, not limited by the browser sandbox. It is an attempt to create a powerful tool for general-purpose DPI analysis.<br>
   Extremely flexible configuration. Written in golang, builds are [available](https://github.com/hyperion-cs/dpi-checkers/releases/) for Windows/macOS/Linux (Android coming soon). See [documentation](https://github.com/hyperion-cs/dpi-checkers/tree/main/ru/dpi-ch/docs) for a detailed description.
   ![gif](https://raw.githubusercontent.com/hyperion-cs/dpi-checkers/refs/heads/main/static/images/dpich_v0.8.0_demo.gif)
 

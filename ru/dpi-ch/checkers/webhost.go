@@ -209,7 +209,11 @@ func webhostTcp1620check(opt WebhostSingleOpt, tlsConnOpt inetutil.TlsConnOpt) (
 
 func webhostSiberianCheck(tlsConnOpt inetutil.TlsConnOpt) error {
 	cfg := config.Get().Checkers.Webhost
-	tlsConnOpt.ClientHelloId = tls.HelloChrome_Auto // chrome observed in "siberian" restrictions
+	fingerprint := inetutil.Fingerprints[cfg.SiberianFingerprint]
+	if fingerprint == nil {
+		panic(fmt.Sprintf(`inetutil=>siberian-fingerprint / invalid value: "%s".`, cfg.SiberianFingerprint))
+	}
+	tlsConnOpt.ClientHelloId = *fingerprint
 	tlsConnOpt.OriginalAlpn = true
 
 	origSni := tlsConnOpt.Sni       // "valid" only if there is info in config

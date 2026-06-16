@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net"
@@ -16,6 +17,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
 	tls "github.com/refraction-networking/utls"
 )
 
@@ -37,6 +39,17 @@ var (
 	tlsDialerLocalAddrHandled bool
 )
 
+var Fingerprints = map[string]*tls.ClientHelloID{
+	"chrome":  &tls.HelloChrome_Auto,
+	"firefox": &tls.HelloFirefox_Auto,
+	"safari":  &tls.HelloSafari_Auto,
+	"ios":     &tls.HelloIOS_Auto,
+	"android": &tls.HelloAndroid_11_OkHttp,
+	"edge":    &tls.HelloEdge_Auto,
+	"360":     &tls.Hello360_Auto,
+	"qq":      &tls.HelloQQ_Auto,
+}
+
 type TlsConnOpt struct {
 	Ctx                 context.Context
 	Ip                  netip.Addr
@@ -57,6 +70,7 @@ type TlsConnOpt struct {
 // - Set tlsV
 // - Try to extract sni/host from cert
 func GetHandshakedUTlsConn(opt TlsConnOpt) (*tls.UConn, error) {
+	cfg := config.Get().InetUtil
 	tcpDialer := net.Dialer{LocalAddr: tlsDefaultDialerLocalAddr()}
 	if opt.TcpConnTimeout != 0 {
 		tcpDialer.Timeout = opt.TcpConnTimeout
@@ -94,10 +108,16 @@ func GetHandshakedUTlsConn(opt TlsConnOpt) (*tls.UConn, error) {
 	}
 
 	tlsConn := tls.UClient(tcpConn, tlsConf, tls.HelloCustom)
-	spec, _ := tls.UTLSIdToSpec(tls.HelloFirefox_Auto) // firefox is not observed in the "siberian" restrictions
+
+	fingerprint := Fingerprints[cfg.Fingerprint]
+	if fingerprint == nil {
+		panic(fmt.Sprintf(`inetutil=>fingerprint / invalid value: "%s".`, cfg.Fingerprint))
+	}
+	spec, _ := tls.UTLSIdToSpec(*fingerprint)
 	if opt.ClientHelloId.Client != "" || opt.ClientHelloId.Version != "" {
 		spec, _ = tls.UTLSIdToSpec(opt.ClientHelloId)
 	}
+
 	if !opt.OriginalAlpn {
 		// WARN: this change breaks fingerprint
 		// make sure that ClientHello does not contain ALPN for h2
