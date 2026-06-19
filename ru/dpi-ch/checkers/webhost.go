@@ -98,8 +98,8 @@ func WebhostSingle(opt WebhostSingleOpt) WebhostSingleResult {
 
 	// The order of the checks is important.
 
-	if err = webhostAliveCheck(opt, tlsConn); err != nil {
-		res.Alive = err
+	res.Alive = webhostAliveCheck(opt, tlsConn)
+	if res.Alive != nil && res.Alive != inetutil.ErrHttpMalformedResponse {
 		res.Tcp1620 = ErrWebhostSkip
 		res.Siberian = ErrWebhostSkip
 		return res
@@ -184,15 +184,19 @@ func webhostTcp1620check(opt WebhostSingleOpt, tlsConnOpt inetutil.TlsConnOpt) (
 	rxCr := &inetutil.CountingReader{Reader: tlsConn}
 	rxStart := time.Now()
 	resp, err := inetutil.TlsReadHttpResponse(readCtx, tlsConn, bufio.NewReader(rxCr))
-	if err != nil {
-		return WebhostThroughput{}, err
-	}
-	if _, err = io.Copy(io.Discard, resp.Body); err != nil {
-		return WebhostThroughput{}, err
-	}
-	rxElapsed := time.Since(rxStart)
-	resp.Body.Close()
 
+	if err != nil && err != inetutil.ErrHttpMalformedResponse {
+		return WebhostThroughput{}, err
+	}
+
+	if err == nil {
+		if _, err = io.Copy(io.Discard, resp.Body); err != nil {
+			return WebhostThroughput{}, err
+		}
+		resp.Body.Close()
+	}
+
+	rxElapsed := time.Since(rxStart)
 	return WebhostThroughput{
 		TxBytes:   txBytes,
 		TxElapsed: txElapsed,

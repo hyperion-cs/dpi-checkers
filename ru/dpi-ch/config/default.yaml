@@ -119,6 +119,36 @@ checkers:
               && country("ru")
             tcp1620-skip: true
   
+      - name: Mobile Push Notification Providers
+        desc: like Google FCM (Android), Apple APNs (iOS) and others
+        targets:
+          - name: "G: fcm.googleapis.com"
+            filter: host("fcm.googleapis.com")
+          - name: "G: accounts.google.com"
+            filter: host("accounts.google.com")
+          - name: "G: iid.googleapis.com"
+            filter: host("iid.googleapis.com")
+          - name: "G: mtalk.google.com"
+            filter: host("mtalk.google.com")
+          - name: "G: mtalk4.google.com"
+            filter: host("mtalk4.google.com")
+          - name: "G: mtalk-staging.google.com"
+            filter: host("mtalk-staging.google.com")
+          - name: "G: mtalk-dev.google.com"
+            filter: host("mtalk-dev.google.com")
+          - name: "G: alt1-mtalk.google.com"
+            filter: host("alt1-mtalk.google.com")
+          - name: "G: android.apis.google.com"
+            filter: host("android.apis.google.com")
+          - name: "G: device-provisioning.googleapis.com"
+            filter: host("device-provisioning.googleapis.com")
+          - name: "G: firebaseinstallations.googleapis.com"
+            filter: host("firebaseinstallations.googleapis.com")
+          - name: "A: api.push.apple.com"
+            filter: host("api.push.apple.com")
+          - name: "A: api.development.push.apple.com"
+            filter: host("api.development.push.apple.com")
+
     workers: 8
     tcp-conn-timeout: 3s
     tls-handshake-timeout: 3s

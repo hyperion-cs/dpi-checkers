@@ -32,6 +32,7 @@ var (
 	ErrTlsInternal           = errors.New("tls: internal error")
 	ErrTlsBadRecordMac       = errors.New("tls: bad record MAC")
 	ErrTlsWriteBrokenPipe    = errors.New("tls: broken write pipe")
+	ErrHttpMalformedResponse = errors.New("http: malformed response")
 	ErrInternal              = errors.New("net: internal error")
 
 	tlsMu                     sync.Mutex
@@ -182,6 +183,7 @@ func setUTlsAlpn(spec *tls.ClientHelloSpec, protos []string) {
 	spec.Extensions = append(spec.Extensions, &tls.ALPNExtension{AlpnProtocols: protos})
 }
 
+// TODO: Should this be in the http.go file?
 func TlsReadHttpResponse(ctx context.Context, tlsConn *tls.UConn, br *bufio.Reader) (*http.Response, error) {
 	done := make(chan struct{})
 	defer close(done)
@@ -278,6 +280,9 @@ func tryHandleErr(err error) (error, bool) {
 	}
 	if strings.Contains(err.Error(), "bad record MAC") {
 		return ErrTlsBadRecordMac, true
+	}
+	if strings.Contains(err.Error(), "malformed HTTP") {
+		return ErrHttpMalformedResponse, true
 	}
 
 	if _, ok := errors.AsType[*tls.CertificateVerificationError](err); ok {

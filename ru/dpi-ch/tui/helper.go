@@ -60,8 +60,11 @@ func dnsPrettyProviderVerdict(err error) string {
 }
 
 func webhostPrettyAlive(err error) string {
-	if err == nil {
+	switch err {
+	case nil:
 		return "🟢 yes"
+	case inetutil.ErrHttpMalformedResponse:
+		return "🟢 custom http"
 	}
 
 	return fmt.Sprintf("🔴 %s", err)
