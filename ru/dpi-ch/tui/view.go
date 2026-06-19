@@ -23,13 +23,18 @@ func (rm rootModel) View() tea.View {
 		return v
 	}
 
+	if rm.router.Tab == menuTab && rm.router.inited && rm.router.loading {
+		v.SetContent(mainStyle.Render(fmt.Sprintf("\n%s initialization\n\n", rm.router.spinner.View())))
+		return v
+	}
+
 	if rm.router.Tab != menuTab {
 		s += fmt.Sprintf("Tab: %s\n\n", rm.router.TabName())
 	}
 
 	switch rm.router.Tab {
 	case allTab:
-		s += allView()
+		s += allView(rm.allModel)
 	case menuTab:
 		s += rm.router.Menu.View()
 	case whoamiTab:
@@ -77,8 +82,18 @@ func whoamiView(model whoamiModel) string {
 	return fmt.Sprintf("IP: %s\nSubnet: %s\nOrg: %s (%s)\nLocation: %s %s\nTTLB: %d ms", r.Ip, r.Subnet, r.Org, r.Asn, emj, r.Location, r.Ttlb.Milliseconds())
 }
 
-func allView() string {
-	return "Still in development. Will be ready soon ;)"
+func allView(model allModel) string {
+	var out string
+	msg := "idle"
+	if model.fetching {
+		msg = "fetching"
+		out = fmt.Sprintf("%s ", model.spinner.View())
+	}
+	if model.progress.Msg != "" {
+		msg = model.progress.Msg
+	}
+	out += msg
+	return out
 }
 
 func cidrwhitelistView(model cidrwhitelistModel) string {

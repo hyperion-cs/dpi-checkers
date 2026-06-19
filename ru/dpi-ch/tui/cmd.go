@@ -12,21 +12,26 @@ import (
 )
 
 func (rm rootModel) Init() tea.Cmd {
-	updaterCfg := config.Get().Updater
-	selfTtu, _ := updater.TimeToUpdate(updaterCfg.SelfTsFile)
-	inetlookupTtu, _ := updater.TimeToUpdate(updaterCfg.InetlookupTsFile)
+	cfg := config.Get()
+	selfTtu, _ := updater.TimeToUpdate(cfg.Updater.SelfTsFile)
+	inetlookupTtu, _ := updater.TimeToUpdate(cfg.Updater.InetlookupTsFile)
 
-	if updaterCfg.ForceUpdate || updaterCfg.ForceInetlookupUpdate || (updaterCfg.Enabled && (selfTtu || inetlookupTtu)) {
-		return func() tea.Msg {
+	if cfg.Updater.ForceUpdate || cfg.Updater.ForceInetlookupUpdate || (cfg.Updater.Enabled && (selfTtu || inetlookupTtu)) {
+		return tea.Batch(func() tea.Msg {
 			return updaterInitMsg{
-				forceUpdate:           updaterCfg.ForceUpdate,
-				forceInetlookupUpdate: updaterCfg.ForceInetlookupUpdate,
+				forceUpdate:           cfg.Updater.ForceUpdate,
+				forceInetlookupUpdate: cfg.Updater.ForceInetlookupUpdate,
 			}
-		}
+		}, func() tea.Msg {
+			return inetlookup.Default()
+		})
 	}
 
 	return func() tea.Msg {
 		inetlookup.Default()
+		if cfg.All.Flag {
+			return allInitMsg{}
+		}
 		return nil
 	}
 }
@@ -112,6 +117,29 @@ func dnsConsumerCmd(out dnsChannelModel) tea.Cmd {
 			}
 		}
 		return dnsProducerDoneMsg{}
+	}
+}
+
+func allProducerStartCmd(ctx context.Context) tea.Cmd {
+	return func() tea.Msg {
+		return allProducerStartedMsg{
+			out: checkers.FullCheckGochan(ctx),
+		}
+	}
+}
+
+func allConsumerCmd(p <-chan checkers.FullCheckProgress) tea.Cmd {
+	return func() tea.Msg {
+		if p == nil {
+			return allProducerDoneMsg{}
+		}
+
+		v, ok := <-p
+		if !ok {
+			return allProducerDoneMsg{}
+		}
+
+		return allProgressMsg(v)
 	}
 }
 

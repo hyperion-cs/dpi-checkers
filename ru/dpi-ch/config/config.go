@@ -84,6 +84,14 @@ type Config struct {
 		} `mapstructure:"whoami"`
 	} `mapstructure:"checkers"`
 
+	All struct {
+		Format   string   `mapstructure:"format"`
+		Checkers []string `mapstructure:"checkers"`
+		Prefix   string   `mapstructure:"prefix"`
+		TsFormat string   `mapstructure:"ts-format"`
+		Flag     bool     `mapstructure:"flag"`
+	} `mapstructure:"all"`
+
 	WebhostFarm struct {
 		Workers             int           `mapstructure:"workers"`
 		TcpConnTimeout      time.Duration `mapstructure:"tcp-conn-timeout"`
@@ -243,4 +251,8 @@ func ForceInetlookupUpdate() {
 
 func ForceUpdate() {
 	_cfg.Updater.ForceUpdate = true
+}
+
+func RunAllChecksImmediately() {
+	_cfg.All.Flag = true
 }

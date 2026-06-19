@@ -9,7 +9,9 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/inetlookup"
 
 	"charm.land/bubbles/v2/spinner"
 	"charm.land/bubbles/v2/table"
@@ -42,16 +44,22 @@ func (rm rootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			rm.router.Tab = menuTab
 			cmds = append(cmds, func() tea.Msg { return returnedToMenuMsg{} })
 		}
+	// TODO: Should this be here (for special cases)?
 	case updaterInitMsg:
 		rm.router.Tab = updaterTab
 	case updaterDoneMsg:
 		rm.router.Tab = menuTab
+	case allInitMsg:
+		rm.router.Tab = allTab
 	}
 
 	if rm.router.Tab == menuTab {
 		rm.router, cmd = routerUpdate(rm.router, msg)
 		cmds = append(cmds, cmd)
 	}
+
+	rm.allModel, cmd = allUpdate(rm.allModel, msg)
+	cmds = append(cmds, cmd)
 
 	rm.whoamiModel, cmd = whoamiUpdate(rm.whoamiModel, msg)
 	cmds = append(cmds, cmd)
@@ -72,6 +80,24 @@ func (rm rootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func routerUpdate(router *router, msg tea.Msg) (*router, tea.Cmd) {
+	var cmds []tea.Cmd
+
+	if !router.inited {
+		s := spinner.New()
+		s.Spinner = spinnerType
+		s.Style = spinnerStyle
+
+		router.inited = true
+		router.loading = true
+		router.spinner = s
+
+		cmds = append(cmds, router.spinner.Tick)
+	}
+
+	if router.loading && inetlookup.Inited() {
+		router.loading = false
+	}
+
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
 		switch normKey(msg.String()) {
@@ -82,11 +108,17 @@ func routerUpdate(router *router, msg tea.Msg) (*router, tea.Cmd) {
 		case "enter":
 			curr := router.Menu.Curr()
 			router.Tab = curr.Tab
-			return router, func() tea.Msg { return curr.InitMsg }
+			cmds = append(cmds, func() tea.Msg { return curr.InitMsg })
+		}
+	case spinner.TickMsg:
+		if router.loading {
+			var cmd tea.Cmd
+			router.spinner, cmd = router.spinner.Update(msg)
+			cmds = append(cmds, cmd)
 		}
 	}
 
-	return router, nil
+	return router, tea.Batch(cmds...)
 }
 
 func whoamiUpdate(model whoamiModel, msg tea.Msg) (whoamiModel, tea.Cmd) {
@@ -234,14 +266,14 @@ func webhostProcessItem(msg webhostItemMsg, model webhostModel) webhostModel {
 		msg.Out.IpInfo.Ip,
 	)
 
-	var txMbps, rxMbps float64
+	var txKbps, rxKbps float64
 	speed := "⚠️ skip"
 	if msg.Out.Throughput.TxElapsed > 0 && msg.Out.Throughput.RxElapsed > 0 {
 		thp := msg.Out.Throughput
-		const bytesToMegabits = 8.0 / 1_000
-		txMbps = float64(msg.Out.Throughput.TxBytes) / thp.TxElapsed.Seconds() * bytesToMegabits
-		rxMbps = float64(msg.Out.Throughput.RxBytes) / thp.RxElapsed.Seconds() * bytesToMegabits
-		speed = fmt.Sprintf("↑%.1f ↓%.1f", txMbps, rxMbps)
+		const bytesToKilobits = 8.0 / 1_000
+		txKbps = float64(msg.Out.Throughput.TxBytes) / thp.TxElapsed.Seconds() * bytesToKilobits
+		rxKbps = float64(msg.Out.Throughput.RxBytes) / thp.RxElapsed.Seconds() * bytesToKilobits
+		speed = fmt.Sprintf("↑%.1f ↓%.1f", txKbps, rxKbps)
 	}
 
 	row := table.Row{
@@ -317,6 +349,50 @@ func webhostInitModel() webhostModel {
 		table:    t,
 		spinner:  spin,
 	}
+}
+
+func allUpdate(model allModel, msg tea.Msg) (allModel, tea.Cmd) {
+	if !model.inited {
+		switch msg.(type) {
+		case allInitMsg:
+			ctx, cancel := context.WithCancel(context.Background())
+
+			spin := spinner.New()
+			spin.Spinner = spinnerType
+			spin.Style = spinnerStyle
+
+			model = allModel{inited: true, spinner: spin, ctx: ctx, cancel: cancel, fetching: true}
+			return model, tea.Batch(model.spinner.Tick, allProducerStartCmd(model.ctx))
+		}
+
+		return model, nil
+	}
+
+	switch msg := msg.(type) {
+	case allProducerStartedMsg:
+		model.out = msg.out
+		return model, allConsumerCmd(model.out)
+	case allProgressMsg:
+		model.progress = checkers.FullCheckProgress(msg)
+		return model, allConsumerCmd(model.out)
+	case allProducerDoneMsg:
+		model.fetching = false
+		return model, nil
+	case spinner.TickMsg:
+		if model.fetching {
+			var cmd tea.Cmd
+			model.spinner, cmd = model.spinner.Update(msg)
+			return model, cmd
+		}
+	case returnedToMenuMsg:
+		if model.cancel != nil {
+			model.cancel()
+		}
+		model = allModel{}
+		return model, nil
+	}
+
+	return model, nil
 }
 
 func dnsUpdate(model dnsModel, msg tea.Msg) (dnsModel, tea.Cmd) {
