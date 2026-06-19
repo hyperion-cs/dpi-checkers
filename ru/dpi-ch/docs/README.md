@@ -172,7 +172,6 @@ checkers: # checkers, available in the dpi-ch utility
     siberian-fingerprint:   # string; specifies which browser fingerprint will be used for "siberian" restrictions check;
                             #         has higher priority than inetutil => fingerprint;
                             #         supported values: chrome, firefox, safari, ios, android, edge, 360, qq
-    key-log-path:           # string; if set, the (pre)-master-secret log will be written to this path; useful for wireshark
     table-max-visible-rows: # int; number of visible rows in the results table (if there are more, scrolling is available)
     http-static-headers:    # map[string]string; http headers that will be sent as part of requests to hosts
 
@@ -216,6 +215,7 @@ inetutil: # used for all network operations (incl. tcp/tls operation and http re
   fingerprint:     # string; specifies which browser fingerprint will be used for all tls connections;
                    #         (if there is no individual option in the config for a specific tls connection);
                    #         supported values: chrome, firefox, safari, ios, android, edge, 360, qq
+  key-log-path:    # string; if set, the (pre)-master-secret log will be written to this path; useful for wireshark
   browser-headers: # map[string]string; http headers that will be sent as part of requests
 
 updater: # used to automatically update the dpi-ch utility and related stuff (e.g., geoip)

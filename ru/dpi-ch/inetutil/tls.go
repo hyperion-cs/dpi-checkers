@@ -59,10 +59,31 @@ type TlsConnOpt struct {
 	TcpWriteBuf         int
 	TcpReadBuf          int
 	TlsHandshakeTimeout time.Duration
-	KeyLogWriter        io.Writer
 	InsecureVerify      bool
 	ClientHelloId       tls.ClientHelloID
 	OriginalAlpn        bool
+}
+
+var keyLogMu sync.Mutex
+var keyLogWriter io.Writer
+
+func KeyLogWriter() io.Writer {
+	keyLogMu.Lock()
+	defer keyLogMu.Unlock()
+	cfg := config.Get().InetUtil
+
+	if cfg.KeyLogPath == "" {
+		return io.Discard
+	}
+
+	if keyLogWriter == nil {
+		file, err := os.OpenFile(cfg.KeyLogPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
+		if err != nil {
+			panic(err)
+		}
+		keyLogWriter = file
+	}
+	return keyLogWriter
 }
 
 // TODO (options):
@@ -100,7 +121,7 @@ func GetHandshakedUTlsConn(opt TlsConnOpt) (*tls.UConn, error) {
 
 	tlsConf := &tls.Config{
 		InsecureSkipVerify: !opt.InsecureVerify,
-		KeyLogWriter:       opt.KeyLogWriter,
+		KeyLogWriter:       KeyLogWriter(),
 	}
 
 	if opt.Sni != "" {

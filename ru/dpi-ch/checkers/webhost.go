@@ -24,7 +24,6 @@ import (
 type WebhostSingleOpt struct {
 	Ip             netip.Addr
 	Port           int
-	KeyLogWriter   io.Writer
 	Sni            string
 	Host           string
 	Tcp1620skip    bool
@@ -62,10 +61,6 @@ const RANDOM_HOSTNAME_ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789"
 const RANDOM_HOSTNAME_LEN = 12
 
 func WebhostSingle(opt WebhostSingleOpt) WebhostSingleResult {
-	if opt.KeyLogWriter == nil {
-		opt.KeyLogWriter = io.Discard
-	}
-
 	if opt.RandomHostname {
 		rndHostname, _ := randomHostname()
 		opt.Sni = rndHostname
@@ -89,7 +84,6 @@ func WebhostSingle(opt WebhostSingleOpt) WebhostSingleResult {
 		TcpWriteBuf:         cfg.TcpWriteBuf,
 		TcpReadBuf:          cfg.TcpReadBuf,
 		TlsHandshakeTimeout: cfg.TlsHandshakeTimeout,
-		KeyLogWriter:        opt.KeyLogWriter,
 	}
 
 	// TODO: Move conn setup to webhostAliveCheck
