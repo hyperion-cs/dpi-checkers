@@ -13,7 +13,8 @@ Extremely flexible configuration. Written in golang, builds are [available](http
   The following sections are available in the standard configuration (they can be replaced with any others):
   - **Popular Web Services** like YouTube, Instagram, Discord, Telegram and others;
   - **Foreign Infrastructure Providers** like Cloudflare, Akamai, Hetzner, DigitalOcean and others;
-  - **Russian Infrastructure Providers** like Selectel, Reg.ru, Yandex Cloud and others.
+  - **Russian Infrastructure Providers** like Selectel, Reg.ru, Yandex Cloud and others;
+  - **Mobile Push Notification Providers** like Google FCM (Android), Apple APNs (iOS) and others.
 
   It can also be used for detecting subnets from a CIDR whitelist, and much more.
 - **DNS** checks if a censor is spoofing dns responses, hijacking servers, DoH blocking, etc; aka _dns checker_;
