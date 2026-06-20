@@ -32,6 +32,7 @@ var (
 	ErrTlsInternal           = errors.New("tls: internal error")
 	ErrTlsBadRecordMac       = errors.New("tls: bad record MAC")
 	ErrTlsWriteBrokenPipe    = errors.New("tls: broken write pipe")
+	ErrHttpMalformedResponse = errors.New("http: malformed response")
 	ErrInternal              = errors.New("net: internal error")
 
 	tlsMu                     sync.Mutex
@@ -59,10 +60,31 @@ type TlsConnOpt struct {
 	TcpWriteBuf         int
 	TcpReadBuf          int
 	TlsHandshakeTimeout time.Duration
-	KeyLogWriter        io.Writer
 	InsecureVerify      bool
 	ClientHelloId       tls.ClientHelloID
 	OriginalAlpn        bool
+}
+
+var keyLogMu sync.Mutex
+var keyLogWriter io.Writer
+
+func KeyLogWriter() io.Writer {
+	keyLogMu.Lock()
+	defer keyLogMu.Unlock()
+	cfg := config.Get().InetUtil
+
+	if cfg.KeyLogPath == "" {
+		return io.Discard
+	}
+
+	if keyLogWriter == nil {
+		file, err := os.OpenFile(cfg.KeyLogPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
+		if err != nil {
+			panic(err)
+		}
+		keyLogWriter = file
+	}
+	return keyLogWriter
 }
 
 // TODO (options):
@@ -100,7 +122,7 @@ func GetHandshakedUTlsConn(opt TlsConnOpt) (*tls.UConn, error) {
 
 	tlsConf := &tls.Config{
 		InsecureSkipVerify: !opt.InsecureVerify,
-		KeyLogWriter:       opt.KeyLogWriter,
+		KeyLogWriter:       KeyLogWriter(),
 	}
 
 	if opt.Sni != "" {
@@ -161,6 +183,7 @@ func setUTlsAlpn(spec *tls.ClientHelloSpec, protos []string) {
 	spec.Extensions = append(spec.Extensions, &tls.ALPNExtension{AlpnProtocols: protos})
 }
 
+// TODO: Should this be in the http.go file?
 func TlsReadHttpResponse(ctx context.Context, tlsConn *tls.UConn, br *bufio.Reader) (*http.Response, error) {
 	done := make(chan struct{})
 	defer close(done)
@@ -257,6 +280,9 @@ func tryHandleErr(err error) (error, bool) {
 	}
 	if strings.Contains(err.Error(), "bad record MAC") {
 		return ErrTlsBadRecordMac, true
+	}
+	if strings.Contains(err.Error(), "malformed HTTP") {
+		return ErrHttpMalformedResponse, true
 	}
 
 	if _, ok := errors.AsType[*tls.CertificateVerificationError](err); ok {

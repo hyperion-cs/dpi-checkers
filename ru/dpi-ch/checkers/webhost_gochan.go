@@ -3,9 +3,7 @@ package checkers
 import (
 	"context"
 	"fmt"
-	"io"
 	"log"
-	"os"
 	"sync"
 
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
@@ -66,7 +64,6 @@ type WebhostGochanRunnerOut struct {
 
 func WebhostGochanRunner(opt WebhostGochanRunnerOpt) WebhostGochanRunnerOut {
 	var wg sync.WaitGroup
-	cfg := config.Get().Checkers.Webhost
 	progressCh := make(chan string, 16)
 	webhostSendProgress(progressCh, "webhost checker => initialization...")
 
@@ -109,21 +106,10 @@ func WebhostGochanRunner(opt WebhostGochanRunnerOpt) WebhostGochanRunnerOut {
 		}
 	})
 
-	var keyLogWriter io.Writer
-	var klwPostFunc func()
-	if cfg.KeyLogPath != "" {
-		file, err := os.OpenFile(cfg.KeyLogPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
-		if err != nil {
-			panic(err)
-		}
-		klwPostFunc = func() { file.Close() }
-		keyLogWriter = file
-	}
 	webhostGochanIn := make(chan WebhostGochanIn[WebhostGochanBag])
 	webhostGochan := WebhostGochan(WebhostGochanOpt[WebhostGochanBag]{
-		Ctx:  opt.Ctx,
-		In:   webhostGochanIn,
-		Post: klwPostFunc,
+		Ctx: opt.Ctx,
+		In:  webhostGochanIn,
 	})
 	webhostSendProgress(progressCh, "webhost checker => initialized")
 
@@ -146,7 +132,6 @@ func WebhostGochanRunner(opt WebhostGochanRunnerOpt) WebhostGochanRunnerOut {
 						Host:           x.Bag.Host,
 						Tcp1620skip:    x.Bag.Tcp1620skip,
 						RandomHostname: x.Bag.RandomHostname,
-						KeyLogWriter:   keyLogWriter,
 					},
 				}
 				select {

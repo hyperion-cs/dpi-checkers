@@ -33,7 +33,6 @@ type Config struct {
 			Tcp1620nBytes       int               `mapstructure:"tcp1620-n-bytes"`
 			SiberianConnCount   int               `mapstructure:"siberian-conn-count"`
 			SiberianFingerprint string            `mapstructure:"siberian-fingerprint"`
-			KeyLogPath          string            `mapstructure:"key-log-path"`
 			TableMaxVisibleRows int               `mapstructure:"table-max-visible-rows"`
 			HttpStaticHeaders   map[string]string `mapstructure:"http-static-headers"`
 		} `mapstructure:"webhost"`
@@ -116,6 +115,7 @@ type Config struct {
 	InetUtil struct {
 		Iface          string            `mapstructure:"iface"`
 		Fingerprint    string            `mapstructure:"fingerprint"`
+		KeyLogPath     string            `mapstructure:"key-log-path"`
 		BrowserHeaders map[string]string `mapstructure:"browser-headers"`
 	} `mapstructure:"inetutil"`
 

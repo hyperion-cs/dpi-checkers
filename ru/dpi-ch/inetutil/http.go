@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"sync"
 
+	tls "crypto/tls"
+
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
 )
 
@@ -102,7 +104,12 @@ func httpDefaultClient() *http.Client {
 		}
 
 		httpClient = &http.Client{
-			Transport: &http.Transport{DialContext: tcpDialer.DialContext},
+			Transport: &http.Transport{
+				DialContext: tcpDialer.DialContext,
+				TLSClientConfig: &tls.Config{
+					KeyLogWriter: KeyLogWriter(),
+				},
+			},
 		}
 	}
 

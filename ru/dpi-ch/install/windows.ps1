@@ -25,7 +25,7 @@ $BinPath = Join-Path $AppDir "dpich.exe"
 Write-Host "Platform detected: $Platform"
 
 $TmpDir = New-Item -ItemType Directory -Path (Join-Path ([IO.Path]::GetTempPath()) ([IO.Path]::GetRandomFileName()))
-$TmpZip = Join-Path $TmpDir "archive.zip"
+$TmpZip = Join-Path $TmpDir "dpich.zip"
 
 try {
     New-Item -ItemType Directory -Force -Path $AppDir | Out-Null
@@ -60,20 +60,16 @@ try {
     $NormalizedAppDir = $AppDir.TrimEnd("\")
 
     if ($PathItems -contains $NormalizedAppDir) {
-        Write-Host
         Write-Host "PATH already contains: $AppDir"
-        Write-Host "Run:"
-        Write-Host "  dpich"
     } else {
-        Write-Host
-        Write-Host "PATH does not contain: $AppDir"
-        Write-Host
-        Write-Host "Run without PATH:"
-        Write-Host "  $BinPath"
-        Write-Host
-        Write-Host "To run simply as 'dpich', add this directory to your user PATH:"
-        Write-Host "  $AppDir"
+        [Environment]::SetEnvironmentVariable("Path", "$UserPath;$AppDir", "User")
+        $env:Path += ";$AppDir"
+        Write-Host "Added to user PATH: $AppDir"
     }
+
+    Write-Host
+    Write-Host "Run:"
+    Write-Host "  dpich"
 
     Write-Host
     Write-Host "Successfully installed: $BinPath"

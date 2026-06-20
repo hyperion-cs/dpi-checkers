@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/inetutil"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/internal/version"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/tui"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/webui"
@@ -64,10 +65,15 @@ func main() {
 	default:
 		log.Fatalf("unknown --ui value: %s", *ui)
 	}
+
+	// cleaning up some resources
+	if c, ok := inetutil.KeyLogWriter().(io.Closer); ok {
+		c.Close()
+	}
 }
 
 func chdirToBin() error {
-	// Don't change workdir in dev environment
+	// don't change workdir in dev environment
 	if version.Value == version.Init {
 		return nil
 	}
