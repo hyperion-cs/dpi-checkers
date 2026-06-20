@@ -18,6 +18,7 @@ Extremely flexible configuration. Written in golang, builds are [available](http
   It can also be used for detecting subnets from a CIDR whitelist, and much more.
 - **DNS** checks if a censor is spoofing dns responses, hijacking servers, DoH blocking, etc; aka _dns checker_;
 - Modern TUI (aka CLI) with flexible parallel workers;
+- Export results to a file (json or yaml);
 - Automatic utility update from Github releases;
 - Some killer features.
 
@@ -198,6 +199,15 @@ checkers: # checkers, available in the dpi-ch utility
 
   whoami: # aka whoami checker
     timeout: # time.Duration; total timeout for receiving checker results
+
+all: # all checks mode settings (result will be saved to a file)
+  format:    # string; output file format; for the file structure, see ALL_STRUCT.md
+             #         supported values: json, yaml
+  checkers:  # []string; list of checks that will be executed
+             #           supported values: whoami, cidrwhitelist, webhost, dns
+  prefix:    # string; prefix for the results file; may include the absolute path to a directory (e.g.: /etc/prefix_)
+  ts-format: # string; timestamp format in the output file name, go-style: https://pkg.go.dev/time#pkg-constants
+
 
 # support utilities section:
 

@@ -6,7 +6,6 @@ import (
 )
 
 type returnedToMenuMsg struct{}
-type allInitMsg struct{}
 
 type whoamiInitMsg struct{}
 type whoamiResultMsg struct {
@@ -38,6 +37,13 @@ type dnsLeakMsg checkers.DnsLeakWithIpinfoOut
 type dnsProviderPlainMsg checkers.DnsVerdict
 type dnsProviderDohMsg checkers.DnsVerdict
 type dnsProgressMsg string
+
+type allInitMsg struct{}
+type allProducerStartedMsg struct {
+	out <-chan checkers.FullCheckProgress
+}
+type allProgressMsg checkers.FullCheckProgress
+type allProducerDoneMsg struct{}
 
 type updaterInitMsg struct {
 	forceUpdate           bool

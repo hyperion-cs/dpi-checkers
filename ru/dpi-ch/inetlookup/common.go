@@ -8,13 +8,21 @@ import (
 	"os"
 	"path"
 	"sync"
+	"sync/atomic"
 
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/inetutil"
 )
 
-var mu sync.Mutex
-var def InetLookup
+var (
+	mu     sync.Mutex
+	def    InetLookup
+	inited atomic.Bool
+)
+
+func Inited() bool {
+	return inited.Load()
+}
 
 func Default() InetLookup {
 	mu.Lock()
@@ -34,6 +42,7 @@ func Default() InetLookup {
 			)
 		}
 		def = NewGeoliteCsv(ilOpt)
+		inited.Store(true)
 	}
 
 	return def

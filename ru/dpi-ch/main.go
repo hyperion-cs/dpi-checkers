@@ -25,6 +25,7 @@ func main() {
 	ver := flag.Bool("version", false, "print version")
 	forceInetlookupUpd := flag.Bool("force-inetlookup-update", false, "force run the inetlookup update mechanism")
 	forceUpd := flag.Bool("force-update", false, "force run the dpi-ch update mechanism")
+	all := flag.Bool("all", false, "run all checks immediately (result to file)")
 
 	cfgPath := flag.String("cfg", config.CfgDefPath, ".yaml config path")
 	flag.Parse()
@@ -51,6 +52,9 @@ func main() {
 	}
 	if *forceInetlookupUpd {
 		config.ForceInetlookupUpdate()
+	}
+	if *all {
+		config.RunAllChecksImmediately()
 	}
 
 	switch *ui {

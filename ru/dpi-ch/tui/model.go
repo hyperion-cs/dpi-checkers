@@ -13,11 +13,24 @@ type rootModel struct {
 	quitting bool
 	router   *router
 
+	allModel           allModel
 	whoamiModel        whoamiModel
 	cidrwhitelistModel cidrwhitelistModel
 	webhostModel       webhostModel
 	dnsModel           dnsModel
 	updaterModel       updaterModel
+}
+
+type allModel struct {
+	inited   bool
+	fetching bool
+	spinner  spinner.Model
+
+	ctx    context.Context
+	cancel context.CancelFunc
+
+	progress checkers.FullCheckProgress
+	out      <-chan checkers.FullCheckProgress
 }
 
 type whoamiModel struct {

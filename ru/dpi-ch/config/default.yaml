@@ -163,7 +163,7 @@ checkers:
       Accept: "*/*"
       Accept-Encoding: identity
       Content-Type: application/octet-stream
-      User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36
+      User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36
     table-max-visible-rows: 20
 
   cidrwhitelist:
@@ -273,6 +273,16 @@ checkers:
   whoami:
     timeout: 15s
 
+all:
+  format: json                # json or yaml
+  checkers:
+    - whoami
+    - cidrwhitelist
+    - webhost
+    - dns
+  prefix: results_            # may include the absolute path to a directory (e.g.: /etc/prefix_)
+  ts-format: 2006-01-02_15-04 # golang style: https://pkg.go.dev/time#pkg-constants
+
 # Internal modules
 
 subnetfilter:
@@ -293,11 +303,11 @@ inetlookup-geolitecsv:
   geonameid-country: ./data/geolite/geonameid-country.csv
 
 inetutil:
-  iface: "" # empty is default network interface
+  iface: ""            # empty is default network interface
   fingerprint: firefox # firefox is not observed in the "siberian" restrictions
   browser-headers:
     Accept-Language: ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7
-    User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36
+    User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36
 
 updater:
   enabled: true

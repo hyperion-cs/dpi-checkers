@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"charm.land/bubbles/v2/spinner"
 	tea "charm.land/bubbletea/v2"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
 )
@@ -23,6 +24,10 @@ const (
 type router struct {
 	Tab  tab
 	Menu *MenuState
+
+	inited  bool
+	loading bool
+	spinner spinner.Model
 }
 
 type MenuState struct {
@@ -48,7 +53,7 @@ func NewMenu() *MenuState {
 	webhostCfg := config.Get().Checkers.Webhost
 	m := &MenuState{items: []MenuItem{}}
 
-	m.Add("ALL", "warn: run all checks", allTab, allInitMsg{})
+	m.Add("ALL", "long exec warn: run all checks specified in the config", allTab, allInitMsg{})
 	m.Add("Who am I?", "about your internet connection", whoamiTab, whoamiInitMsg{})
 	m.Add("Am I under the CIDR whitelist?",
 		"checks if a censor restricts tcp/udp connections by ip subnets", cidrwhitelistTab, cidrwhitelistInitMsg{})
@@ -80,9 +85,11 @@ func (m *MenuState) View() string {
 	var tpl strings.Builder
 	tpl.WriteString("Select what you want to check.\n\n")
 	for i, x := range m.items {
-		tpl.WriteString(checkbox(x.Name+" "+subtleStyle.Render(x.Desc), i == m.pos) + "\n")
+		tpl.WriteString(checkbox(x.Name+" "+subtleStyle.Render(x.Desc), i == m.pos))
+		tpl.WriteString("\n")
 	}
-	tpl.WriteString("\n\n" + subtleStyle.Render(fmt.Sprintf("up/down: select%senter: choose%sq, esc: quit", dotChar, dotChar)))
+	tpl.WriteString("\n\n")
+	tpl.WriteString(subtleStyle.Render(fmt.Sprintf("up/down: select%senter: choose%sq, esc: quit", dotChar, dotChar)))
 	return tpl.String()
 }
 
