@@ -362,8 +362,11 @@ func fullCheckWebhostItemDto(o WebhostGochanOut[WebhostGochanBag]) FullCheckWebh
 }
 
 func webhostPrettyAlive(err error) FullCheckStatusDto {
-	if err == nil {
+	switch err {
+	case nil:
 		return FullCheckStatusDto{Msg: "Ok", Code: "OK"}
+	case inetutil.ErrHttpMalformedResponse:
+		return FullCheckStatusDto{Msg: "Ok, custom HTTP", Code: "OK_CUSTOM_HTTP"}
 	}
 	return FullCheckStatusDto{Msg: err.Error(), Code: "ERR"}
 }

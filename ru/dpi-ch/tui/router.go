@@ -53,7 +53,7 @@ func NewMenu() *MenuState {
 	webhostCfg := config.Get().Checkers.Webhost
 	m := &MenuState{items: []MenuItem{}}
 
-	m.Add("ALL", "warn: run all checks specified in the config", allTab, allInitMsg{})
+	m.Add("ALL", "long exec warn: run all checks specified in the config", allTab, allInitMsg{})
 	m.Add("Who am I?", "about your internet connection", whoamiTab, whoamiInitMsg{})
 	m.Add("Am I under the CIDR whitelist?",
 		"checks if a censor restricts tcp/udp connections by ip subnets", cidrwhitelistTab, cidrwhitelistInitMsg{})
