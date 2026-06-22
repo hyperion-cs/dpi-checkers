@@ -38,7 +38,7 @@ func (rm rootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		if k == "m" || k == "ь" || k == "backspace" {
 			if rm.router.Tab == updaterTab {
-				cmds = append(cmds, func() tea.Msg { return updaterDoneMsg{} })
+				cmds = append(cmds, func() tea.Msg { return updaterDoneMsg{} }, func() tea.Msg { return inetlookup.Default() })
 			}
 
 			rm.router.Tab = menuTab

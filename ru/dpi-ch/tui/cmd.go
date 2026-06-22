@@ -17,14 +17,12 @@ func (rm rootModel) Init() tea.Cmd {
 	inetlookupTtu, _ := updater.TimeToUpdate(cfg.Updater.InetlookupTsFile)
 
 	if cfg.Updater.ForceUpdate || cfg.Updater.ForceInetlookupUpdate || (cfg.Updater.Enabled && (selfTtu || inetlookupTtu)) {
-		return tea.Batch(func() tea.Msg {
+		return func() tea.Msg {
 			return updaterInitMsg{
 				forceUpdate:           cfg.Updater.ForceUpdate,
 				forceInetlookupUpdate: cfg.Updater.ForceInetlookupUpdate,
 			}
-		}, func() tea.Msg {
-			return inetlookup.Default()
-		})
+		}
 	}
 
 	return func() tea.Msg {

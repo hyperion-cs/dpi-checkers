@@ -21,6 +21,10 @@ checkers:
             filter: host("discord.com")
           - name: Github
             filter: host("github.com")
+          - name: Github Api
+            filter: host("api.github.com")
+          - name: Github Raw
+            filter: host("raw.githubusercontent.com")
           - name: Telegram Web
             filter: host("web.telegram.org")
           - name: Telegram Api

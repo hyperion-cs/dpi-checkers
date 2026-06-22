@@ -33,7 +33,7 @@ try {
 
     $ReleaseUrl = "https://api.github.com/repos/$Repo/releases/latest"
     $Release = Invoke-RestMethod -Uri $ReleaseUrl
-    Write-Host "Latest release info fetched: https://github.com/$Repo/releases/latest"
+    Write-Host "Latest release info fetched: https://api.github.com/repos/$Repo/releases/latest"
 
     $Asset = $Release.assets |
         Where-Object { $_.browser_download_url -match "-$Platform\.zip$" } |
@@ -44,8 +44,10 @@ try {
         exit 1
     }
 
+    Write-Host "Archive downloading: $($Asset.browser_download_url)"
+
     Invoke-WebRequest -Uri $Asset.browser_download_url -OutFile $TmpZip
-    Write-Host "Archive downloaded: $($Asset.browser_download_url)"
+    Write-Host "Archive downloaded: $TmpZip"
 
     Expand-Archive -Path $TmpZip -DestinationPath $AppDir -Force
     Write-Host "Archive extracted to: $AppDir"
@@ -73,6 +75,7 @@ try {
 
     Write-Host
     Write-Host "Successfully installed: $BinPath"
+    Write-Host "All temporary files have been cleaned up."
 }
 finally {
     Remove-Item -Recurse -Force $TmpDir -ErrorAction SilentlyContinue
