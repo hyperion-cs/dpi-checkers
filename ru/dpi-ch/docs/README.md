@@ -2,7 +2,8 @@
 [![dpi-ch release](https://github.com/hyperion-cs/dpi-checkers/actions/workflows/dpich_release.yml/badge.svg)](https://github.com/hyperion-cs/dpi-checkers/actions/workflows/dpich_release.yml)
 
 This is the "big brother" of all other checkers, not limited by the browser sandbox. It is an attempt to create a powerful tool for general-purpose DPI analysis (incl. an improved _[tcp 16-20](https://github.com/net4people/bbs/issues/490)_, "[siberian](https://habr.com/ru/articles/1044396/)" restrictions checkers and much more).<br>
-Extremely flexible configuration. Written in golang, builds are [available](https://github.com/hyperion-cs/dpi-checkers/releases/) for Windows/macOS/Linux (Android coming soon).
+Extremely flexible configuration. Written in golang, builds are [available](https://github.com/hyperion-cs/dpi-checkers/releases/) for Windows/macOS/Linux (Android coming soon).<br>
+\* Of course, you can always compile and run it from [source](https://github.com/hyperion-cs/dpi-checkers/tree/main/ru/dpi-ch).
 ![gif](https://raw.githubusercontent.com/hyperion-cs/dpi-checkers/refs/heads/main/static/images/dpich_v0.8.0_demo.gif)
 
 ## Implemented features
@@ -109,8 +110,6 @@ Example 1: `(org("hetzner", "digitalocean") && country("de", "fi")) || as(199524
 Example 2: `org("hetzner") && country("he")` — returns a set of subnets that are owned by Hetzner and used in hosts in Germany.
 
 The default configuration already includes default filter options for popular web services and infrastructure providers (see below), but we hope you will be able to take full benefit of this flexible feature to suit your needs. By the way, this mechanism inside dpi-ch is called _subnetfilter_ and it works locally without the internet.
-
-\* Of course, you can always compile and run it from [source](https://github.com/hyperion-cs/dpi-checkers/tree/main/ru/dpi-ch).
 
 ## Planned
 - [x] Comprehensive DNS checker (leak test, detection of response spoofing, server hijacking, etc.);

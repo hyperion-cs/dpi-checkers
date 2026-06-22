@@ -3,6 +3,9 @@
 
 🚀 This repository contains checkers that allow you to determine if your residential ISP (or a server in a data center) has DPI, as well as the specific methods (and their parameters) the censor uses for restrictions.
 
+🤝 Join our community:
+- Telegram group: [@dpi_checkers](https://t.me/dpi_checkers)
+
 > [!WARNING]
 > All content in this repository is provided **for research and educational purposes only**.  
 > You are **solely responsible** for ensuring that your use of any code, data, or information from this repository complies with all applicable laws and regulations in your jurisdiction.  

@@ -13,9 +13,16 @@ import (
 
 func (rm rootModel) Init() tea.Cmd {
 	cfg := config.Get()
+
+	if cfg.All.Flag {
+		return func() tea.Msg {
+			inetlookup.Default()
+			return allInitMsg{}
+		}
+	}
+
 	selfTtu, _ := updater.TimeToUpdate(cfg.Updater.SelfTsFile)
 	inetlookupTtu, _ := updater.TimeToUpdate(cfg.Updater.InetlookupTsFile)
-
 	if cfg.Updater.ForceUpdate || cfg.Updater.ForceInetlookupUpdate || (cfg.Updater.Enabled && (selfTtu || inetlookupTtu)) {
 		return func() tea.Msg {
 			return updaterInitMsg{
@@ -27,9 +34,6 @@ func (rm rootModel) Init() tea.Cmd {
 
 	return func() tea.Msg {
 		inetlookup.Default()
-		if cfg.All.Flag {
-			return allInitMsg{}
-		}
 		return nil
 	}
 }

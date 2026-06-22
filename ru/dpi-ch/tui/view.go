@@ -17,8 +17,10 @@ func (rm rootModel) View() tea.View {
 	var s string
 
 	if rm.router.Tab == menuTab && rm.quitting {
-		s = fmt.Sprintf("See you later! Please star our repository on GitHub:\n%s",
-			selectedStyle.Render("https://github.com/hyperion-cs/dpi-checkers/"))
+		s = fmt.Sprintf("See you later! Please star our repository on GitHub:\n%s\n\n🤝 Join our community\nTelegram group: %s",
+			selectedStyle.Render("https://github.com/hyperion-cs/dpi-checkers/"),
+			selectedStyle.Render("https://t.me/dpi_checkers"),
+		)
 		v.SetContent(mainStyle.Render("\n" + s + "\n\n"))
 		return v
 	}
