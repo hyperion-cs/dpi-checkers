@@ -154,6 +154,7 @@ checkers:
             filter: host("api.development.push.apple.com")
 
     workers: 8
+    farm-timeout: 5m
     tcp-conn-timeout: 3s
     tls-handshake-timeout: 3s
     tcp-read-timeout: 15s

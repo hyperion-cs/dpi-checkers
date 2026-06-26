@@ -29,7 +29,7 @@ func Gochan[T any](opt GochanOpt[T]) <-chan GochanOut[T] {
 		Workers: cfg.Workers,
 		Input:   opt.In,
 		Executor: func(in GochanIn[T]) GochanOut[T] {
-			return GochanOut[T]{Bag: in.Bag, Out: Farm(in.In)}
+			return GochanOut[T]{Bag: in.Bag, Out: Farm(opt.Ctx, in.In)}
 		},
 	})
 }

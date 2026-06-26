@@ -162,6 +162,7 @@ checkers: # checkers, available in the dpi-ch utility
                          # random-hostname: # bool; generate a random http host header for each host
 
     workers:                # int; number of parallel workers that will find and analyze hosts
+    farm-timeout:           # time.Duration; total timeout for hosts farming; if 0, then no limits
     tcp-conn-timeout:       # time.Duration; timeout for establishing a tcp connection
     tls-handshake-timeout:  # time.Duration; timeout for tls handshake
     tcp-read-timeout:       # time.Duration; timeout for reading from a tcp connection (more precisely, from tls over tcp)

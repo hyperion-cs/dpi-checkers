@@ -24,6 +24,7 @@ type Config struct {
 		Webhost struct {
 			Sections            []WebhostSection  `mapstructure:"sections"`
 			Workers             int               `mapstructure:"workers"`
+			FarmTimeout         time.Duration     `mapstructure:"farm-timeout"`
 			TcpConnTimeout      time.Duration     `mapstructure:"tcp-conn-timeout"`
 			TlsHandshakeTimeout time.Duration     `mapstructure:"tls-handshake-timeout"`
 			TcpReadTimeout      time.Duration     `mapstructure:"tcp-read-timeout"`

@@ -1,6 +1,7 @@
 package webhostfarm
 
 import (
+	"context"
 	"iter"
 	"math/rand/v2"
 	"net/netip"
@@ -26,11 +27,14 @@ type FarmItem struct {
 // Randomly scans ip addresses from a specified set of subnets for web service availability.
 // No more than opt.Count items will be returned.
 // Currently, only https with forced tls handshake verification is supported.
-func Farm(opt FarmOpt) []FarmItem {
+func Farm(ctx context.Context, opt FarmOpt) []FarmItem {
 	items := []FarmItem{}
 	last := FarmItem{}
 
 	for ip := range randomIpsIter(opt.Subnets) {
+		if ctx.Err() != nil {
+			break
+		}
 		if len(items) >= opt.Count {
 			break
 		}

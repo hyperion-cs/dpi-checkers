@@ -2,6 +2,7 @@ package checkers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"sync"
@@ -64,8 +65,14 @@ type WebhostGochanRunnerOut struct {
 
 func WebhostGochanRunner(opt WebhostGochanRunnerOpt) WebhostGochanRunnerOut {
 	var wg sync.WaitGroup
+	var whGochanCancel context.CancelFunc
 	progressCh := make(chan string, 16)
 	webhostSendProgress(progressCh, "webhost checker => initialization...")
+
+	cfg := config.Get().Checkers.Webhost
+	if cfg.FarmTimeout > 0 {
+		opt.Ctx, whGochanCancel = context.WithTimeout(opt.Ctx, cfg.FarmTimeout)
+	}
 
 	sf := subnetfilter.New(inetlookup.Default())
 	sfGochanIn := make(chan subnetfilter.GochanIn[WebhostGochanBag])
@@ -116,6 +123,15 @@ func WebhostGochanRunner(opt WebhostGochanRunnerOpt) WebhostGochanRunnerOut {
 	go func() {
 		defer close(progressCh)
 		defer close(webhostGochanIn)
+
+		defer func() {
+			if opt.Ctx != nil && errors.Is(opt.Ctx.Err(), context.DeadlineExceeded) {
+				webhostSendProgress(progressCh, "webhost checker => farming timeout exceeded; stopping...")
+			}
+			if whGochanCancel != nil {
+				whGochanCancel()
+			}
+		}()
 
 		for x := range farmGochan {
 			webhostSendProgress(progressCh,
