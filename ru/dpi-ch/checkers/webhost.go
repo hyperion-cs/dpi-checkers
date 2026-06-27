@@ -22,6 +22,7 @@ import (
 )
 
 type WebhostSingleOpt struct {
+	Ctx            context.Context
 	Ip             netip.Addr
 	Port           int
 	Sni            string
@@ -96,6 +97,12 @@ func WebhostSingle(opt WebhostSingleOpt) WebhostSingleResult {
 	}
 	res.TlsV = tlsConn.ConnectionState().Version
 
+	if opt.Ctx.Err() != nil {
+		res.Tcp1620 = ErrWebhostSkip
+		res.Siberian = ErrWebhostSkip
+		return res
+	}
+
 	// The order of the checks is important.
 
 	res.Alive = webhostAliveCheck(opt, tlsConn)
@@ -105,7 +112,7 @@ func WebhostSingle(opt WebhostSingleOpt) WebhostSingleResult {
 		return res
 	}
 
-	if opt.Tcp1620skip {
+	if opt.Tcp1620skip || opt.Ctx.Err() != nil {
 		res.Tcp1620 = ErrWebhostSkip
 	} else {
 		thp, err := webhostTcp1620check(opt, tlsConnOpt)
@@ -115,7 +122,7 @@ func WebhostSingle(opt WebhostSingleOpt) WebhostSingleResult {
 		res.Throughput = thp
 	}
 
-	if opt.SiberianSkip {
+	if opt.SiberianSkip || opt.Ctx.Err() != nil {
 		res.Siberian = ErrWebhostSkip
 	} else {
 		res.Siberian = webhostSiberianCheck(tlsConnOpt)
@@ -179,6 +186,10 @@ func webhostTcp1620check(opt WebhostSingleOpt, tlsConnOpt inetutil.TlsConnOpt) (
 	}
 	txElapsed := time.Since(txStart)
 
+	if opt.Ctx.Err() != nil {
+		return WebhostThroughput{}, ErrWebhostSkip
+	}
+
 	readCtx, cancel := context.WithTimeout(context.Background(), cfg.TcpReadTimeout)
 	defer cancel()
 	rxCr := &inetutil.CountingReader{Reader: tlsConn}
@@ -193,7 +204,7 @@ func webhostTcp1620check(opt WebhostSingleOpt, tlsConnOpt inetutil.TlsConnOpt) (
 		if _, err = io.Copy(io.Discard, resp.Body); err != nil {
 			return WebhostThroughput{}, err
 		}
-		resp.Body.Close()
+		defer resp.Body.Close()
 	}
 
 	rxElapsed := time.Since(rxStart)

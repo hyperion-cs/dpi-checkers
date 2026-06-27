@@ -139,6 +139,9 @@ func webhostView(model webhostModel) string {
 	if model.fetching {
 		r += fmt.Sprintf("%s %s\n", model.spinner.View(), model.progress)
 	}
+	if model.farmTimeout {
+		r += fmt.Sprintf("⏰ farming timeout exceeded (%s)\n", cfg.FarmTimeout.String())
+	}
 	r += fmt.Sprintf("count: %d pcs.", total)
 	return r
 }

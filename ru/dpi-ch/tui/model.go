@@ -47,11 +47,12 @@ type cidrwhitelistModel struct {
 }
 
 type webhostModel struct {
-	inited   bool
-	fetching bool
-	spinner  spinner.Model
-	progress string
-	table    table.Model
+	inited      bool
+	fetching    bool
+	spinner     spinner.Model
+	progress    string
+	table       table.Model
+	farmTimeout bool
 
 	ctx    context.Context
 	cancel context.CancelFunc

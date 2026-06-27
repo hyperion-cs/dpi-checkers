@@ -148,6 +148,7 @@ func WebhostGochanRunner(opt WebhostGochanRunnerOpt) WebhostGochanRunnerOut {
 				in := WebhostGochanIn[WebhostGochanBag]{
 					Bag: x.Bag,
 					In: WebhostSingleOpt{
+						Ctx:            opt.Ctx,
 						Ip:             v.Ip,
 						Port:           v.Port,
 						Sni:            x.Bag.Sni,
