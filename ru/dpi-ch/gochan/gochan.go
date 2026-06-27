@@ -38,11 +38,11 @@ func Start[In any, Out any](opt GochanOpt[In, Out]) <-chan Out {
 	}
 
 	go func() {
-		wg.Wait()
-		close(out)
+		defer close(out)
 		if opt.Post != nil {
-			opt.Post()
+			defer opt.Post()
 		}
+		wg.Wait()
 	}()
 
 	return out
