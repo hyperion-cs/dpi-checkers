@@ -289,6 +289,7 @@ func webhostProcessItem(msg webhostItemMsg, model webhostModel) webhostModel {
 		msg.Out.IpInfo.Subnet.String(),
 		webhostPrettyAlive(msg.Out.Alive),
 		webhostPrettyTlsV(msg.Out.TlsV),
+		webhostPrettySanCn(msg.Out.TlsSanCn),
 		webhostPrettyTcp1620(msg.Out.Tcp1620),
 		webhostPrettySiberian(msg.Out.Siberian),
 		speed,
@@ -314,14 +315,15 @@ func webhostProcessItem(msg webhostItemMsg, model webhostModel) webhostModel {
 		{Title: "Group", Width: tableCellMaxLen(rows, 0, 5)},
 		{Title: "Org", Width: tableCellMaxLen(rows, 1, 3)},
 		{Title: "AS", Width: tableCellMaxLen(rows, 2, 7)},
-		{Title: "Location", Width: 8},
+		{Title: "Loc", Width: 8},
 		{Title: "IP", Width: tableCellMaxLen(rows, 4, 2)},
 		{Title: "Prefix", Width: tableCellMaxLen(rows, 5, 6)},
 		{Title: "Alive", Width: tableCellMaxLen(rows, 6, 6)},
 		{Title: "TlsV", Width: tableCellMaxLen(rows, 7, 4)},
-		{Title: "Tcp 16-20", Width: tableCellMaxLen(rows, 8, 9)},
-		{Title: "Siberian", Width: tableCellMaxLen(rows, 9, 8)},
-		{Title: "Burst kb/s", Width: tableCellMaxLen(rows, 10, 10)},
+		{Title: "Cert SAN/CN", Width: tableCellMaxLen(rows, 8, 4)},
+		{Title: "Tcp 16-20", Width: tableCellMaxLen(rows, 9, 9)},
+		{Title: "Siberian", Width: tableCellMaxLen(rows, 10, 8)},
+		{Title: "Burst kb/s", Width: tableCellMaxLen(rows, 11, 10)},
 	}
 
 	model.table.SetColumns(columns)

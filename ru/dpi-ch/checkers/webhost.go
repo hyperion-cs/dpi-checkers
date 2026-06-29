@@ -36,6 +36,7 @@ type WebhostSingleResult struct {
 	IpInfo   inetlookup.IpInfo
 	Port     int
 	TlsV     uint16
+	TlsSanCn inetutil.TlsSanCnItem
 	Sni      string
 	Host     string
 	Alive    error
@@ -95,7 +96,14 @@ func WebhostSingle(opt WebhostSingleOpt) WebhostSingleResult {
 		res.Siberian = ErrWebhostSkip
 		return res
 	}
-	res.TlsV = tlsConn.ConnectionState().Version
+	tlsConnState := tlsConn.ConnectionState()
+	res.TlsV = tlsConnState.Version
+
+	if len(tlsConnState.PeerCertificates) > 0 {
+		cert := tlsConnState.PeerCertificates[0]
+		log.Println("webhost; ip: ", opt.Ip, "san: ", cert.DNSNames, "cn: ", cert.Subject.CommonName)
+		res.TlsSanCn = inetutil.TlsSanCn(cert.DNSNames, cert.Subject.CommonName)
+	}
 
 	if opt.Ctx.Err() != nil {
 		res.Tcp1620 = ErrWebhostSkip
@@ -246,7 +254,7 @@ func webhostSiberianCheck(tlsConnOpt inetutil.TlsConnOpt) error {
 		beta = siberianCheckSeq(tlsConnOpt, 1)
 	}
 
-	log.Println("webhost: webhostSiberianCheck ip:", tlsConnOpt.Ip, "port:",
+	log.Println("webhost; webhostSiberianCheck ip:", tlsConnOpt.Ip, "port:",
 		tlsConnOpt.Port, "alpha sni:", alphaSni, "result:", alpha, "beta sni:", betaSni, "res:", beta)
 
 	if (alpha != nil && beta == nil) ||

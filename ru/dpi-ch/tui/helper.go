@@ -12,6 +12,7 @@ import (
 
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/inetutil"
+	"golang.org/x/net/publicsuffix"
 
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/table"
@@ -98,6 +99,35 @@ func webhostPrettyTcp1620(err error) string {
 	default:
 		return fmt.Sprintf("⚠️ %s", err)
 	}
+}
+
+func webhostPrettySanCn(x inetutil.TlsSanCnItem) string {
+	const sub, max = 15, 25
+	res := x.Name
+	if res == "" {
+		res = "—"
+	}
+
+	if len(x.Name) > max {
+		if name, err := publicsuffix.EffectiveTLDPlusOne(x.Name); err == nil && len(name) <= max {
+			res = "///." + name
+		} else {
+			res = "///" + res[len(res)-sub:]
+		}
+	}
+
+	switch {
+	case x.Single && x.Wild:
+		res = "[*.]" + res
+	case x.Wild:
+		res = "*." + res
+	}
+
+	if x.Some {
+		res += "+"
+	}
+
+	return res
 }
 
 func webhostPrettySiberian(err error) string {

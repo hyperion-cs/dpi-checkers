@@ -89,8 +89,6 @@ func KeyLogWriter() io.Writer {
 
 // TODO (options):
 // - Set proto (http/https)
-// - Set tlsV
-// - Try to extract sni/host from cert
 func GetHandshakedUTlsConn(opt TlsConnOpt) (*tls.UConn, error) {
 	cfg := config.Get().InetUtil
 	tcpDialer := net.Dialer{LocalAddr: tlsDefaultDialerLocalAddr()}
