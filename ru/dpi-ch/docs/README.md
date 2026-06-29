@@ -151,15 +151,15 @@ checkers: # checkers, available in the dpi-ch utility
 
                          # webhost-target structure:
                          # name:            # string; name of hosts group
-                         # filter:          # string; filter in subnetfilter notation (see above); if it is one host(),
-                                            #         then sni/host will be obtained from there
+                         # filter:          # string; filter in subnetfilter notation (see above);
+                                            #         if it is one host(), then sni/host will be obtained from there
                          # count:           # int; how many hosts do we need to farm through webhostfarm
                          # port:            # int; port for establishing a tcp connection with hosts
                          # host:            # string; http host header for hosts
-                         # sni:             # string; sni for tls handshake
+                         # sni:             # string; sni for tls handshake (empty by default)
                          # tcp1620-skip:    # bool; skip "tcp 16-20" check for hosts
                          # siberian-skip:   # bool; skip "siberian restriction" check for hosts
-                         # random-hostname: # bool; generate a random http host header for each host
+                         # random-hostname: # bool; generate a random http host header for each host (also override sni)
 
     workers:                # int; number of parallel workers that will find and analyze hosts
     farm-timeout:           # time.Duration; total timeout for hosts farming; if 0, then no limits
