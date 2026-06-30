@@ -315,7 +315,7 @@ func webhostProcessItem(msg webhostItemMsg, model webhostModel) webhostModel {
 		{Title: "Group", Width: tableCellMaxLen(rows, 0, 5)},
 		{Title: "Org", Width: tableCellMaxLen(rows, 1, 3)},
 		{Title: "AS", Width: tableCellMaxLen(rows, 2, 7)},
-		{Title: "Loc", Width: 8},
+		{Title: "Loc", Width: 5},
 		{Title: "IP", Width: tableCellMaxLen(rows, 4, 2)},
 		{Title: "Prefix", Width: tableCellMaxLen(rows, 5, 6)},
 		{Title: "Alive", Width: tableCellMaxLen(rows, 6, 6)},

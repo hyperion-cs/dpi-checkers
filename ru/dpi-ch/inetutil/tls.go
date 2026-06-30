@@ -31,6 +31,7 @@ var (
 	ErrTlsHandshakeFail      = errors.New("tls: handshake failure")
 	ErrTlsInternal           = errors.New("tls: internal error")
 	ErrTlsBadRecordMac       = errors.New("tls: bad record MAC")
+	ErrTlsInvalidKeyShare    = errors.New("tls: invalid key share")
 	ErrTlsWriteBrokenPipe    = errors.New("tls: broken write pipe")
 	ErrHttpMalformedResponse = errors.New("http: malformed response")
 	ErrInternal              = errors.New("net: internal error")
@@ -278,6 +279,9 @@ func tryHandleErr(err error) (error, bool) {
 	}
 	if strings.Contains(err.Error(), "bad record MAC") {
 		return ErrTlsBadRecordMac, true
+	}
+	if strings.Contains(err.Error(), "invalid server key share") {
+		return ErrTlsInvalidKeyShare, true
 	}
 	if strings.Contains(err.Error(), "malformed HTTP") {
 		return ErrHttpMalformedResponse, true

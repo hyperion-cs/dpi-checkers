@@ -66,6 +66,8 @@ func webhostPrettyAlive(err error) string {
 		return "🟢 yes"
 	case inetutil.ErrHttpMalformedResponse:
 		return "🟢 custom http"
+	case inetutil.ErrTlsInvalidKeyShare, inetutil.ErrTlsBadRecordMac:
+		return fmt.Sprintf("⚠️ %s", err)
 	}
 
 	return fmt.Sprintf("🔴 %s", err)

@@ -7,14 +7,18 @@ checkers:
       - name: Popular Web Services
         desc: like YouTube, Instagram, Discord, Telegram and others
         targets:
-          - name: Google
+          - name: Google Web
             filter: host("www.google.com")
           - name: Google Gstatic
             filter: host("www.gstatic.com")
+          - name: Google Gemini
+            filter: host("gemini.google.com")
           - name: YouTube Web
             filter: host("www.youtube.com")
           - name: YouTube Image
             filter: host("i.ytimg.com")
+          - name: YouTube CDN
+            filter: host("redirector.googlevideo.com")
           - name: X (ex. Twitter)
             filter: host("x.com")
           - name: Discord
@@ -41,6 +45,8 @@ checkers:
             filter: host("ya.ru")
           - name: VK
             filter: host("vk.ru")
+          - name: Gosuslugi
+            filter: host("www.gosuslugi.ru")
 
       - name: Foreign Infrastructure Providers
         desc: like Cloudflare, Akamai, Hetzner, DigitalOcean and others
@@ -309,7 +315,7 @@ inetlookup-geolitecsv:
 
 inetutil:
   iface: ""            # empty is default network interface
-  fingerprint: firefox # firefox is not observed in the "siberian" restrictions
+  fingerprint: edge    # edge is not observed in the "siberian" restrictions
   browser-headers:
     Accept-Language: ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7
     User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36
