@@ -155,7 +155,7 @@ checkers: # checkers, available in the dpi-ch utility
                                             #         if it is one host(), then sni/host will be obtained from there
                          # count:           # int; how many hosts do we need to farm through webhostfarm
                          # port:            # int; port for establishing a tcp connection with hosts
-                         # host:            # string; http host header for hosts
+                         # host:            # string; http host header for hosts (empty by default)
                          # sni:             # string; sni for tls handshake (empty by default)
                          # tcp1620-skip:    # bool; skip "tcp 16-20" check for hosts
                          # siberian-skip:   # bool; skip "siberian restriction" check for hosts

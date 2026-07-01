@@ -55,8 +55,9 @@ type WebhostThroughput struct {
 }
 
 var (
-	ErrWebhostInternal = errors.New("check: internal error")
-	ErrWebhostSkip     = errors.New("check: skip")
+	ErrWebhostBlockedBySni = errors.New("tls: blocked by sni")
+	ErrWebhostInternal     = errors.New("check: internal error")
+	ErrWebhostSkip         = errors.New("check: skip")
 )
 
 const RANDOM_HOSTNAME_ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789"
@@ -88,17 +89,16 @@ func WebhostSingle(opt WebhostSingleOpt) WebhostSingleResult {
 		TlsHandshakeTimeout: cfg.TlsHandshakeTimeout,
 	}
 
-	// TODO: Move conn setup to webhostAliveCheck
-	tlsConn, err := inetutil.GetHandshakedUTlsConn(tlsConnOpt)
+	tlsConn, err := webhostHandshakesCheck(opt, tlsConnOpt)
 	if err != nil {
 		res.Alive = err
 		res.Tcp1620 = ErrWebhostSkip
 		res.Siberian = ErrWebhostSkip
 		return res
 	}
+
 	tlsConnState := tlsConn.ConnectionState()
 	res.TlsV = tlsConnState.Version
-
 	if len(tlsConnState.PeerCertificates) > 0 {
 		cert := tlsConnState.PeerCertificates[0]
 		log.Println("webhost; ip: ", opt.Ip, "san: ", cert.DNSNames, "cn: ", cert.Subject.CommonName)
@@ -137,6 +137,24 @@ func WebhostSingle(opt WebhostSingleOpt) WebhostSingleResult {
 	}
 
 	return res
+}
+
+func webhostHandshakesCheck(webhostOpt WebhostSingleOpt, tlsConnOpt inetutil.TlsConnOpt) (*tls.UConn, error) {
+	tlsConn, err := inetutil.GetHandshakedUTlsConn(tlsConnOpt)
+	if inetutil.IsInetutilErr(err) && !webhostOpt.RandomHostname && tlsConnOpt.Sni != "" {
+		// TODO: We can determine this in 1 pass using Org by IP + move that into config.
+		snis := []string{"cf.com", "google.com"}
+		for _, s := range snis {
+			tlsConnOpt.Sni = s
+			tlsConn, err = inetutil.GetHandshakedUTlsConn(tlsConnOpt)
+			if err == nil {
+				err = ErrWebhostBlockedBySni
+				break
+			}
+		}
+
+	}
+	return tlsConn, err
 }
 
 func webhostAliveCheck(opt WebhostSingleOpt, tlsConn *tls.UConn) error {

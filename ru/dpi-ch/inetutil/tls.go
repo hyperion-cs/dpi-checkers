@@ -246,7 +246,8 @@ func IsInetutilErr(err error) bool {
 	switch err {
 	case ErrTcpConnReset, ErrTcpConnTimeout, ErrTcpWriteTimeout,
 		ErrTcpReadTimeout, ErrTlsCertificateInvalid, ErrTlsHandshakeTimeout,
-		ErrTlsHandshakeFail, ErrTlsBadRecordMac, ErrTlsWriteBrokenPipe,
+		ErrTlsHandshakeFail, ErrTlsInternal, ErrTlsBadRecordMac,
+		ErrTlsInvalidKeyShare, ErrTlsWriteBrokenPipe, ErrHttpMalformedResponse,
 		ErrInternal:
 		return true
 	default:
