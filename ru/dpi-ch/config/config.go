@@ -6,6 +6,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"reflect"
 	"time"
 
 	"github.com/spf13/viper"
@@ -162,6 +163,7 @@ type Config struct {
 type WebhostSection struct {
 	Name    string          `mapstructure:"name"`
 	Desc    string          `mapstructure:"desc"`
+	Default bool            `mapstructure:"default"`
 	Targets []WebhostTarget `mapstructure:"targets"`
 }
 
@@ -192,6 +194,11 @@ func Load(path string) error {
 		return err
 	}
 
+	defTmp := &Config{}
+	if err := v.Unmarshal(defTmp); err != nil {
+		return err
+	}
+
 	_, err := os.Stat(path)
 	if path != CfgDefPath && err != nil {
 		return err
@@ -208,6 +215,12 @@ func Load(path string) error {
 
 	if err := v.Unmarshal(_cfg); err != nil {
 		return err
+	}
+
+	defSec := defTmp.Checkers.Webhost.Sections
+	userSec := _cfg.Checkers.Webhost.Sections
+	if !reflect.DeepEqual(defSec, userSec) {
+		_cfg.Checkers.Webhost.Sections = append(defSec, userSec...)
 	}
 
 	// TODO: add config validator

@@ -15,6 +15,7 @@ var (
 	okStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("82"))
 	warningStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("226"))
 	selectedStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("212"))
+	infoStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("75"))
 	subtleStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
 	mainStyle     = lipgloss.NewStyle().MarginLeft(2)
 	spinnerType   = spinner.Line

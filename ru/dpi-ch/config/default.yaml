@@ -6,6 +6,7 @@ checkers:
     sections:
       - name: Popular Web Services
         desc: like YouTube, Instagram, Discord, Telegram and others
+        default: true # internal flag; don't use it in client config
         targets:
           - name: Google Web
             filter: host("www.google.com")
@@ -50,6 +51,7 @@ checkers:
 
       - name: Foreign Infrastructure Providers
         desc: like Cloudflare, Akamai, Hetzner, DigitalOcean and others
+        default: true # internal flag; don't use it in client config
         targets:
           - name: Cloudflare
             filter: org("cloudflare")
@@ -89,6 +91,7 @@ checkers:
             filter: as(8075)
 
       - name: Russian Infrastructure Providers
+        default: true # internal flag; don't use it in client config
         desc: like Selectel, Reg.ru, Yandex Cloud and others
         targets:
           - name: Selectel
@@ -131,6 +134,7 @@ checkers:
   
       - name: Mobile Push Notification Providers
         desc: like Google FCM (Android), Apple APNs (iOS) and others
+        default: true # internal flag; don't use it in client config
         targets:
           - name: "G: fcm.googleapis.com"
             filter: host("fcm.googleapis.com")

@@ -39,6 +39,7 @@ type MenuItem struct {
 	Name    string
 	Desc    string
 	Tab     tab
+	Default bool
 	InitMsg tea.Msg
 }
 
@@ -53,17 +54,17 @@ func NewMenu() *MenuState {
 	webhostCfg := config.Get().Checkers.Webhost
 	m := &MenuState{items: []MenuItem{}}
 
-	m.Add("ALL", "long exec warn: run all checks specified in the config", allTab, allInitMsg{})
-	m.Add("Who am I?", "about your internet connection", whoamiTab, whoamiInitMsg{})
+	m.Add("ALL", "long exec warn: run all checks specified in the config", allTab, true, allInitMsg{})
+	m.Add("Who am I?", "about your internet connection", whoamiTab, true, whoamiInitMsg{})
 	m.Add("Am I under the CIDR whitelist?",
-		"checks if a censor restricts tcp/udp connections by ip subnets", cidrwhitelistTab, cidrwhitelistInitMsg{})
+		"checks if a censor restricts tcp/udp connections by ip subnets", cidrwhitelistTab, true, cidrwhitelistInitMsg{})
 
 	// webhost checker is split into sections (separate tabs), which are defined in config
 	for _, x := range webhostCfg.Sections {
-		m.Add(x.Name, x.Desc, webhostTab, webhostInitMsg{Targets: x.Targets})
+		m.Add(x.Name, x.Desc, webhostTab, x.Default, webhostInitMsg{Targets: x.Targets})
 	}
 
-	m.Add("DNS", "checks if a censor is spoofing dns responses, hijacking servers, DoH blocking, etc", dnsTab, dnsInitMsg{})
+	m.Add("DNS", "checks if a censor is spoofing dns responses, hijacking servers, DoH blocking, etc", dnsTab, true, dnsInitMsg{})
 	return m
 }
 
@@ -85,7 +86,12 @@ func (m *MenuState) View() string {
 	var tpl strings.Builder
 	tpl.WriteString("Select what you want to check.\n\n")
 	for i, x := range m.items {
-		tpl.WriteString(checkbox(x.Name+" "+subtleStyle.Render(x.Desc), i == m.pos))
+		if !x.Default && i != m.pos {
+			tpl.WriteString(checkbox(infoStyle.Render(x.Name)+" "+subtleStyle.Render(x.Desc), i == m.pos))
+		} else {
+			tpl.WriteString(checkbox(x.Name+" "+subtleStyle.Render(x.Desc), i == m.pos))
+
+		}
 		tpl.WriteString("\n")
 	}
 	tpl.WriteString("\n\n")
@@ -94,8 +100,8 @@ func (m *MenuState) View() string {
 }
 
 // Order of calls determines position in menu list.
-func (r *MenuState) Add(name, desc string, tab tab, initMsg tea.Msg) {
-	r.items = append(r.items, MenuItem{Name: name, Desc: desc, Tab: tab, InitMsg: initMsg})
+func (r *MenuState) Add(name, desc string, tab tab, def bool, initMsg tea.Msg) {
+	r.items = append(r.items, MenuItem{Name: name, Desc: desc, Tab: tab, Default: def, InitMsg: initMsg})
 }
 
 func (m *MenuState) Curr() MenuItem {
