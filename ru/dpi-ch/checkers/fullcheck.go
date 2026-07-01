@@ -57,6 +57,12 @@ type FullCheckDnsDto struct {
 	Doh   *FullCheckDnsReportDto
 }
 
+type FullCheckWebhostTls struct {
+	V   string
+	San []string
+	Cn  string
+}
+
 type FullCheckWebhostItemDto struct {
 	Group       string
 	Org         string
@@ -65,7 +71,7 @@ type FullCheckWebhostItemDto struct {
 	IP          string
 	Prefix      string
 	Alive       FullCheckStatusDto
-	TlsV        string
+	Tls         *FullCheckWebhostTls
 	Tcp1620     FullCheckStatusDto
 	Siberian    FullCheckStatusDto
 	BurstTxKbps *float64
@@ -344,9 +350,12 @@ func fullCheckWebhostItemDto(o WebhostGochanOut[WebhostGochanBag]) FullCheckWebh
 		IP:       o.Out.IpInfo.Ip.String(),
 		Prefix:   o.Out.IpInfo.Subnet.String(),
 		Alive:    webhostPrettyAlive(o.Out.Alive),
-		TlsV:     webhostPrettyTlsV(o.Out.TlsV),
 		Tcp1620:  webhostPrettyTcp1620(o.Out.Tcp1620),
 		Siberian: webhostPrettySiberian(o.Out.Siberian),
+	}
+
+	if o.Out.Tls != nil {
+		dto.Tls = &FullCheckWebhostTls{V: webhostPrettyTlsV(o.Out.Tls.V), San: o.Out.Tls.San, Cn: o.Out.Tls.Cn}
 	}
 
 	if o.Out.Throughput.TxElapsed > 0 && o.Out.Throughput.RxElapsed > 0 {

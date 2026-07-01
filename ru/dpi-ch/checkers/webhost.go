@@ -32,11 +32,16 @@ type WebhostSingleOpt struct {
 	RandomHostname bool
 }
 
+type WebhostTls struct {
+	V   uint16
+	San []string
+	Cn  string
+}
+
 type WebhostSingleResult struct {
 	IpInfo   inetlookup.IpInfo
 	Port     int
-	TlsV     uint16
-	TlsSanCn inetutil.TlsSanCnItem
+	Tls      *WebhostTls
 	Sni      string
 	Host     string
 	Alive    error
@@ -98,11 +103,12 @@ func WebhostSingle(opt WebhostSingleOpt) WebhostSingleResult {
 	}
 
 	tlsConnState := tlsConn.ConnectionState()
-	res.TlsV = tlsConnState.Version
+	res.Tls = &WebhostTls{V: tlsConnState.Version}
 	if len(tlsConnState.PeerCertificates) > 0 {
 		cert := tlsConnState.PeerCertificates[0]
 		log.Println("webhost; ip: ", opt.Ip, "san: ", cert.DNSNames, "cn: ", cert.Subject.CommonName)
-		res.TlsSanCn = inetutil.TlsSanCn(cert.DNSNames, cert.Subject.CommonName)
+		res.Tls.San = cert.DNSNames
+		res.Tls.Cn = cert.Subject.CommonName
 	}
 
 	if opt.Ctx.Err() != nil {

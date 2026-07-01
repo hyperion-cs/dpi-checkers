@@ -73,8 +73,12 @@ func webhostPrettyAlive(err error) string {
 	return fmt.Sprintf("🔴 %s", err)
 }
 
-func webhostPrettyTlsV(v uint16) string {
-	switch v {
+func webhostPrettyTlsV(t *checkers.WebhostTls) string {
+	if t == nil {
+		return " — "
+	}
+
+	switch t.V {
 	case tls.VersionTLS10:
 		return "1.0"
 	case tls.VersionTLS11:
@@ -103,8 +107,13 @@ func webhostPrettyTcp1620(err error) string {
 	}
 }
 
-func webhostPrettySanCn(x inetutil.TlsSanCnItem) string {
+func webhostPrettySanCn(t *checkers.WebhostTls) string {
+	if t == nil {
+		return "—"
+	}
+
 	const sub, max = 15, 25
+	x := inetutil.TlsSanCn(t.San, t.Cn)
 	res := x.Name
 	if res == "" {
 		res = "—"
