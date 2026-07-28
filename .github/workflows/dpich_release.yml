@@ -8,8 +8,18 @@ on:
         required: true
         type: string
 
+      release_type:
+        description: Release type
+        required: true
+        default: draft
+        type: choice
+        options:
+          - prod
+          - draft
+          - dev
+
 concurrency:
-  group: release-${{ github.event.inputs.version }}
+  group: release-${{ inputs.version }}-${{ inputs.release_type }}
   cancel-in-progress: false
 
 env:
@@ -31,26 +41,37 @@ jobs:
         include:
           - goos: windows
             goarch: amd64
+            cgo: 0
             ext: .exe
 
           - goos: darwin
             goarch: amd64
+            cgo: 0
             ext: ""
 
           - goos: darwin
             goarch: arm64
+            cgo: 0
             ext: ""
 
           - goos: linux
             goarch: amd64
+            cgo: 0
             ext: ""
 
           - goos: linux
             goarch: arm64
+            cgo: 0
+            ext: ""
+
+          - goos: android
+            goarch: arm64
+            cgo: 1
+            android_api: 21
             ext: ""
 
     env:
-      VERSION: ${{ github.event.inputs.version }}
+      VERSION: ${{ inputs.version }}
 
     steps:
       - uses: actions/checkout@v6
@@ -60,9 +81,17 @@ jobs:
           go-version-file: ru/dpi-ch/go.mod
           cache-dependency-path: ru/dpi-ch/go.sum
 
+      - name: Setup Android NDK
+        if: matrix.goos == 'android'
+        id: setup-ndk
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r27d
+          add-to-path: false
+
       - name: Validate version
         run: |
-          if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-z]+)?$ ]]; then
             echo "Invalid version: $VERSION"
             exit 1
           fi
@@ -76,10 +105,17 @@ jobs:
           binary_name="${APP_NAME}${{ matrix.ext }}"
           archive_name="${APP_NAME}-${VERSION}-${{ matrix.goos }}-${{ matrix.goarch }}.zip"
 
+          if [[ "${{ matrix.goos }}" == "android" ]]; then
+            toolchain_bin="${{ steps.setup-ndk.outputs.ndk-path }}/toolchains/llvm/prebuilt/linux-x86_64/bin"
+
+            export CC="${toolchain_bin}/aarch64-linux-android${{ matrix.android_api }}-clang"
+            export CXX="${toolchain_bin}/aarch64-linux-android${{ matrix.android_api }}-clang++"
+          fi
+
           (
             cd "${GO_MODULE_DIR}"
 
-            CGO_ENABLED=0 \
+            CGO_ENABLED=${{ matrix.cgo }} \
             GOOS=${{ matrix.goos }} \
             GOARCH=${{ matrix.goarch }} \
             go build \
@@ -113,7 +149,8 @@ jobs:
       contents: write
 
     env:
-      VERSION: ${{ github.event.inputs.version }}
+      VERSION: ${{ inputs.version }}
+      RELEASE_TYPE: ${{ inputs.release_type }}
 
     steps:
       - uses: actions/download-artifact@v8
@@ -128,17 +165,44 @@ jobs:
 
           mapfile -t files < <(find artifacts -type f -name '*.zip' | sort)
 
-          gh release create "dpich-${VERSION}" \
+          release_args=()
+          release_tag="dpich-${VERSION}"
+          release_title="dpi-ch ${VERSION}"
+
+          case "$RELEASE_TYPE" in
+            prod)
+              ;;
+
+            draft)
+              release_args+=(--draft)
+              ;;
+
+            dev)
+              release_tag="dpich-dev-${VERSION}"
+              release_title="dpi-ch ${VERSION} dev"
+              release_args+=(--prerelease --latest=false)
+              ;;
+
+            *)
+              echo "Unknown release type: $RELEASE_TYPE"
+              exit 1
+              ;;
+          esac
+
+          gh release create "$release_tag" \
             --repo "${GITHUB_REPOSITORY}" \
             --target "${GITHUB_SHA}" \
-            --title "dpi-ch ${VERSION}" \
+            --title "$release_title" \
             --generate-notes \
+            "${release_args[@]}" \
             "${files[@]}"
 
   build-and-push-image:
+    if: ${{ inputs.release_type == 'prod' }}
     runs-on: ubuntu-latest
+
     env:
-      VERSION: ${{ github.event.inputs.version }}
+      VERSION: ${{ inputs.version }}
       REGISTRY: ghcr.io
       IMAGE_NAME: dpich
       REPO_OWNER: ${{ github.repository_owner }}
@@ -146,6 +210,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6

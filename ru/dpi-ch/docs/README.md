@@ -27,7 +27,7 @@ Extremely flexible configuration. Written in golang, builds are [available](http
 ## How to run/install the dpi-ch
 To start _dpi-ch_, simply download and run the relevant binary from the [latest](https://github.com/hyperion-cs/dpi-checkers/releases/latest) release (this only needs to be done once, after which the utility will update automatically). Alternatively, you can "install" the utility from the command line or use Docker:
 
-#### Linux / macOS
+#### Linux / macOS / Android (via [Termux](https://github.com/termux/termux-app))
 ```bash
 bash <(curl -Ls https://hyperion-cs.github.io/dpi-checkers/ru/dpi-ch/install/unix.sh)
 ```
@@ -121,7 +121,7 @@ The default configuration already includes default filter options for popular we
 - [x] Detecting subnets for CIDR whitelists;
 - [ ] Detecting hostnames for for SNI whitelists;
 - [ ] Integration with [zapret](https://github.com/bol-van/zapret2) to find optimal strategies;
-- [ ] Android version (via [Termux](https://en.wikipedia.org/wiki/Termux));
+- [x] Android version (via [Termux](https://github.com/termux/termux-app));
 - [ ] Web UI in addition to TUI (backend is already architecturally separated from frontend);
 - And a few other minor things.
 

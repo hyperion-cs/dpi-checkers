@@ -18,11 +18,14 @@ require() {
 require curl
 require unzip
 
-case "$(uname -s)" in
+uname_os="$(uname -o 2>/dev/null || uname -s)"
+
+case "$uname_os" in
+Android) os="android" ;;
 Darwin) os="darwin" ;;
-Linux) os="linux" ;;
+GNU/Linux | Linux) os="linux" ;;
 *)
-	echo "Unsupported OS: $(uname -s)" >&2
+	echo "Unsupported OS: $uname_os" >&2
 	exit 1
 	;;
 esac
@@ -52,16 +55,21 @@ mkdir -p "$APP_DIR" "$BIN_DIR"
 echo "Install directory prepared: $APP_DIR"
 echo "Binary link directory prepared: $BIN_DIR"
 
-curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" -o "$tmp_json"
-echo "Latest release info fetched: https://github.com/${REPO}/releases/latest"
+if [[ -n "${ASSET_URL:-}" ]]; then
+	asset_url="$ASSET_URL"
+	echo "Using asset URL from ASSET_URL: $asset_url"
+else
+	curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" -o "$tmp_json"
+	echo "Latest release info fetched: https://github.com/${REPO}/releases/latest"
 
-asset_url="$(
-	grep -Eo '"browser_download_url":[[:space:]]*"[^"]+' "$tmp_json" |
-		sed -E 's/^"browser_download_url":[[:space:]]*"//' |
-		grep -E -- "-${platform}\.zip$" |
-		head -n 1 ||
-		true
-)"
+	asset_url="$(
+		grep -Eo '"browser_download_url":[[:space:]]*"[^"]+' "$tmp_json" |
+			sed -E 's/^"browser_download_url":[[:space:]]*"//' |
+			grep -E -- "-${platform}\.zip$" |
+			head -n 1 ||
+			true
+	)"
+fi
 
 if [[ -z "$asset_url" ]]; then
 	echo "No release archive found for platform: $platform" >&2

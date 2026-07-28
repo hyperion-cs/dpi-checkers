@@ -3,10 +3,12 @@ package config
 import (
 	"bytes"
 	_ "embed"
+	"errors"
 	"os"
 	"path"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"time"
 
 	"github.com/spf13/viper"
@@ -234,16 +236,30 @@ func Get() *Config {
 
 // Returns the absolute path to the folder with the dpi-ch binary file
 func BinFolder() (string, error) {
-	path, err := os.Executable()
+	execPath, err := os.Executable()
 	if err != nil {
 		return "", err
 	}
 
-	realPath, err := filepath.EvalSymlinks(path)
+	if runtime.GOOS == "android" {
+		switch filepath.Base(execPath) {
+		case "linker", "linker64":
+			if len(os.Args) == 0 || !filepath.IsAbs(os.Args[0]) {
+				return "", errors.New(
+					"system linker requires an absolute binary path in args[0]",
+				)
+			}
+
+			execPath = os.Args[0]
+		}
+	}
+
+	execPath, err = filepath.EvalSymlinks(execPath)
 	if err != nil {
 		return "", err
 	}
-	return filepath.Dir(realPath), nil
+
+	return filepath.Dir(execPath), nil
 }
 
 // Returns the absolute path to the current configuration
