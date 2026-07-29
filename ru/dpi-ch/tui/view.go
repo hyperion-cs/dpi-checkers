@@ -14,20 +14,34 @@ import (
 
 func (rm rootModel) View() tea.View {
 	var v tea.View
+	v.SetContent(rm.viewport.View())
+	return v
+}
+
+func (rm *rootModel) syncViewport() {
+	content := rm.render()
+	rm.viewport.SetContent(content)
+	rm.viewport.SetXOffset(rm.viewport.XOffset())
+	rm.viewport.SetYOffset(rm.viewport.YOffset())
+}
+
+func (rm rootModel) render() string {
 	var s string
 
 	if rm.router.Tab == menuTab && rm.quitting {
-		s = fmt.Sprintf("See you later! Please star our repository on GitHub:\n%s\n\n🤝 Join our community\nTelegram group: %s",
+		s = fmt.Sprintf(
+			"See you later! Please star our repository on GitHub:\n%s\n\n🤝 Join our community\nTelegram group: %s",
 			selectedStyle.Render("https://github.com/hyperion-cs/dpi-checkers/"),
 			selectedStyle.Render("https://t.me/dpi_checkers"),
 		)
-		v.SetContent(mainStyle.Render("\n" + s + "\n\n"))
-		return v
+
+		return mainStyle.Render("\n" + s + "\n\n")
 	}
 
 	if rm.router.Tab == menuTab && rm.router.inited && rm.router.loading {
-		v.SetContent(mainStyle.Render(fmt.Sprintf("\n%s initialization\n\n", rm.router.spinner.View())))
-		return v
+		return mainStyle.Render(
+			fmt.Sprintf("\n%s initialization\n\n", rm.router.spinner.View()),
+		)
 	}
 
 	if rm.router.Tab != menuTab {
@@ -44,7 +58,7 @@ func (rm rootModel) View() tea.View {
 	case cidrwhitelistTab:
 		s += cidrwhitelistView(rm.cidrwhitelistModel)
 	case webhostTab:
-		s += webhostView(rm.webhostModel) // тут че то надо выдумать
+		s += webhostView(rm.webhostModel)
 	case dnsTab:
 		s += dnsView(rm.dnsModel)
 	case updaterTab:
@@ -52,21 +66,40 @@ func (rm rootModel) View() tea.View {
 	}
 
 	if rm.router.Tab == updaterTab && !rm.quitting {
-		s += "\n\n" + subtleStyle.Render(fmt.Sprintf("m, backspace: skip updater%sq, esc: quit", dotChar))
+		s += "\n\n" + subtleStyle.Render(
+			fmt.Sprintf(
+				"m, backspace: skip updater%swasd: scroll%sq, esc: quit",
+				dotChar,
+				dotChar,
+			),
+		)
 	}
 
 	if rm.router.Tab != menuTab && rm.router.Tab != updaterTab && !rm.quitting {
-		s += "\n\n" + subtleStyle.Render(fmt.Sprintf("m, backspace: menu%sq, esc: quit", dotChar))
+		s += "\n\n" + subtleStyle.Render(
+			fmt.Sprintf(
+				"m, backspace: menu%swasd: scroll%sq, esc: quit",
+				dotChar,
+				dotChar,
+			),
+		)
 	}
 
 	cfgPath, err := config.ConfigPath()
 	if err == nil {
-		s += subtleStyle.Render(fmt.Sprintf("\n%s%sconfig path: %s", version.Value, dotChar, cfgPath))
+		s += subtleStyle.Render(
+			fmt.Sprintf(
+				"\n%s%sconfig path: %s",
+				version.Value,
+				dotChar,
+				cfgPath,
+			),
+		)
 	} else {
 		s += subtleStyle.Render("\n" + version.Value)
 	}
-	v.SetContent(mainStyle.Render("\n" + s + "\n\n"))
-	return v
+
+	return mainStyle.Render("\n" + s + "\n\n")
 }
 
 func whoamiView(model whoamiModel) string {

@@ -95,7 +95,7 @@ func (m *MenuState) View() string {
 		tpl.WriteString("\n")
 	}
 	tpl.WriteString("\n\n")
-	tpl.WriteString(subtleStyle.Render(fmt.Sprintf("up/down: select%senter: choose%sq, esc: quit", dotChar, dotChar)))
+	tpl.WriteString(subtleStyle.Render(fmt.Sprintf("↑/↓: select%senter: choose%swasd: scroll%sq, esc: quit", dotChar, dotChar, dotChar)))
 	return tpl.String()
 }
 

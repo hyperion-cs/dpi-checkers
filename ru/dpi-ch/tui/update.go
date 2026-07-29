@@ -18,6 +18,11 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
+const (
+	horizontalScrollStep = 8
+	verticalScrollStep   = 3
+)
+
 var ErrPending = errors.New("err: pending")
 
 func (rm rootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -26,13 +31,33 @@ func (rm rootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// Only root and updater processing here
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		rm.viewport.SetWidth(max(1, msg.Width))
+		rm.viewport.SetHeight(max(1, msg.Height))
+
 	case tea.KeyPressMsg:
 		k := msg.String()
+
 		// this and other tea.ClearScreen; tmp workaround of https://github.com/charmbracelet/bubbletea/issues/1646
 		cmds = append(cmds, tea.ClearScreen)
 
+		switch k {
+		case "a":
+			rm.viewport.ScrollLeft(horizontalScrollStep)
+
+		case "d":
+			rm.viewport.ScrollRight(horizontalScrollStep)
+
+		case "w":
+			rm.viewport.ScrollUp(verticalScrollStep)
+
+		case "s":
+			rm.viewport.ScrollDown(verticalScrollStep)
+		}
+
 		if k == "q" || k == "й" || k == "esc" || k == "ctrl+c" || k == "ctrl+с" {
 			rm.quitting = true
+			rm.syncViewport()
 			return rm, tea.Quit
 		}
 
@@ -42,14 +67,21 @@ func (rm rootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 			rm.router.Tab = menuTab
+			rm.viewport.SetXOffset(0)
+			rm.viewport.SetYOffset(0)
 			cmds = append(cmds, func() tea.Msg { return returnedToMenuMsg{} })
 		}
+
 	// TODO: Should this be here (for special cases)?
 	case updaterInitMsg:
 		rm.router.Tab = updaterTab
+
 	case updaterDoneMsg:
 		rm.router.Tab = menuTab
+		rm.viewport.SetXOffset(0)
+		rm.viewport.SetYOffset(0)
 		cmds = append(cmds, func() tea.Msg { return inetlookup.Default() })
+
 	case allInitMsg:
 		rm.router.Tab = allTab
 	}
@@ -76,6 +108,8 @@ func (rm rootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	rm.dnsModel, cmd = dnsUpdate(rm.dnsModel, msg)
 	cmds = append(cmds, cmd)
+
+	rm.syncViewport()
 
 	return rm, tea.Batch(cmds...)
 }

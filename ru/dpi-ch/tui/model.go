@@ -7,11 +7,13 @@ import (
 
 	"charm.land/bubbles/v2/spinner"
 	"charm.land/bubbles/v2/table"
+	"charm.land/bubbles/v2/viewport"
 )
 
 type rootModel struct {
 	quitting bool
 	router   *router
+	viewport viewport.Model
 
 	allModel           allModel
 	whoamiModel        whoamiModel
