@@ -2,13 +2,18 @@ const TEST_SUITE = [
   { "name": "Yandex", "asns": ["13238", "44534", "200350", "202611", "208398", "208795", "210656", "212066", "215013", "215109", "48207"] },
   { "name": "VK", "asns": ["28709", "47541", "47542", "47764", "60863", "62243", "199295", "207581"] },
   { "name": "EdgeCenter", "asns": ["201589", "207059", "210756"] },
-  { "name": "MTS MWS", "asns": ["209024"] },
+  { "name": "MTS", "asns": ["209024", "60490"] },
+  { "name": "MegaFon", "asns": ["31133"] },
   { "name": "Selectel", "asns": ["50340", "49505"] },
   { "name": "Reg.ru", "asns": ["197695"] },
   { "name": "CDNVideo", "asns": ["204720"] },
   { "name": "RuFox", "asns": ["25490"] },
   { "name": "EuroByte", "asns": ["210079"] },
   { "name": "Contell", "asns": ["204490"] },
+  { "name": "Start2", "asns": ["61400"] },
+  { "name": "MT FINANCE", "asns": ["214822"] },
+  { "name": "Citytelecom", "asns": ["3175"] },
+  { "name": "DDOS GUARD", "asns": ["57724"] },
 ];
 
 let TIMEOUT_MS = 5000;
