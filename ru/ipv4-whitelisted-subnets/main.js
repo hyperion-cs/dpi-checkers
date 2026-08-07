@@ -41,6 +41,9 @@ const fetchOpt = s => ({
 const cacheSubnetsButton = document.getElementById("cache-subnets-btn");
 const checkSubnetsButton = document.getElementById("check-subnets-btn");
 const saveButton = document.getElementById("save-btn");
+const testSuiteDropdown = document.getElementById("test-suite-dropdown");
+const testSuiteOptions = document.getElementById("test-suite-options");
+const testSuiteSummary = document.getElementById("test-suite-summary");
 
 const status = document.getElementById("status");
 const log = document.getElementById("log");
@@ -48,6 +51,29 @@ const resultsTable = document.getElementById("results");
 let resultsData = [];
 let resultsCount = 0;
 let cachedSubnets = {};
+
+const selectedTestSuite = () => {
+  const selectedNames = new Set(
+    Array.from(testSuiteOptions.querySelectorAll("input[type=checkbox]:checked")).map(input => input.value)
+  );
+  return TEST_SUITE.filter(provider => selectedNames.has(provider.name));
+};
+
+const updateProviderSummary = () => {
+  const selectedCount = selectedTestSuite().length;
+  testSuiteSummary.textContent = "Providers";
+};
+
+for (const provider of TEST_SUITE) {
+  const label = document.createElement("label");
+  const input = document.createElement("input");
+  input.type = "checkbox";
+  input.value = provider.name;
+  input.checked = true;
+  label.className = "provider-option";
+  label.append(input, ` ${provider.name}`);
+  testSuiteOptions.append(label);
+}
 
 const logPush = (level, prefix, msg) => {
   const now = new Date();
@@ -104,7 +130,10 @@ const checkSubnets = async () => {
 
   resultsCount = 0;
   resultsData = [];
-  const subnetsTotal = Object.values(cachedSubnets).flat().length;
+  const selectedProviders = new Set(selectedTestSuite().map(provider => provider.name));
+  const selectedSubnets = Object.entries(cachedSubnets)
+    .filter(([provider]) => selectedProviders.has(provider));
+  const subnetsTotal = selectedSubnets.flatMap(([, subnets]) => subnets).length;
   let subnetsChecked = 0;
 
   checkSubnetsButton.disabled = true;
@@ -113,7 +142,7 @@ const checkSubnets = async () => {
   checkSubnetsButton.textContent = "...";
   status.className = "status-working";
 
-  for (const [provider, subnets] of Object.entries(cachedSubnets)) {
+  for (const [provider, subnets] of selectedSubnets) {
     for (const s of subnets) {
       status.textContent = `Subnets checking (${subnetsChecked++}/${subnetsTotal}) ⏰`;
       await checkSubnet(provider, s);
@@ -152,6 +181,7 @@ const cacheSubnets = async () => {
   }
 
   try {
+    cachedSubnets = {};
     for (let t of TEST_SUITE) {
       const r = await fetchProviderIpv4Subnets(t);
       cachedSubnets[t.name] = r;
@@ -312,6 +342,16 @@ checkSubnetsButton.onclick = () => {
 saveButton.onclick = () => {
   saveResults();
 };
+
+testSuiteOptions.onchange = () => {
+  updateProviderSummary();
+};
+
+document.addEventListener("click", event => {
+  if (testSuiteDropdown.open && !testSuiteDropdown.contains(event.target)) {
+    testSuiteDropdown.open = false;
+  }
+});
 
 document.addEventListener("DOMContentLoaded", async () => {
   const v = localStorage.getItem("ipv4-whitelisted-subnets_cachedSubnets");
