@@ -2,6 +2,7 @@ package inetlookup
 
 import (
 	"encoding/csv"
+	"fmt"
 	"io"
 	"iter"
 	"net/netip"
@@ -54,7 +55,7 @@ func (l *geoliteCsv) Cidrs(opt CidrsOpt) *netipx.IPSet {
 	var b netipx.IPSetBuilder
 
 	if opt.Hosts != nil {
-		panic("not implemented yet")
+		prettyPanic("Cidrs", fmt.Errorf("not implemented yet"))
 	}
 
 	// ips, asns, orgTerms => cidrs via cidr2as
@@ -93,7 +94,7 @@ func (l *geoliteCsv) Cidrs(opt CidrsOpt) *netipx.IPSet {
 
 	s, err := b.IPSet()
 	if err != nil {
-		panic(err)
+		prettyPanic("Cidrs", err)
 	}
 	return s
 }
@@ -154,7 +155,7 @@ func cidr2CountryIsoCsvIter(path string, geonameId2countryIso map[int32]string) 
 	// header skip
 	_, err := r.Read()
 	if err != nil {
-		panic(err)
+		prettyPanic("cidr2CountryIsoCsvIter", err)
 	}
 
 	return func(yield func(cidr2CountryIso) bool) {
@@ -165,10 +166,10 @@ func cidr2CountryIsoCsvIter(path string, geonameId2countryIso map[int32]string) 
 				return
 			}
 			if err != nil {
-				panic(err)
+				prettyPanic("cidr2CountryIsoCsvIter", err)
 			}
 			if len(row) < 4 {
-				panic("cidr2CountryIsoIter: unexpected number of columns in csv")
+				prettyPanic("cidr2CountryIsoCsvIter", fmt.Errorf("unexpected number of columns in csv"))
 			}
 
 			geonameId := mustInt32(row[1])
@@ -198,7 +199,7 @@ func cidrAsCsvIter(path string) iter.Seq[cidr2As] {
 	// header skip
 	_, err := r.Read()
 	if err != nil {
-		panic(err)
+		prettyPanic("cidrAsCsvIter", err)
 	}
 
 	return func(yield func(cidr2As) bool) {
@@ -209,10 +210,10 @@ func cidrAsCsvIter(path string) iter.Seq[cidr2As] {
 				return
 			}
 			if err != nil {
-				panic(err)
+				prettyPanic("cidrAsCsvIter", err)
 			}
 			if len(row) < 3 {
-				panic("cidr2AsIter: unexpected number of columns in csv")
+				prettyPanic("cidr2AsIter", fmt.Errorf("unexpected number of columns in csv"))
 			}
 
 			v := cidr2As{
@@ -238,7 +239,7 @@ func getGeonameidCountry(path string) map[int32]string {
 	// header skip
 	_, err := r.Read()
 	if err != nil {
-		panic(err)
+		prettyPanic("getGeonameidCountry", err)
 	}
 
 	for {
@@ -247,10 +248,10 @@ func getGeonameidCountry(path string) map[int32]string {
 			break
 		}
 		if err != nil {
-			panic(err)
+			prettyPanic("getGeonameId2CountryIso", err)
 		}
 		if len(row) < 4 {
-			panic("getGeonameId2CountryIso: unexpected number of columns in csv")
+			prettyPanic("getGeonameId2CountryIso", fmt.Errorf("unexpected number of columns in csv"))
 		}
 
 		geonameId := mustInt32(row[0])
@@ -267,7 +268,11 @@ func mustInt32(s string) int32 {
 	}
 	i, err := strconv.ParseInt(s, 10, 32)
 	if err != nil {
-		panic(err)
+		prettyPanic("mustInt32", err)
 	}
 	return int32(i)
+}
+
+func prettyPanic(loc string, err error) string {
+	panic(fmt.Sprintf("❗️ An unexpected problem when reading geoip files. You can try updating them using the --force-inetlookup-update flag when running the utility.\n\n Details [%s]: %v", loc, err))
 }
