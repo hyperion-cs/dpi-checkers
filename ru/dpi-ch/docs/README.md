@@ -161,21 +161,23 @@ checkers: # checkers, available in the dpi-ch utility
                          # siberian-skip:   # bool; skip "siberian restriction" check for hosts
                          # random-hostname: # bool; generate a random http host header for each host (also override sni)
 
-    workers:                # int; number of parallel workers that will find and analyze hosts
-    farm-timeout:           # time.Duration; total timeout for hosts farming; if 0, then no limits
-    tcp-conn-timeout:       # time.Duration; timeout for establishing a tcp connection
-    tls-handshake-timeout:  # time.Duration; timeout for tls handshake
-    tcp-read-timeout:       # time.Duration; timeout for reading from a tcp connection (more precisely, from tls over tcp)
-    tcp-write-timeout:      # time.Duration; timeout for writing to a tcp connection (more precisely, to tls over tcp)
-    tcp-write-buf:          # int; tcp/tls write buffer size (expert warn: only change if you know what you are doing)
-    tcp-read-buf:           # int; tcp/tls read buffer size (also only for experts)
-    tcp1620-n-bytes:        # int; size of random payload for tcp 16-20 (also only for experts)
-    siberian-conn-count:    # int; number of connections to "suspicious" server that is sufficient to trigger restriction
-    siberian-fingerprint:   # string; specifies which browser fingerprint will be used for "siberian" restrictions check;
-                            #         has higher priority than inetutil => fingerprint;
-                            #         supported values: chrome, firefox, safari, ios, android, edge, 360, qq
-    table-max-visible-rows: # int; number of visible rows in the results table (if there are more, scrolling is available)
-    http-static-headers:    # map[string]string; http headers that will be sent as part of requests to hosts
+    workers:                  # int; number of parallel workers that will find and analyze hosts
+    farm-timeout:             # time.Duration; total timeout for hosts farming; if 0, then no limits
+    tcp-conn-timeout:         # time.Duration; timeout for establishing a tcp connection
+    tls-handshake-timeout:    # time.Duration; timeout for tls handshake
+    tcp-read-timeout:         # time.Duration; timeout for reading from a tcp connection (more precisely, from tls over tcp)
+    tcp-write-timeout:        # time.Duration; timeout for writing to a tcp connection (more precisely, to tls over tcp)
+    tcp-write-buf:            # int; tcp/tls write buffer size (expert warn: only change if you know what you are doing)
+    tcp-read-buf:             # int; tcp/tls read buffer size (also only for experts)
+    tcp1620-n-bytes:          # int; size of random payload for tcp 16-20 (also only for experts)
+    siberian-conn-count:      # int; number of connections to "suspicious" server that is sufficient to trigger restriction
+    siberian-fingerprint:     # string; specifies which browser fingerprint will be used for "siberian" restrictions check;
+                              #         has higher priority than inetutil => fingerprint;
+                              #         supported values: chrome (v133), firefox (v120), safari (v16.0), ios (v14),
+                              #                           android (v11), edge (v85), 360 (v7.5), qq (v11.1)
+    table-max-visible-rows:   # int; number of visible rows in the results table (if there are more, scrolling is available)
+    http-static-headers:      # map[string]string; http headers that will be sent as part of requests to hosts
+    exclude-default-sections: # bool; exclude default sections from checks (and menu) if custom ones are specified
 
   dns: # aka dns checker
     table-max-visible-rows: # int; number of visible rows in results tables (if there are more, scrolling is available)
@@ -225,7 +227,8 @@ inetutil: # used for all network operations (incl. tcp/tls operation and http re
                    #         (currently, only ipv4 is supported)
   fingerprint:     # string; specifies which browser fingerprint will be used for all tls connections;
                    #         (if there is no individual option in the config for a specific tls connection);
-                   #         supported values: chrome, firefox, safari, ios, android, edge, 360, qq
+                   #         supported values: chrome (v133), firefox (v120), safari (v16.0), ios (v14),
+                   #                           android (v11), edge (v85), 360 (v7.5), qq (v11.1)
   key-log-path:    # string; if set, the (pre)-master-secret log will be written to this path; useful for wireshark
   browser-headers: # map[string]string; http headers that will be sent as part of requests
 

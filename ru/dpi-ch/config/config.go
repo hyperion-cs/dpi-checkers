@@ -25,20 +25,21 @@ type Config struct {
 		} `mapstructure:"cidrwhitelist"`
 
 		Webhost struct {
-			Sections            []WebhostSection  `mapstructure:"sections"`
-			Workers             int               `mapstructure:"workers"`
-			FarmTimeout         time.Duration     `mapstructure:"farm-timeout"`
-			TcpConnTimeout      time.Duration     `mapstructure:"tcp-conn-timeout"`
-			TlsHandshakeTimeout time.Duration     `mapstructure:"tls-handshake-timeout"`
-			TcpReadTimeout      time.Duration     `mapstructure:"tcp-read-timeout"`
-			TcpWriteTimeout     time.Duration     `mapstructure:"tcp-write-timeout"`
-			TcpWriteBuf         int               `mapstructure:"tcp-write-buf"`
-			TcpReadBuf          int               `mapstructure:"tcp-read-buf"`
-			Tcp1620nBytes       int               `mapstructure:"tcp1620-n-bytes"`
-			SiberianConnCount   int               `mapstructure:"siberian-conn-count"`
-			SiberianFingerprint string            `mapstructure:"siberian-fingerprint"`
-			TableMaxVisibleRows int               `mapstructure:"table-max-visible-rows"`
-			HttpStaticHeaders   map[string]string `mapstructure:"http-static-headers"`
+			Sections               []WebhostSection  `mapstructure:"sections"`
+			Workers                int               `mapstructure:"workers"`
+			FarmTimeout            time.Duration     `mapstructure:"farm-timeout"`
+			TcpConnTimeout         time.Duration     `mapstructure:"tcp-conn-timeout"`
+			TlsHandshakeTimeout    time.Duration     `mapstructure:"tls-handshake-timeout"`
+			TcpReadTimeout         time.Duration     `mapstructure:"tcp-read-timeout"`
+			TcpWriteTimeout        time.Duration     `mapstructure:"tcp-write-timeout"`
+			TcpWriteBuf            int               `mapstructure:"tcp-write-buf"`
+			TcpReadBuf             int               `mapstructure:"tcp-read-buf"`
+			Tcp1620nBytes          int               `mapstructure:"tcp1620-n-bytes"`
+			SiberianConnCount      int               `mapstructure:"siberian-conn-count"`
+			SiberianFingerprint    string            `mapstructure:"siberian-fingerprint"`
+			TableMaxVisibleRows    int               `mapstructure:"table-max-visible-rows"`
+			HttpStaticHeaders      map[string]string `mapstructure:"http-static-headers"`
+			ExcludeDefaultSections bool              `mapstructure:"exclude-default-sections"`
 		} `mapstructure:"webhost"`
 
 		Dns struct {
@@ -221,7 +222,7 @@ func Load(path string) error {
 
 	defSec := defTmp.Checkers.Webhost.Sections
 	userSec := _cfg.Checkers.Webhost.Sections
-	if !reflect.DeepEqual(defSec, userSec) {
+	if !_cfg.Checkers.Webhost.ExcludeDefaultSections && !reflect.DeepEqual(defSec, userSec) {
 		_cfg.Checkers.Webhost.Sections = append(defSec, userSec...)
 	}
 

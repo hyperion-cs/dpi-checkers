@@ -173,13 +173,14 @@ checkers:
     tcp-read-buf: 4096
     tcp1620-n-bytes: 65536
     siberian-conn-count: 4
-    siberian-fingerprint: chrome # chrome observed in the "siberian" restrictions
+    siberian-fingerprint: chrome # chrome (v133) observed in the "siberian" restrictions
     http-static-headers:
       Accept: "*/*"
       Accept-Encoding: identity
       Content-Type: application/octet-stream
       User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36
     table-max-visible-rows: 20
+    exclude-default-sections: false
 
   cidrwhitelist:
     timeout: 10s
