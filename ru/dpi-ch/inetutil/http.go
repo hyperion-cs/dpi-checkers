@@ -21,41 +21,41 @@ var (
 
 func Head(ctx context.Context, url string, browserHeaders bool, close bool) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodHead, url, http.NoBody)
-	req.Close = close
 	if err != nil {
 		return err
 	}
+	req.Close = close
 
 	if browserHeaders {
 		setBrowserHeaders(&req.Header)
 	}
 
-	resp, err := httpDefaultClient().Do(req)
+	resp, err := httpDefaultClient(close).Do(req)
 	if err != nil {
 		return err
 	}
-
 	defer resp.Body.Close()
+
 	return nil
 }
 
 func Get(ctx context.Context, url string, browserHeaders bool, close bool) ([]byte, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
-	req.Close = close
 	if err != nil {
 		return nil, err
 	}
+	req.Close = close
 
 	if browserHeaders {
 		setBrowserHeaders(&req.Header)
 	}
 
-	resp, err := httpDefaultClient().Do(req)
+	resp, err := httpDefaultClient(close).Do(req)
 	if err != nil {
 		return nil, err
 	}
-
 	defer resp.Body.Close()
+
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
@@ -88,8 +88,8 @@ func setBrowserHeaders(out *http.Header) {
 	SetHeaders(out, cfg.BrowserHeaders)
 }
 
-// Returns default http client for inetutil package, considering network interface options in config.
-func httpDefaultClient() *http.Client {
+// Returns http client for inetutil package, considering network interface options in config.
+func httpDefaultClient(close bool) *http.Client {
 	httpMu.Lock()
 	defer httpMu.Unlock()
 
@@ -113,5 +113,19 @@ func httpDefaultClient() *http.Client {
 		}
 	}
 
-	return httpClient
+	if !close {
+		return httpClient
+	}
+
+	client := *httpClient
+	transport := httpClient.Transport.(*http.Transport).Clone()
+	transport.DisableKeepAlives = true
+	client.Transport = transport
+
+	client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		req.Close = true
+		return nil
+	}
+
+	return &client
 }

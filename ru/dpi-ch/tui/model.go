@@ -47,6 +47,8 @@ type whoamiModel struct {
 	spinner  spinner.Model
 	result   checkers.WhoamiResult
 	err      error
+	ctx      context.Context
+	cancel   context.CancelFunc
 }
 
 type cidrwhitelistModel struct {
@@ -54,6 +56,8 @@ type cidrwhitelistModel struct {
 	fetching bool
 	spinner  spinner.Model
 	err      error
+	ctx      context.Context
+	cancel   context.CancelFunc
 }
 
 type webhostModel struct {
@@ -121,9 +125,15 @@ func (rm *rootModel) cleanupTab() {
 		rm.allModel = allModel{}
 
 	case whoamiTab:
+		if rm.whoamiModel.cancel != nil {
+			rm.whoamiModel.cancel()
+		}
 		rm.whoamiModel = whoamiModel{}
 
 	case cidrwhitelistTab:
+		if rm.cidrwhitelistModel.cancel != nil {
+			rm.cidrwhitelistModel.cancel()
+		}
 		rm.cidrwhitelistModel = cidrwhitelistModel{}
 
 	case webhostTab:

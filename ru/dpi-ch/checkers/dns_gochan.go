@@ -106,7 +106,7 @@ func DnsLeakGochan(ctx context.Context) <-chan DnsLeakWithIpinfoOut {
 		Workers: cfg.Workers,
 		Input:   in,
 		Executor: func(in struct{}) DnsLeakWithIpinfoOut {
-			return dnsLeakWithIpinfoSingle()
+			return dnsLeakWithIpinfoSingle(ctx)
 		},
 	})
 

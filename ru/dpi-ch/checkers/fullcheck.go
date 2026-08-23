@@ -107,7 +107,7 @@ func FullCheckGochan(ctx context.Context) <-chan FullCheckProgress {
 		var whoami *FullCheckWhoamiDto
 		if slices.Contains(cfg.All.Checkers, "whoami") {
 			wg.Go(func() {
-				whoamiRes, whoamiErr := Whoami()
+				whoamiRes, whoamiErr := Whoami(ctx)
 				val := fullCheckWhoamiDto(whoamiRes, whoamiErr)
 				whoami = &val
 				fullCheckSendProgress(progressCh, FullCheckProgress{Msg: "whoami ready"})
@@ -117,7 +117,7 @@ func FullCheckGochan(ctx context.Context) <-chan FullCheckProgress {
 		var cidrwhitelist *FullCheckCidrwhitelistDto
 		if slices.Contains(cfg.All.Checkers, "cidrwhitelist") {
 			wg.Go(func() {
-				val := fullCheckCidrwhitelistDto(CidrWhitelist())
+				val := fullCheckCidrwhitelistDto(CidrWhitelist(ctx))
 				cidrwhitelist = &val
 				fullCheckSendProgress(progressCh, FullCheckProgress{Msg: "cidrwhitelist ready"})
 			})

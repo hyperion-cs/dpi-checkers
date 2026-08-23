@@ -85,6 +85,7 @@ func WebhostSingle(opt WebhostSingleOpt) WebhostSingleResult {
 
 	cfg := config.Get().Checkers.Webhost
 	tlsConnOpt := inetutil.TlsConnOpt{
+		Ctx:                 opt.Ctx,
 		Ip:                  opt.Ip,
 		Port:                opt.Port,
 		Sni:                 opt.Sni,
@@ -101,6 +102,7 @@ func WebhostSingle(opt WebhostSingleOpt) WebhostSingleResult {
 		res.Siberian = ErrWebhostSkip
 		return res
 	}
+	defer tlsConn.Close()
 
 	tlsConnState := tlsConn.ConnectionState()
 	res.Tls = &WebhostTls{V: tlsConnState.Version}
@@ -154,6 +156,7 @@ func webhostHandshakesCheck(webhostOpt WebhostSingleOpt, tlsConnOpt inetutil.Tls
 			tlsConnOpt.Sni = s
 			tlsConn, err = inetutil.GetHandshakedUTlsConn(tlsConnOpt)
 			if err == nil {
+				tlsConn.Close()
 				err = ErrWebhostBlockedBySni
 				break
 			}
@@ -164,7 +167,6 @@ func webhostHandshakesCheck(webhostOpt WebhostSingleOpt, tlsConnOpt inetutil.Tls
 }
 
 func webhostAliveCheck(opt WebhostSingleOpt, tlsConn *tls.UConn) error {
-	defer tlsConn.Close()
 	cfg := config.Get().Checkers.Webhost
 
 	req, err := http.NewRequest("HEAD", "https://"+opt.Host, http.NoBody)
@@ -174,13 +176,13 @@ func webhostAliveCheck(opt WebhostSingleOpt, tlsConn *tls.UConn) error {
 	req.Close = true
 	inetutil.SetHeaders(&req.Header, cfg.HttpStaticHeaders)
 
-	writeCtx, cancel := context.WithTimeout(context.Background(), cfg.TcpWriteTimeout)
+	writeCtx, cancel := context.WithTimeout(opt.Ctx, cfg.TcpWriteTimeout)
 	defer cancel()
 	if _, err := inetutil.TlsWriteHttpRequest(writeCtx, tlsConn, req); err != nil {
 		return err
 	}
 
-	readCtx, cancel := context.WithTimeout(context.Background(), cfg.TcpReadTimeout)
+	readCtx, cancel := context.WithTimeout(opt.Ctx, cfg.TcpReadTimeout)
 	defer cancel()
 	resp, err := inetutil.TlsReadHttpResponse(readCtx, tlsConn, bufio.NewReader(tlsConn))
 	if err != nil {
@@ -209,7 +211,7 @@ func webhostTcp1620check(opt WebhostSingleOpt, tlsConnOpt inetutil.TlsConnOpt) (
 	req.Close = false
 	inetutil.SetHeaders(&req.Header, cfg.HttpStaticHeaders)
 
-	writeCtx, cancel := context.WithTimeout(context.Background(), cfg.TcpWriteTimeout)
+	writeCtx, cancel := context.WithTimeout(opt.Ctx, cfg.TcpWriteTimeout)
 	defer cancel()
 	txStart := time.Now()
 	txBytes, err := inetutil.TlsWriteHttpRequest(writeCtx, tlsConn, req)
@@ -222,7 +224,7 @@ func webhostTcp1620check(opt WebhostSingleOpt, tlsConnOpt inetutil.TlsConnOpt) (
 		return WebhostThroughput{}, ErrWebhostSkip
 	}
 
-	readCtx, cancel := context.WithTimeout(context.Background(), cfg.TcpReadTimeout)
+	readCtx, cancel := context.WithTimeout(opt.Ctx, cfg.TcpReadTimeout)
 	defer cancel()
 	rxCr := &inetutil.CountingReader{Reader: tlsConn}
 	rxStart := time.Now()

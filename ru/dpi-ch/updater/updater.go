@@ -188,12 +188,14 @@ func geolitePartUpdate(ctx context.Context, from, to string) error {
 	log.Println("geoliteCidrAsUpdate:download", localHash, remoteHash)
 	ctx, cancel = context.WithTimeout(ctx, cfg.Timeout)
 	defer cancel()
-	download(ctx, contentUrl(
+	if err = download(ctx, contentUrl(
 		cfg.Geolite.Owner,
 		cfg.Geolite.Repo,
 		from,
 		cfg.Geolite.Branch,
-	), to)
+	), to); err != nil {
+		return err
+	}
 
 	return writeLocalHash(to, remoteHash)
 }
@@ -250,17 +252,24 @@ func download(ctx context.Context, url, dst string) error {
 		return err
 	}
 
-	f, err := os.Create(dst)
+	tmp := dst + ".tmp"
+	defer os.Remove(tmp)
+
+	f, err := os.Create(tmp)
 	if err != nil {
 		return err
 	}
-	defer f.Close()
 
 	if _, err := io.Copy(f, resp.Body); err != nil {
+		f.Close()
 		return err
 	}
 
-	return nil
+	if err := f.Close(); err != nil {
+		return err
+	}
+
+	return os.Rename(tmp, dst)
 }
 
 func attrUrl(owner, repo, path, branch string) string {

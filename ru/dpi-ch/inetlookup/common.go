@@ -35,7 +35,7 @@ func Default() InetLookup {
 			CidrCountryPath:      geolitecsvCfg.CidrCountry,
 			GeonameidCountryPath: geolitecsvCfg.GeonameidCountry,
 		}
-		if !fileExists(ilOpt.CidrAsPath) || !fileExists(ilOpt.CidrCountryPath) || !fileExists(ilOpt.CidrCountryPath) {
+		if !fileExists(ilOpt.CidrAsPath) || !fileExists(ilOpt.CidrCountryPath) || !fileExists(ilOpt.GeonameidCountryPath) {
 			panic(
 				fmt.Sprintf("inetlookup/geolite: some .csv files are missing in ./%s; try running the utility with the --force-inetlookup-update flag",
 					path.Dir(ilOpt.CidrAsPath)),

@@ -92,13 +92,18 @@ func KeyLogWriter() io.Writer {
 // - Set proto (http/https)
 func GetHandshakedUTlsConn(opt TlsConnOpt) (*tls.UConn, error) {
 	cfg := config.Get().InetUtil
+	ctx := opt.Ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
 	tcpDialer := net.Dialer{LocalAddr: tlsDefaultDialerLocalAddr()}
 	if opt.TcpConnTimeout != 0 {
 		tcpDialer.Timeout = opt.TcpConnTimeout
 	}
 
 	addr := net.JoinHostPort(opt.Ip.String(), strconv.Itoa(opt.Port))
-	tcpConn, err := tcpDialer.Dial("tcp", addr)
+	tcpConn, err := tcpDialer.DialContext(ctx, "tcp", addr)
 	if err != nil {
 		if isTimeoutErr(err) {
 			return nil, ErrTcpConnTimeout
@@ -158,6 +163,8 @@ func GetHandshakedUTlsConn(opt TlsConnOpt) (*tls.UConn, error) {
 	}
 
 	if err != nil {
+		tlsConn.Close()
+
 		if isTimeoutErr(err) {
 			return nil, ErrTlsHandshakeTimeout
 		}

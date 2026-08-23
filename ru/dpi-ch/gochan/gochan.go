@@ -75,3 +75,9 @@ func Repeat[In any](ctx context.Context, ch chan<- In, item In, n int) {
 		}
 	}()
 }
+
+func Closed[T any]() <-chan T {
+	ch := make(chan T)
+	close(ch)
+	return ch
+}

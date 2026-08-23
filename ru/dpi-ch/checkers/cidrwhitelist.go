@@ -15,14 +15,14 @@ import (
 var ErrCidrWhitelistDetected = errors.New("cidr whitelist detected")
 var ErrCidrWhitelistNoInetAccess = errors.New("no internet access")
 
-func CidrWhitelist() error {
+func CidrWhitelist(ctx context.Context) error {
 	cfg := config.Get().Checkers.CidrWhitelist
 
 	var wg sync.WaitGroup
 	var wlCount, regCount int32
 
-	wlCtx, wlCancel := context.WithTimeout(context.Background(), cfg.Timeout)
-	regCtx, regCancel := context.WithTimeout(context.Background(), cfg.Timeout)
+	wlCtx, wlCancel := context.WithTimeout(ctx, cfg.Timeout)
+	regCtx, regCancel := context.WithTimeout(ctx, cfg.Timeout)
 
 	defer wlCancel()
 	defer regCancel()

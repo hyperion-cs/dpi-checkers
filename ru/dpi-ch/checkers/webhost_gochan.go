@@ -91,7 +91,9 @@ func WebhostGochanRunner(opt WebhostGochanRunnerOpt) WebhostGochanRunnerOut {
 				optCtxCancel()
 			}
 		}()
-		return WebhostGochanRunnerOut{Progress: progressCh}
+		close(sfGochanIn)
+		close(progressCh)
+		return WebhostGochanRunnerOut{Out: gochan.Closed[WebhostGochanOut[WebhostGochanBag]](), Progress: progressCh}
 	}
 	gochan.Push(opt.Ctx, sfGochanIn, sfItems)
 

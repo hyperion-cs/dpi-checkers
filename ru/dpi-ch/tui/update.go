@@ -164,13 +164,14 @@ func whoamiUpdate(model whoamiModel, msg tea.Msg) (whoamiModel, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case whoamiInitMsg:
+		ctx, cancel := context.WithCancel(context.Background())
 		s := spinner.New()
 		s.Spinner = spinnerType
 		s.Style = spinnerStyle
-		model = whoamiModel{spinner: s, fetching: true, session: &session{}}
+		model = whoamiModel{spinner: s, fetching: true, session: &session{}, ctx: ctx, cancel: cancel}
 		return model, tea.Batch(
 			cmdFor(model.session, model.spinner.Tick),
-			whoamiFetchCmd(model.session),
+			whoamiFetchCmd(model.session, model.ctx),
 		)
 	case whoamiResultMsg:
 		model.fetching = false
@@ -196,13 +197,14 @@ func cidrwhitelistUpdate(model cidrwhitelistModel, msg tea.Msg) (cidrwhitelistMo
 
 	switch msg := msg.(type) {
 	case cidrwhitelistInitMsg:
+		ctx, cancel := context.WithCancel(context.Background())
 		s := spinner.New()
 		s.Spinner = spinnerType
 		s.Style = spinnerStyle
-		model = cidrwhitelistModel{spinner: s, fetching: true, session: &session{}}
+		model = cidrwhitelistModel{spinner: s, fetching: true, session: &session{}, ctx: ctx, cancel: cancel}
 		return model, tea.Batch(
 			cmdFor(model.session, model.spinner.Tick),
-			cidrwhitelistCheckCmd(model.session),
+			cidrwhitelistCheckCmd(model.session, model.ctx),
 		)
 	case cidrwhitelistResultMsg:
 		model.fetching = false
@@ -560,7 +562,7 @@ func dnsUpdate(model dnsModel, msg tea.Msg) (dnsModel, tea.Cmd) {
 }
 
 func dnsProcessPlainProvider(msg dnsProviderPlainMsg, model dnsModel) dnsModel {
-	model.out.progress <- fmt.Sprintf("[%s] plain: %s", msg.Provider, dnsPrettyProviderVerdict(msg.Verdict))
+	dnsSendProgress(model.out.progress, fmt.Sprintf("[%s] plain: %s", msg.Provider, dnsPrettyProviderVerdict(msg.Verdict)))
 	v, ok := model.providerRows[msg.Provider]
 	if !ok {
 		v.dohVerdict = ErrPending
@@ -571,7 +573,7 @@ func dnsProcessPlainProvider(msg dnsProviderPlainMsg, model dnsModel) dnsModel {
 }
 
 func dnsProcessDohProvider(msg dnsProviderDohMsg, model dnsModel) dnsModel {
-	model.out.progress <- fmt.Sprintf("[%s] doh: %s", msg.Provider, dnsPrettyProviderVerdict(msg.Verdict))
+	dnsSendProgress(model.out.progress, fmt.Sprintf("[%s] doh: %s", msg.Provider, dnsPrettyProviderVerdict(msg.Verdict)))
 	v, ok := model.providerRows[msg.Provider]
 	if !ok {
 		v.plainVerdict = ErrPending
@@ -583,11 +585,11 @@ func dnsProcessDohProvider(msg dnsProviderDohMsg, model dnsModel) dnsModel {
 
 func dnsProcessLeak(msg dnsLeakMsg, model dnsModel) dnsModel {
 	if msg.Err != nil {
-		model.out.progress <- "dns leak internal err"
+		dnsSendProgress(model.out.progress, "dns leak internal err")
 		return model
 	}
 
-	model.out.progress <- "dns leak received"
+	dnsSendProgress(model.out.progress, "dns leak received")
 	cfg := config.Get().Checkers.Dns
 
 	newRows := []table.Row{}
@@ -625,6 +627,13 @@ func dnsProcessLeak(msg dnsLeakMsg, model dnsModel) dnsModel {
 	model.leakTable.SetWidth(tableWidth(model.leakTable.Columns()))
 
 	return model
+}
+
+func dnsSendProgress(ch chan<- string, p string) {
+	select {
+	case ch <- p:
+	default:
+	}
 }
 
 func dnsUpdateProviderTable(model dnsModel) dnsModel {

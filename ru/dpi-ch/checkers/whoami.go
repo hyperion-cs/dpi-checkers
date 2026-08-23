@@ -18,9 +18,9 @@ type WhoamiResult struct {
 	Ttlb     time.Duration
 }
 
-func Whoami() (WhoamiResult, error) {
+func Whoami(ctx context.Context) (WhoamiResult, error) {
 	cfg := config.Get().Checkers.Whoami
-	ctx, cancel := context.WithTimeout(context.Background(), cfg.Timeout)
+	ctx, cancel := context.WithTimeout(ctx, cfg.Timeout)
 	defer cancel()
 
 	ttlbStart := time.Now()

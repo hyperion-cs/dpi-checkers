@@ -61,16 +61,16 @@ func exitCmd() tea.Msg {
 	return exitMsg{}
 }
 
-func whoamiFetchCmd(session *session) tea.Cmd {
+func whoamiFetchCmd(session *session, ctx context.Context) tea.Cmd {
 	return func() tea.Msg {
-		res, err := checkers.Whoami()
+		res, err := checkers.Whoami(ctx)
 		return msgFor(session, whoamiResultMsg{res, err})
 	}
 }
 
-func cidrwhitelistCheckCmd(session *session) tea.Cmd {
+func cidrwhitelistCheckCmd(session *session, ctx context.Context) tea.Cmd {
 	return func() tea.Msg {
-		err := checkers.CidrWhitelist()
+		err := checkers.CidrWhitelist(ctx)
 		return msgFor(session, cidrwhitelistResultMsg{err: err})
 	}
 }

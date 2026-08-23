@@ -300,10 +300,10 @@ func dnsPlainMatrix(ctx context.Context, provider DnsPlainProvider, targets []Dn
 }
 
 // DNS servers that are actually used. The answer may not be comprehensive.
-func dnsLeakSingle() dnsLeakOut {
+func dnsLeakSingle(ctx context.Context) dnsLeakOut {
 	cfg := config.Get().Checkers.Dns
 
-	ctx, cancel := context.WithTimeout(context.Background(), cfg.Leak.Timeout)
+	ctx, cancel := context.WithTimeout(ctx, cfg.Leak.Timeout)
 	defer cancel()
 
 	url := "https://" + randString(cfg.Leak.LabelAlpha, cfg.Leak.LabelLen) + "." + cfg.Leak.ParentDomain
@@ -319,8 +319,8 @@ func dnsLeakSingle() dnsLeakOut {
 	return dnsLeakOut{out, nil}
 }
 
-func dnsLeakWithIpinfoSingle() DnsLeakWithIpinfoOut {
-	leak := dnsLeakSingle()
+func dnsLeakWithIpinfoSingle(ctx context.Context) DnsLeakWithIpinfoOut {
+	leak := dnsLeakSingle(ctx)
 	if leak.Err != nil {
 		log.Println("dnsLeakSingle", leak.Err)
 		return DnsLeakWithIpinfoOut{Err: leak.Err}
