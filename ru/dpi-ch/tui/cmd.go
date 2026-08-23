@@ -11,6 +11,20 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
+// All commands without parameters have a "flat" form [to be used as `cmd` rather than `cmd()`];
+// otherwise, a `func() tea.Msg` is returned, to which the parameters are passed.
+
+// Wraps an external cmd, associating its result with a specific session.
+func cmdFor(session *session, cmd tea.Cmd) tea.Cmd {
+	if cmd == nil {
+		return nil
+	}
+
+	return func() tea.Msg {
+		return msgFor(session, cmd())
+	}
+}
+
 func (rm rootModel) Init() tea.Cmd {
 	cfg := config.Get()
 
@@ -38,9 +52,6 @@ func (rm rootModel) Init() tea.Cmd {
 	}
 }
 
-// All commands without parameters have a "flat" form [to be used as `cmd` rather than `cmd()`];
-// otherwise, a `func() tea.Msg` is returned, to which the parameters are passed.
-
 func allCmd() tea.Msg {
 	inetlookup.Default()
 	return allInitMsg{}
@@ -50,25 +61,29 @@ func exitCmd() tea.Msg {
 	return exitMsg{}
 }
 
-func whoamiFetchCmd() tea.Msg {
-	res, err := checkers.Whoami()
-	return whoamiResultMsg{res, err}
-}
-
-func cidrwhitelistCheckCmd() tea.Msg {
-	err := checkers.CidrWhitelist()
-	return cidrwhitelistResultMsg{err: err}
-}
-
-func webhostProducerStartCmd(ctx context.Context, targets []config.WebhostTarget) tea.Cmd {
+func whoamiFetchCmd(session *session) tea.Cmd {
 	return func() tea.Msg {
-		opt := checkers.WebhostGochanRunnerOpt{Ctx: ctx, Targets: targets}
-		out := checkers.WebhostGochanRunner(opt)
-		return webhostProducerStartedMsg{out}
+		res, err := checkers.Whoami()
+		return msgFor(session, whoamiResultMsg{res, err})
 	}
 }
 
-func webhostConsumerCmd(out checkers.WebhostGochanRunnerOut) tea.Cmd {
+func cidrwhitelistCheckCmd(session *session) tea.Cmd {
+	return func() tea.Msg {
+		err := checkers.CidrWhitelist()
+		return msgFor(session, cidrwhitelistResultMsg{err: err})
+	}
+}
+
+func webhostProducerStartCmd(session *session, ctx context.Context, targets []config.WebhostTarget) tea.Cmd {
+	return func() tea.Msg {
+		opt := checkers.WebhostGochanRunnerOpt{Ctx: ctx, Targets: targets}
+		out := checkers.WebhostGochanRunner(opt)
+		return msgFor(session, webhostProducerStartedMsg{out})
+	}
+}
+
+func webhostConsumerCmd(session *session, out checkers.WebhostGochanRunnerOut) tea.Cmd {
 	return func() tea.Msg {
 		for out.Out != nil || out.Progress != nil {
 			select {
@@ -77,34 +92,34 @@ func webhostConsumerCmd(out checkers.WebhostGochanRunnerOut) tea.Cmd {
 					out.Out = nil
 					continue
 				}
-				return webhostItemMsg(v)
+				return msgFor(session, webhostItemMsg(v))
 			case v, ok := <-out.Progress:
 				if !ok {
 					out.Progress = nil
 					continue
 				}
-				return webhostProgressMsg(v)
+				return msgFor(session, webhostProgressMsg(v))
 			}
 		}
 
-		return webhostProducerDoneMsg{}
+		return msgFor(session, webhostProducerDoneMsg{})
 	}
 }
 
-func dnsProducerStartCmd(ctx context.Context) tea.Cmd {
+func dnsProducerStartCmd(session *session, ctx context.Context) tea.Cmd {
 	return func() tea.Msg {
-		return dnsProducerStartedMsg{
+		return msgFor(session, dnsProducerStartedMsg{
 			out: dnsChannelModel{
 				leak:          checkers.DnsLeakGochan(ctx),
 				providerPlain: checkers.DnsPlainGochan(ctx),
 				providerDoh:   checkers.DnsDohGochan(ctx),
 				progress:      make(chan string, 16),
 			},
-		}
+		})
 	}
 }
 
-func dnsConsumerCmd(out dnsChannelModel) tea.Cmd {
+func dnsConsumerCmd(session *session, out dnsChannelModel) tea.Cmd {
 	return func() tea.Msg {
 		for out.providerPlain != nil || out.providerDoh != nil || out.leak != nil {
 			select {
@@ -113,79 +128,79 @@ func dnsConsumerCmd(out dnsChannelModel) tea.Cmd {
 					out.providerPlain = nil
 					continue
 				}
-				return dnsProviderPlainMsg(v)
+				return msgFor(session, dnsProviderPlainMsg(v))
 			case v, ok := <-out.providerDoh:
 				if !ok {
 					out.providerDoh = nil
 					continue
 				}
-				return dnsProviderDohMsg(v)
+				return msgFor(session, dnsProviderDohMsg(v))
 			case v, ok := <-out.leak:
 				if !ok {
 					out.leak = nil
 					continue
 				}
-				return dnsLeakMsg(v)
+				return msgFor(session, dnsLeakMsg(v))
 			case v := <-out.progress:
-				return dnsProgressMsg(v)
+				return msgFor(session, dnsProgressMsg(v))
 			}
 		}
-		return dnsProducerDoneMsg{}
+		return msgFor(session, dnsProducerDoneMsg{})
 	}
 }
 
-func allProducerStartCmd(ctx context.Context) tea.Cmd {
+func allProducerStartCmd(session *session, ctx context.Context) tea.Cmd {
 	return func() tea.Msg {
-		return allProducerStartedMsg{
+		return msgFor(session, allProducerStartedMsg{
 			out: checkers.FullCheckGochan(ctx),
-		}
+		})
 	}
 }
 
-func allConsumerCmd(p <-chan checkers.FullCheckProgress) tea.Cmd {
+func allConsumerCmd(session *session, p <-chan checkers.FullCheckProgress) tea.Cmd {
 	return func() tea.Msg {
 		if p == nil {
-			return allProducerDoneMsg{}
+			return msgFor(session, allProducerDoneMsg{})
 		}
 
 		v, ok := <-p
 		if !ok {
-			return allProducerDoneMsg{}
+			return msgFor(session, allProducerDoneMsg{})
 		}
 
-		return allProgressMsg(v)
+		return msgFor(session, allProgressMsg(v))
 	}
 }
 
-func updaterSelfCmd(ctx context.Context, force bool, inetlookupTtu bool) tea.Cmd {
+func updaterSelfCmd(session *session, ctx context.Context, force bool, inetlookupTtu bool) tea.Cmd {
 	return func() tea.Msg {
 		upd, err := updater.SelfCheckUpdates(ctx)
 		if err == updater.ErrUnsupportedOsOrArch {
 			// TODO: the user should be warned about this.
-			return updaterStartInetlookupMsg{}
+			return msgFor(session, updaterStartInetlookupMsg{})
 		}
 		if err != nil {
-			return updaterErrMsg{err: err}
+			return msgFor(session, updaterErrMsg{err: err})
 		}
 
 		if !upd.Required {
 			if !force && inetlookupTtu {
-				return updaterStartInetlookupMsg{}
+				return msgFor(session, updaterStartInetlookupMsg{})
 			}
 			return updaterDoneMsg{}
 		}
 
 		if err = updater.SelfUpdate(ctx, upd.AssetUrl, upd.AssetFilename, upd.AssetVersion); err != nil {
-			return updaterErrMsg{err: err}
+			return msgFor(session, updaterErrMsg{err: err})
 		}
-		return updaterSelfDoneMsg{version: upd.AssetVersion}
+		return msgFor(session, updaterSelfDoneMsg{version: upd.AssetVersion})
 	}
 }
 
-func updaterInetlookupCmd(ctx context.Context) tea.Cmd {
+func updaterInetlookupCmd(session *session, ctx context.Context) tea.Cmd {
 	return func() tea.Msg {
 		if err := updater.GeoliteUpdate(ctx); err != nil {
-			return updaterErrMsg{err: err}
+			return msgFor(session, updaterErrMsg{err: err})
 		}
 		inetlookup.Default()
 		return updaterDoneMsg{}

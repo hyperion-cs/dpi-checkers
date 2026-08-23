@@ -1,12 +1,12 @@
 package tui
 
 import (
+	tea "charm.land/bubbletea/v2"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
 )
 
 type exitMsg struct{}
-type returnedToMenuMsg struct{}
 
 type whoamiInitMsg struct{}
 type whoamiResultMsg struct {
@@ -58,3 +58,30 @@ type updaterErrMsg struct{ err error }
 type updaterStartInetlookupMsg struct{}
 type updaterSelfDoneMsg struct{ version string }
 type updaterDoneMsg struct{}
+
+type sessionMsg struct {
+	session *session
+	msg     tea.Msg
+}
+
+// Wraps an internal msg, associating its result with a specific session.
+func msgFor(session *session, msg tea.Msg) tea.Msg {
+	if msg == nil {
+		return nil
+	}
+	return sessionMsg{session: session, msg: msg}
+}
+
+// Check if the msg is from the current session (or a general msg).
+// If so, return the unwrapped value.
+func unwrapIfFor(session *session, msg tea.Msg) (tea.Msg, bool) {
+	if sm, ok := msg.(sessionMsg); ok {
+		if sm.session == session {
+			return sm.msg, true
+		}
+		return nil, false
+	}
+
+	// general msg
+	return msg, true
+}

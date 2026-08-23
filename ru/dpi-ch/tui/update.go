@@ -61,6 +61,8 @@ func (rm rootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		if k == "m" || k == "ь" || k == "backspace" {
+			rm.cleanupTab()
+
 			if rm.router.Tab == updaterTab {
 				cmds = append(cmds, func() tea.Msg { return updaterDoneMsg{} })
 			}
@@ -68,7 +70,6 @@ func (rm rootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			rm.router.Tab = menuTab
 			rm.viewport.SetXOffset(0)
 			rm.viewport.SetYOffset(0)
-			cmds = append(cmds, func() tea.Msg { return returnedToMenuMsg{} })
 		}
 
 	// TODO: Should this be here (for special cases)?
@@ -156,14 +157,21 @@ func routerUpdate(router *router, msg tea.Msg) (*router, tea.Cmd) {
 }
 
 func whoamiUpdate(model whoamiModel, msg tea.Msg) (whoamiModel, tea.Cmd) {
+	var ok bool
+	if msg, ok = unwrapIfFor(model.session, msg); !ok {
+		return model, nil
+	}
+
 	switch msg := msg.(type) {
 	case whoamiInitMsg:
 		s := spinner.New()
 		s.Spinner = spinnerType
 		s.Style = spinnerStyle
-		model = whoamiModel{spinner: s, fetching: true}
-		return model, tea.Batch(model.spinner.Tick, whoamiFetchCmd)
-
+		model = whoamiModel{spinner: s, fetching: true, session: &session{}}
+		return model, tea.Batch(
+			cmdFor(model.session, model.spinner.Tick),
+			whoamiFetchCmd(model.session),
+		)
 	case whoamiResultMsg:
 		model.fetching = false
 		model.result = msg.result
@@ -173,7 +181,7 @@ func whoamiUpdate(model whoamiModel, msg tea.Msg) (whoamiModel, tea.Cmd) {
 		if model.fetching {
 			var cmd tea.Cmd
 			model.spinner, cmd = model.spinner.Update(msg)
-			return model, cmd
+			return model, cmdFor(model.session, cmd)
 		}
 	}
 
@@ -181,13 +189,21 @@ func whoamiUpdate(model whoamiModel, msg tea.Msg) (whoamiModel, tea.Cmd) {
 }
 
 func cidrwhitelistUpdate(model cidrwhitelistModel, msg tea.Msg) (cidrwhitelistModel, tea.Cmd) {
+	var ok bool
+	if msg, ok = unwrapIfFor(model.session, msg); !ok {
+		return model, nil
+	}
+
 	switch msg := msg.(type) {
 	case cidrwhitelistInitMsg:
 		s := spinner.New()
 		s.Spinner = spinnerType
 		s.Style = spinnerStyle
-		model = cidrwhitelistModel{spinner: s, fetching: true}
-		return model, tea.Batch(model.spinner.Tick, cidrwhitelistCheckCmd)
+		model = cidrwhitelistModel{spinner: s, fetching: true, session: &session{}}
+		return model, tea.Batch(
+			cmdFor(model.session, model.spinner.Tick),
+			cidrwhitelistCheckCmd(model.session),
+		)
 	case cidrwhitelistResultMsg:
 		model.fetching = false
 		model.err = msg.err
@@ -196,7 +212,7 @@ func cidrwhitelistUpdate(model cidrwhitelistModel, msg tea.Msg) (cidrwhitelistMo
 		if model.fetching {
 			var cmd tea.Cmd
 			model.spinner, cmd = model.spinner.Update(msg)
-			return model, cmd
+			return model, cmdFor(model.session, cmd)
 		}
 	}
 
@@ -204,34 +220,49 @@ func cidrwhitelistUpdate(model cidrwhitelistModel, msg tea.Msg) (cidrwhitelistMo
 }
 
 func updaterUpdate(model updaterModel, msg tea.Msg) (updaterModel, tea.Cmd) {
+	var ok bool
+	if msg, ok = unwrapIfFor(model.session, msg); !ok {
+		return model, nil
+	}
+
 	switch msg := msg.(type) {
 	case updaterInitMsg:
 		ctx, cancel := context.WithCancel(context.Background())
 		s := spinner.New()
 		s.Spinner = spinnerType
 		s.Style = spinnerStyle
-		model = updaterModel{fetching: true, spinner: s, ctx: ctx, cancel: cancel, allFlag: msg.allFlag}
+		model = updaterModel{fetching: true, spinner: s, ctx: ctx, cancel: cancel, allFlag: msg.allFlag, session: &session{}}
 
 		allConfig := config.Get().All
 		if model.allFlag && allConfig.AutoExit {
 			// updaterStartInetlookupMsg => updaterDoneMsg (checks allFlag)
 			if msg.inetlookupTtu || msg.forceInetlookupUpdate {
-				return model, func() tea.Msg { return updaterStartInetlookupMsg{} }
+				return model, func() tea.Msg {
+					return msgFor(model.session, updaterStartInetlookupMsg{})
+				}
 			}
 			return model, func() tea.Msg { return updaterDoneMsg{} }
 		}
 
 		if msg.forceInetlookupUpdate {
-			return model, func() tea.Msg { return updaterStartInetlookupMsg{} }
+			return model, func() tea.Msg {
+				return msgFor(model.session, updaterStartInetlookupMsg{})
+			}
 		}
 
 		model.progress = "checking for updates to itself"
-		return model, tea.Batch(updaterSelfCmd(model.ctx, msg.forceUpdate, msg.inetlookupTtu), model.spinner.Tick)
+		return model, tea.Batch(
+			updaterSelfCmd(model.session, model.ctx, msg.forceUpdate, msg.inetlookupTtu),
+			cmdFor(model.session, model.spinner.Tick),
+		)
 
 	case updaterStartInetlookupMsg:
 		model.progress = "checking for geoip updates"
 		model.fetching = true
-		return model, tea.Batch(updaterInetlookupCmd(model.ctx), model.spinner.Tick)
+		return model, tea.Batch(
+			updaterInetlookupCmd(model.session, model.ctx),
+			cmdFor(model.session, model.spinner.Tick),
+		)
 	case updaterSelfDoneMsg:
 		model.fetching = false
 		model.restartRequired = true
@@ -257,7 +288,7 @@ func updaterUpdate(model updaterModel, msg tea.Msg) (updaterModel, tea.Cmd) {
 		if model.fetching {
 			var cmd tea.Cmd
 			model.spinner, cmd = model.spinner.Update(msg)
-			return model, cmd
+			return model, cmdFor(model.session, cmd)
 		}
 	}
 
@@ -265,11 +296,19 @@ func updaterUpdate(model updaterModel, msg tea.Msg) (updaterModel, tea.Cmd) {
 }
 
 func webhostUpdate(model webhostModel, msg tea.Msg) (webhostModel, tea.Cmd) {
+	var ok bool
+	if msg, ok = unwrapIfFor(model.session, msg); !ok {
+		return model, nil
+	}
+
 	if !model.inited {
 		switch msg := msg.(type) {
 		case webhostInitMsg:
 			model := webhostInitModel()
-			return model, tea.Batch(model.spinner.Tick, webhostProducerStartCmd(model.ctx, msg.Targets))
+			return model, tea.Batch(
+				cmdFor(model.session, model.spinner.Tick),
+				webhostProducerStartCmd(model.session, model.ctx, msg.Targets),
+			)
 		}
 
 		return model, nil
@@ -278,15 +317,15 @@ func webhostUpdate(model webhostModel, msg tea.Msg) (webhostModel, tea.Cmd) {
 	switch msg := msg.(type) {
 	case webhostProducerStartedMsg:
 		model.out = msg.out
-		return model, webhostConsumerCmd(model.out)
+		return model, webhostConsumerCmd(model.session, model.out)
 	case webhostItemMsg:
-		return webhostProcessItem(msg, model), webhostConsumerCmd(model.out)
+		return webhostProcessItem(msg, model), webhostConsumerCmd(model.session, model.out)
 	case webhostProgressMsg:
 		model.progress = string(msg)
 		if strings.Contains(model.progress, "farming timeout") { // TODO: make it typed
 			model.farmTimeout = true
 		}
-		return model, webhostConsumerCmd(model.out)
+		return model, webhostConsumerCmd(model.session, model.out)
 	case webhostProducerDoneMsg:
 		model.fetching = false
 		return model, nil
@@ -294,19 +333,13 @@ func webhostUpdate(model webhostModel, msg tea.Msg) (webhostModel, tea.Cmd) {
 		if model.fetching {
 			var cmd tea.Cmd
 			model.spinner, cmd = model.spinner.Update(msg)
-			return model, cmd
+			return model, cmdFor(model.session, cmd)
 		}
-	case returnedToMenuMsg:
-		if model.cancel != nil {
-			model.cancel()
-		}
-		model = webhostModel{}
-		return model, nil
 	}
 
 	var cmd tea.Cmd
 	model.table, cmd = model.table.Update(msg)
-	return model, cmd
+	return model, cmdFor(model.session, cmd)
 }
 
 func webhostProcessItem(msg webhostItemMsg, model webhostModel) webhostModel {
@@ -396,6 +429,7 @@ func webhostInitModel() webhostModel {
 	)
 
 	return webhostModel{
+		session:  &session{},
 		inited:   true,
 		ctx:      ctx,
 		cancel:   cancel,
@@ -406,6 +440,11 @@ func webhostInitModel() webhostModel {
 }
 
 func allUpdate(model allModel, msg tea.Msg) (allModel, tea.Cmd) {
+	var ok bool
+	if msg, ok = unwrapIfFor(model.session, msg); !ok {
+		return model, nil
+	}
+
 	config := config.Get().All
 	if !model.inited {
 		switch msg.(type) {
@@ -416,8 +455,11 @@ func allUpdate(model allModel, msg tea.Msg) (allModel, tea.Cmd) {
 			spin.Spinner = spinnerType
 			spin.Style = spinnerStyle
 
-			model = allModel{inited: true, spinner: spin, ctx: ctx, cancel: cancel, fetching: true}
-			return model, tea.Batch(model.spinner.Tick, allProducerStartCmd(model.ctx))
+			model = allModel{inited: true, spinner: spin, ctx: ctx, cancel: cancel, fetching: true, session: &session{}}
+			return model, tea.Batch(
+				cmdFor(model.session, model.spinner.Tick),
+				allProducerStartCmd(model.session, model.ctx),
+			)
 		}
 
 		return model, nil
@@ -426,10 +468,10 @@ func allUpdate(model allModel, msg tea.Msg) (allModel, tea.Cmd) {
 	switch msg := msg.(type) {
 	case allProducerStartedMsg:
 		model.out = msg.out
-		return model, allConsumerCmd(model.out)
+		return model, allConsumerCmd(model.session, model.out)
 	case allProgressMsg:
 		model.progress = checkers.FullCheckProgress(msg)
-		return model, allConsumerCmd(model.out)
+		return model, allConsumerCmd(model.session, model.out)
 	case allProducerDoneMsg:
 		model.fetching = false
 		if config.AutoExit {
@@ -440,25 +482,27 @@ func allUpdate(model allModel, msg tea.Msg) (allModel, tea.Cmd) {
 		if model.fetching {
 			var cmd tea.Cmd
 			model.spinner, cmd = model.spinner.Update(msg)
-			return model, cmd
+			return model, cmdFor(model.session, cmd)
 		}
-	case returnedToMenuMsg:
-		if model.cancel != nil {
-			model.cancel()
-		}
-		model = allModel{}
-		return model, nil
 	}
 
 	return model, nil
 }
 
 func dnsUpdate(model dnsModel, msg tea.Msg) (dnsModel, tea.Cmd) {
+	var ok bool
+	if msg, ok = unwrapIfFor(model.session, msg); !ok {
+		return model, nil
+	}
+
 	if !model.inited {
 		switch msg.(type) {
 		case dnsInitMsg:
 			model = dnsInitModel()
-			return model, tea.Batch(model.spinner.Tick, dnsProducerStartCmd(model.ctx))
+			return model, tea.Batch(
+				cmdFor(model.session, model.spinner.Tick),
+				dnsProducerStartCmd(model.session, model.ctx),
+			)
 		}
 
 		return model, nil
@@ -467,16 +511,16 @@ func dnsUpdate(model dnsModel, msg tea.Msg) (dnsModel, tea.Cmd) {
 	switch msg := msg.(type) {
 	case dnsProducerStartedMsg:
 		model.out = msg.out
-		return model, dnsConsumerCmd(model.out)
+		return model, dnsConsumerCmd(model.session, model.out)
 	case dnsProviderPlainMsg:
-		return dnsProcessPlainProvider(msg, model), dnsConsumerCmd(model.out)
+		return dnsProcessPlainProvider(msg, model), dnsConsumerCmd(model.session, model.out)
 	case dnsProviderDohMsg:
-		return dnsProcessDohProvider(msg, model), dnsConsumerCmd(model.out)
+		return dnsProcessDohProvider(msg, model), dnsConsumerCmd(model.session, model.out)
 	case dnsLeakMsg:
-		return dnsProcessLeak(msg, model), dnsConsumerCmd(model.out)
+		return dnsProcessLeak(msg, model), dnsConsumerCmd(model.session, model.out)
 	case dnsProgressMsg:
 		model.progress = string(msg)
-		return model, dnsConsumerCmd(model.out)
+		return model, dnsConsumerCmd(model.session, model.out)
 	case dnsProducerDoneMsg:
 		model.fetching = false
 		if model.out.progress != nil {
@@ -502,20 +546,17 @@ func dnsUpdate(model dnsModel, msg tea.Msg) (dnsModel, tea.Cmd) {
 		if model.fetching {
 			var cmd tea.Cmd
 			model.spinner, cmd = model.spinner.Update(msg)
-			return model, cmd
+			return model, cmdFor(model.session, cmd)
 		}
-	case returnedToMenuMsg:
-		if model.cancel != nil {
-			model.cancel()
-		}
-		model = dnsModel{}
-		return model, nil
 	}
 
 	var leakCmd, providerCmd tea.Cmd
 	model.leakTable, leakCmd = model.leakTable.Update(msg)
 	model.providerTable, providerCmd = model.providerTable.Update(msg)
-	return model, tea.Batch(leakCmd, providerCmd)
+	return model, tea.Batch(
+		cmdFor(model.session, leakCmd),
+		cmdFor(model.session, providerCmd),
+	)
 }
 
 func dnsProcessPlainProvider(msg dnsProviderPlainMsg, model dnsModel) dnsModel {
@@ -637,6 +678,7 @@ func dnsInitModel() dnsModel {
 	)
 
 	return dnsModel{
+		session:       &session{},
 		inited:        true,
 		ctx:           ctx,
 		cancel:        cancel,

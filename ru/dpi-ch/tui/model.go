@@ -10,6 +10,11 @@ import (
 	"charm.land/bubbles/v2/viewport"
 )
 
+// isolate messages from the bubble tea shared queue
+type session struct {
+	_ byte
+}
+
 type rootModel struct {
 	quitting bool
 	router   *router
@@ -24,6 +29,7 @@ type rootModel struct {
 }
 
 type allModel struct {
+	session  *session
 	inited   bool
 	fetching bool
 	spinner  spinner.Model
@@ -36,6 +42,7 @@ type allModel struct {
 }
 
 type whoamiModel struct {
+	session  *session
 	fetching bool
 	spinner  spinner.Model
 	result   checkers.WhoamiResult
@@ -43,12 +50,14 @@ type whoamiModel struct {
 }
 
 type cidrwhitelistModel struct {
+	session  *session
 	fetching bool
 	spinner  spinner.Model
 	err      error
 }
 
 type webhostModel struct {
+	session     *session
 	inited      bool
 	fetching    bool
 	spinner     spinner.Model
@@ -74,6 +83,7 @@ type dnsVerdictModel struct {
 }
 
 type dnsModel struct {
+	session  *session
 	inited   bool
 	fetching bool
 	spinner  spinner.Model
@@ -90,8 +100,9 @@ type dnsModel struct {
 }
 
 type updaterModel struct {
-	ctx    context.Context
-	cancel context.CancelFunc
+	session *session
+	ctx     context.Context
+	cancel  context.CancelFunc
 
 	err             error
 	restartRequired bool
@@ -99,4 +110,38 @@ type updaterModel struct {
 	spinner         spinner.Model
 	progress        string
 	allFlag         bool
+}
+
+func (rm *rootModel) cleanupTab() {
+	switch rm.router.Tab {
+	case allTab:
+		if rm.allModel.cancel != nil {
+			rm.allModel.cancel()
+		}
+		rm.allModel = allModel{}
+
+	case whoamiTab:
+		rm.whoamiModel = whoamiModel{}
+
+	case cidrwhitelistTab:
+		rm.cidrwhitelistModel = cidrwhitelistModel{}
+
+	case webhostTab:
+		if rm.webhostModel.cancel != nil {
+			rm.webhostModel.cancel()
+		}
+		rm.webhostModel = webhostModel{}
+
+	case dnsTab:
+		if rm.dnsModel.cancel != nil {
+			rm.dnsModel.cancel()
+		}
+		rm.dnsModel = dnsModel{}
+
+	case updaterTab:
+		if rm.updaterModel.cancel != nil {
+			rm.updaterModel.cancel()
+		}
+		rm.updaterModel = updaterModel{}
+	}
 }
