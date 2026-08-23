@@ -129,7 +129,7 @@ The default configuration already includes default filter options for popular we
 
 ## Configuration
 You can view the default configuration [here](https://github.com/hyperion-cs/dpi-checkers/blob/main/ru/dpi-ch/config/default.yaml) (incl. as an example; some options are internal and are not intended to be changed by users).<br>
-In any case, any option in the default configuration can be overwritten by users using a [YAML](https://en.wikipedia.org/wiki/YAML) file. To do this, create a `config.yaml` file near the executable file (the path to the file can be changed with the `--cfg` command line argument). The current configuration structure is available [here](https://github.com/hyperion-cs/dpi-checkers/blob/main/ru/dpi-ch/config/config.go), but below is an attempt to describe it in more detail.
+In any case, any option in the default configuration can be overwritten by users using a [YAML](https://en.wikipedia.org/wiki/YAML) file. To do this, create a `config.yaml` file near the executable file (the path to the file can be changed with the `--cfg` command line [argument](https://github.com/hyperion-cs/dpi-checkers/tree/main/ru/dpi-ch/docs#flags)). The current configuration structure is available [here](https://github.com/hyperion-cs/dpi-checkers/blob/main/ru/dpi-ch/config/config.go), but below is an attempt to describe it in more detail.
 
 Structure of primary options (internal hidden):
 ```yaml
@@ -238,6 +238,17 @@ updater: # used to automatically update the dpi-ch utility and related stuff (e.
   enabled: # bool; if true, updates will be enabled
   period:  # time.Duration; frequency of update checks (by default, no more than once per day)
 ```
+
+## Flags
+The utility has some flags (command-line args) that can sometimes be useful:
+| Flag                        | Description                                  |
+| --------------------------- | -------------------------------------------- |
+| `--all`                     | Run all checks immediately (result to file)  |
+| `--cfg :string`             | `.yaml` config path (default: `config.yaml`) |
+| `--force-inetlookup-update` | Force run the `inetlookup` update mechanism  |
+| `--force-update`            | Force run the `dpi-ch` update mechanism      |
+| `--ui :string`              | UI mode: `t` \| `web` (default: `t`)         |
+| `--version`                 | Print version                                |
 
 ## Similar projects
 It so happens that similar projects (unrelated to ours) are under development at the same time, and we are happy to tell you about them.
