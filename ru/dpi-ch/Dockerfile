@@ -1,4 +1,4 @@
-FROM golang:1.26-alpine AS builder
+FROM golang:1.27-alpine AS builder
 WORKDIR /build
 RUN apk add --no-cache git
 
@@ -12,7 +12,7 @@ RUN \
     -trimpath \
     .
 
-FROM alpine:3.23 AS runner
+FROM alpine:3.24 AS runner
 COPY --from=builder /build/dpich /usr/bin/dpich
 COPY docker/config.yaml /etc/dpich/config.yaml
 
