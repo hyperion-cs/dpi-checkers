@@ -29,14 +29,9 @@ func checkbox(label string, checked bool) string {
 	return fmt.Sprintf("[ ] %s", label)
 }
 
-// https://github.com/charmbracelet/bubbletea/issues/1646
-func tableOuterBorderStyle(workaround bool) lipgloss.Style {
+func tableOuterBorderStyle() lipgloss.Style {
 	return lipgloss.NewStyle().
 		BorderStyle(lipgloss.NormalBorder()).
-		BorderLeft(!workaround).
-		BorderRight(!workaround).
-		BorderTop(true).
-		BorderBottom(true).
 		BorderForeground(lipgloss.Color("240"))
 }
 

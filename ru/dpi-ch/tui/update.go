@@ -37,10 +37,6 @@ func (rm rootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyPressMsg:
 		k := msg.String()
-
-		// this and other tea.ClearScreen; tmp workaround of https://github.com/charmbracelet/bubbletea/issues/1646
-		cmds = append(cmds, tea.ClearScreen)
-
 		switch k {
 		case "a":
 			rm.viewport.ScrollLeft(horizontalScrollStep)
@@ -266,7 +262,7 @@ func webhostUpdate(model webhostModel, msg tea.Msg) (webhostModel, tea.Cmd) {
 		model.out = msg.out
 		return model, webhostConsumerCmd(model.out)
 	case webhostItemMsg:
-		return webhostProcessItem(msg, model), tea.Batch(webhostConsumerCmd(model.out), tea.ClearScreen)
+		return webhostProcessItem(msg, model), webhostConsumerCmd(model.out)
 	case webhostProgressMsg:
 		model.progress = string(msg)
 		if strings.Contains(model.progress, "farming timeout") { // TODO: make it typed
@@ -451,11 +447,11 @@ func dnsUpdate(model dnsModel, msg tea.Msg) (dnsModel, tea.Cmd) {
 		model.out = msg.out
 		return model, dnsConsumerCmd(model.out)
 	case dnsProviderPlainMsg:
-		return dnsProcessPlainProvider(msg, model), tea.Batch(dnsConsumerCmd(model.out), tea.ClearScreen)
+		return dnsProcessPlainProvider(msg, model), dnsConsumerCmd(model.out)
 	case dnsProviderDohMsg:
-		return dnsProcessDohProvider(msg, model), tea.Batch(dnsConsumerCmd(model.out), tea.ClearScreen)
+		return dnsProcessDohProvider(msg, model), dnsConsumerCmd(model.out)
 	case dnsLeakMsg:
-		return dnsProcessLeak(msg, model), tea.Batch(dnsConsumerCmd(model.out), tea.ClearScreen)
+		return dnsProcessLeak(msg, model), dnsConsumerCmd(model.out)
 	case dnsProgressMsg:
 		model.progress = string(msg)
 		return model, dnsConsumerCmd(model.out)

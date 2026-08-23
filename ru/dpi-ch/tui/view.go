@@ -167,7 +167,7 @@ func webhostView(model webhostModel) string {
 			"\n " + model.table.HelpView() +
 			subtleStyle.Render(fmt.Sprintf("; cursor: %d/%d%s", cursor, total, over))
 
-		r += tableOuterBorderStyle(true).Render(inner) + "\n\n"
+		r += tableOuterBorderStyle().Render(inner) + "\n\n"
 	}
 	if model.fetching {
 		r += fmt.Sprintf("%s %s\n", model.spinner.View(), model.progress)
@@ -192,19 +192,19 @@ func dnsView(model dnsModel) string {
 			subtleStyle.Render(fmt.Sprintf("; cursor: %d/%d", cursor, providerTotal))
 
 		providerTbl = "> DNS resolves spoofing/blocking:\n" +
-			tableOuterBorderStyle(false).Render(tbl)
+			tableOuterBorderStyle().Render(tbl)
 	}
 	if leakTotal > 0 || !model.fetching {
 		leakTbl = "> DNS servers hijacking test. Actually used:\n"
 		if leakTotal == 0 {
-			leakTbl += tableOuterBorderStyle(false).Render(" ⚠️ It seems that there is no Internet access  ")
+			leakTbl += tableOuterBorderStyle().Render(" ⚠️ It seems that there is no Internet access  ")
 		} else {
 			cursor := model.leakTable.Cursor() + 1
 			tbl := model.leakTable.View() +
 				"\n " + dnsTableHelpView() +
 				subtleStyle.Render(fmt.Sprintf("; cursor: %d/%d", cursor, leakTotal))
 
-			leakTbl += tableOuterBorderStyle(false).Render(tbl)
+			leakTbl += tableOuterBorderStyle().Render(tbl)
 		}
 	}
 
