@@ -250,7 +250,7 @@ func getGeonameidCountry(path string) map[int32]string {
 		if err != nil {
 			prettyPanic("getGeonameId2CountryIso", err)
 		}
-		if len(row) < 4 {
+		if len(row) < 5 {
 			prettyPanic("getGeonameId2CountryIso", fmt.Errorf("unexpected number of columns in csv"))
 		}
 
