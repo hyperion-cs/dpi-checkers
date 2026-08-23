@@ -296,8 +296,9 @@ all:
     - cidrwhitelist
     - webhost
     - dns
-  prefix: results_            # may include the absolute path to a directory (e.g.: /etc/prefix_)
   ts-format: 2006-01-02_15-04 # golang style: https://pkg.go.dev/time#pkg-constants
+  prefix: results_            # may include the absolute path to a directory (e.g.: /etc/prefix_)
+  auto-exit: false
 
 # Internal modules
 

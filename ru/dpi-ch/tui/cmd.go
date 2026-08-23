@@ -14,28 +14,40 @@ import (
 func (rm rootModel) Init() tea.Cmd {
 	cfg := config.Get()
 
-	if cfg.All.Flag {
-		return func() tea.Msg {
-			inetlookup.Default()
-			return allInitMsg{}
-		}
-	}
-
 	selfTtu, _ := updater.TimeToUpdate(cfg.Updater.SelfTsFile)
 	inetlookupTtu, _ := updater.TimeToUpdate(cfg.Updater.InetlookupTsFile)
 	if cfg.Updater.ForceUpdate || cfg.Updater.ForceInetlookupUpdate || (cfg.Updater.Enabled && (selfTtu || inetlookupTtu)) {
 		return func() tea.Msg {
 			return updaterInitMsg{
+				selfTtu:               selfTtu,
+				inetlookupTtu:         inetlookupTtu,
 				forceUpdate:           cfg.Updater.ForceUpdate,
 				forceInetlookupUpdate: cfg.Updater.ForceInetlookupUpdate,
+				allFlag:               cfg.All.Flag, // only inetlookup update (if required) and then run ALL mode
 			}
 		}
+	}
+
+	if cfg.All.Flag {
+		return allCmd
 	}
 
 	return func() tea.Msg {
 		inetlookup.Default()
 		return nil
 	}
+}
+
+// All commands without parameters have a "flat" form [to be used as `cmd` rather than `cmd()`];
+// otherwise, a `func() tea.Msg` is returned, to which the parameters are passed.
+
+func allCmd() tea.Msg {
+	inetlookup.Default()
+	return allInitMsg{}
+}
+
+func exitCmd() tea.Msg {
+	return exitMsg{}
 }
 
 func whoamiFetchCmd() tea.Msg {
@@ -145,28 +157,27 @@ func allConsumerCmd(p <-chan checkers.FullCheckProgress) tea.Cmd {
 	}
 }
 
-func updaterSelfCmd(ctx context.Context, force bool) tea.Cmd {
+func updaterSelfCmd(ctx context.Context, force bool, inetlookupTtu bool) tea.Cmd {
 	return func() tea.Msg {
 		upd, err := updater.SelfCheckUpdates(ctx)
 		if err == updater.ErrUnsupportedOsOrArch {
 			// TODO: the user should be warned about this.
 			return updaterStartInetlookupMsg{}
 		}
-
 		if err != nil {
 			return updaterErrMsg{err: err}
 		}
+
 		if !upd.Required {
-			if force {
-				return updaterDoneMsg{}
+			if !force && inetlookupTtu {
+				return updaterStartInetlookupMsg{}
 			}
-			return updaterStartInetlookupMsg{}
+			return updaterDoneMsg{}
 		}
 
 		if err = updater.SelfUpdate(ctx, upd.AssetUrl, upd.AssetFilename, upd.AssetVersion); err != nil {
 			return updaterErrMsg{err: err}
 		}
-
 		return updaterSelfDoneMsg{version: upd.AssetVersion}
 	}
 }

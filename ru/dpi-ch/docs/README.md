@@ -208,8 +208,10 @@ all: # all checks mode settings (result will be saved to a file)
              #         supported values: json, yaml
   checkers:  # []string; list of checks that will be executed
              #           supported values: whoami, cidrwhitelist, webhost, dns
-  prefix:    # string; prefix for the results file; may include the absolute path to a directory (e.g.: /etc/prefix_)
   ts-format: # string; timestamp format in the output file name, go-style: https://pkg.go.dev/time#pkg-constants
+  prefix:    # string; prefix for the results file; may include the absolute path to a directory (e.g.: /etc/prefix_);
+             #         result file path: prefix + ts-format
+  auto-exit: # bool; automatically exit dpich when checks are complete and report is saved
 
 
 # support utilities section:

@@ -98,4 +98,5 @@ type updaterModel struct {
 	fetching        bool
 	spinner         spinner.Model
 	progress        string
+	allFlag         bool
 }

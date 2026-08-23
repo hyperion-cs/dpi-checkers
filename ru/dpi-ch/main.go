@@ -47,14 +47,18 @@ func main() {
 		fmt.Println(version.Value)
 		return
 	}
+
+	// this is ignored if the ALL + auto-exit flags are set
 	if *forceUpd {
-		config.ForceUpdate()
+		config.ForceUpdateFlag()
 	}
+
 	if *forceInetlookupUpd {
-		config.ForceInetlookupUpdate()
+		config.ForceInetlookupUpdateFlag()
 	}
+
 	if *all {
-		config.RunAllChecksImmediately()
+		config.AllFlag()
 	}
 
 	switch *ui {

@@ -91,8 +91,9 @@ type Config struct {
 	All struct {
 		Format   string   `mapstructure:"format"`
 		Checkers []string `mapstructure:"checkers"`
-		Prefix   string   `mapstructure:"prefix"`
 		TsFormat string   `mapstructure:"ts-format"`
+		Prefix   string   `mapstructure:"prefix"`
+		AutoExit bool     `mapstructure:"auto-exit"`
 		Flag     bool     `mapstructure:"flag"`
 	} `mapstructure:"all"`
 
@@ -276,14 +277,14 @@ func ConfigPath() (string, error) {
 	return filepath.Clean(filepath.Join(binFolder, _path)), nil
 }
 
-func ForceInetlookupUpdate() {
+func ForceInetlookupUpdateFlag() {
 	_cfg.Updater.ForceInetlookupUpdate = true
 }
 
-func ForceUpdate() {
+func ForceUpdateFlag() {
 	_cfg.Updater.ForceUpdate = true
 }
 
-func RunAllChecksImmediately() {
+func AllFlag() {
 	_cfg.All.Flag = true
 }

@@ -31,6 +31,11 @@ func (rm rootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// Only root and updater processing here
 	switch msg := msg.(type) {
+	case exitMsg:
+		rm.quitting = true
+		rm.syncViewport()
+		return rm, tea.Quit
+
 	case tea.WindowSizeMsg:
 		rm.viewport.SetWidth(max(1, msg.Width))
 		rm.viewport.SetHeight(max(1, msg.Height))
@@ -52,9 +57,7 @@ func (rm rootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		if k == "q" || k == "й" || k == "esc" || k == "ctrl+c" || k == "ctrl+с" {
-			rm.quitting = true
-			rm.syncViewport()
-			return rm, tea.Quit
+			return rm, exitCmd
 		}
 
 		if k == "m" || k == "ь" || k == "backspace" {
@@ -207,12 +210,24 @@ func updaterUpdate(model updaterModel, msg tea.Msg) (updaterModel, tea.Cmd) {
 		s := spinner.New()
 		s.Spinner = spinnerType
 		s.Style = spinnerStyle
-		model = updaterModel{fetching: true, spinner: s, ctx: ctx, cancel: cancel}
+		model = updaterModel{fetching: true, spinner: s, ctx: ctx, cancel: cancel, allFlag: msg.allFlag}
+
+		allConfig := config.Get().All
+		if model.allFlag && allConfig.AutoExit {
+			// updaterStartInetlookupMsg => updaterDoneMsg (checks allFlag)
+			if msg.inetlookupTtu || msg.forceInetlookupUpdate {
+				return model, func() tea.Msg { return updaterStartInetlookupMsg{} }
+			}
+			return model, func() tea.Msg { return updaterDoneMsg{} }
+		}
+
 		if msg.forceInetlookupUpdate {
 			return model, func() tea.Msg { return updaterStartInetlookupMsg{} }
 		}
+
 		model.progress = "checking for updates to itself"
-		return model, tea.Batch(updaterSelfCmd(model.ctx, msg.forceUpdate), model.spinner.Tick)
+		return model, tea.Batch(updaterSelfCmd(model.ctx, msg.forceUpdate, msg.inetlookupTtu), model.spinner.Tick)
+
 	case updaterStartInetlookupMsg:
 		model.progress = "checking for geoip updates"
 		model.fetching = true
@@ -234,6 +249,9 @@ func updaterUpdate(model updaterModel, msg tea.Msg) (updaterModel, tea.Cmd) {
 			model.cancel()
 		}
 		model.fetching = false
+		if model.allFlag {
+			return model, allCmd
+		}
 		return model, nil
 	case spinner.TickMsg:
 		if model.fetching {
@@ -388,6 +406,7 @@ func webhostInitModel() webhostModel {
 }
 
 func allUpdate(model allModel, msg tea.Msg) (allModel, tea.Cmd) {
+	config := config.Get().All
 	if !model.inited {
 		switch msg.(type) {
 		case allInitMsg:
@@ -413,6 +432,9 @@ func allUpdate(model allModel, msg tea.Msg) (allModel, tea.Cmd) {
 		return model, allConsumerCmd(model.out)
 	case allProducerDoneMsg:
 		model.fetching = false
+		if config.AutoExit {
+			return model, exitCmd
+		}
 		return model, nil
 	case spinner.TickMsg:
 		if model.fetching {

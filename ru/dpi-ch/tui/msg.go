@@ -5,6 +5,7 @@ import (
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
 )
 
+type exitMsg struct{}
 type returnedToMenuMsg struct{}
 
 type whoamiInitMsg struct{}
@@ -46,8 +47,11 @@ type allProgressMsg checkers.FullCheckProgress
 type allProducerDoneMsg struct{}
 
 type updaterInitMsg struct {
+	selfTtu               bool
+	inetlookupTtu         bool
 	forceUpdate           bool
 	forceInetlookupUpdate bool
+	allFlag               bool
 }
 
 type updaterErrMsg struct{ err error }
