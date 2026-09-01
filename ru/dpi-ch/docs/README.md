@@ -182,23 +182,31 @@ checkers: # checkers, available in the dpi-ch utility
   dns: # aka dns checker
     table-max-visible-rows: # int; number of visible rows in results tables (if there are more, scrolling is available)
 
-    targets: # []target-item; list of test targets for resolving
+    resolve:
+      plain-opt:
+        timeout: # time.Duration; timeout for plain dns requests and dst spoofing check
+        workers: # int; number of parallel plain dns workers
 
-             # target-item structure:
-             # host:   # string; domain name for resolving (e.g. google.com)
-             # filter: # string; filter in subnetfilter notation that determines if a dns resolving occurred without spoofing
-   
-    providers: # []provider-item; list of dns providers (both plain and doh)
+      doh-opt:
+        timeout:             # time.Duration; timeout for doh requests
+        workers:             # int; number of parallel doh workers
+        path:                # string; doh endpoint path
+        http-static-headers: # map[string]string; http headers for doh requests
 
-               # provider-item structure:
-               # name:  # string; name of the provider
-               # plain: # []string; list of provider's plain dns resolvers in ip:port format
-               # doh:   # provider's doh dns resolvers
-                 # filter: # string; filter in subnetfilter notation that determines
-                           #         if a dns BOOTSTRAP resolving occurred without spoofing
-                 # hosts:  # []string; list of provider's doh dns resolvers in domain name format (e.g. dns.google)
-
-
+      targets: # []target-item; list of test targets for resolving
+               # target-item structure:
+               # host:   # string; domain name for resolving (e.g. google.com)
+               # filter: # string; filter in subnetfilter notation that determines if a dns resolving occurred without spoofing
+    
+      providers: # []provider-item; list of dns providers (both plain and doh)
+                 # provider-item structure:
+                 # name:  # string; name of the provider
+                 # plain: # []string; list of provider's plain dns resolvers in ip:port format
+                 # doh:   # []provider-doh; provider's doh dns resolvers
+                          # provider-doh structure:
+                          # filter: # string; filter in subnetfilter notation that determines
+                                    #         if a dns BOOTSTRAP resolving occurred without spoofing
+                          # hosts:  # []string; list of provider's doh dns resolvers in domain name format (e.g. dns.google)
 
   whoami: # aka whoami checker
     timeout: # time.Duration; total timeout for receiving checker results

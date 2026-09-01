@@ -80,6 +80,27 @@ var (
 	ErrDnsDohNon2xxResp        = errors.New("dns: doh non-2xx response")
 )
 
+var dnsErrors = []error{
+	// In descending order of importance
+	ErrDnsResolveSpoofing,
+	ErrDnsNxdomainSpoofing,
+	ErrDnsDohBootstrapSpoofing,
+	ErrDnsDohBootstrapEmpty,
+	ErrDnsDohInsecure,
+	ErrDnsDohNon2xxResp,
+	ErrDnsSkip,
+}
+
+func DnsErrors(err error) []error {
+	out := []error{}
+	for _, x := range dnsErrors {
+		if errors.Is(err, x) {
+			out = append(out, x)
+		}
+	}
+	return out
+}
+
 // Resolve in DoH mode + spoofing check; bsProvider is used for the DoH bootstrap.
 func dnsDohMatrix(ctx context.Context, bsProvider DnsPlainProvider, dohProvider DnsDohProvider, targets []DnsTarget) []DnsDohAnswer {
 	res := []DnsDohAnswer{}
@@ -99,7 +120,7 @@ func dnsDohMatrix(ctx context.Context, bsProvider DnsPlainProvider, dohProvider 
 				hostIps := map[netip.Addr]struct{}{}
 
 				for _, bs := range hostBootstrap {
-					if bs.Err == ErrDnsResolveSpoofing {
+					if errors.Is(bs.Err, ErrDnsResolveSpoofing) {
 						ans.BootstrapErr = ErrDnsDohBootstrapSpoofing
 						return
 					}
@@ -152,7 +173,7 @@ func dnsDohRaw(ctx context.Context, target DnsTarget, resolverHostname string, r
 	}
 	defer tlsConn.Close()
 
-	preparedA, err := dnsDohPrepareA(target.Hostname)
+	preparedA, err := dnsPrepareA(target.Hostname)
 	if err != nil {
 		res.Err = err
 		return res
@@ -187,16 +208,38 @@ func dnsDohRaw(ctx context.Context, target DnsTarget, resolverHostname string, r
 	return res
 }
 
-func dnsPlainVerdict(matrix []DnsPlainAnswer) error {
-	// We need to make a single verdict on DNS providers,
-	// so choose the most dangerous case.
-	var err error
-	for _, m := range matrix {
-		if plainErrImportance(m.Err) > plainErrImportance(err) {
-			err = m.Err
+func dnsVerdict(errs []error) error {
+	found := []error{}
+
+	for _, sentinel := range dnsErrors {
+		for _, err := range errs {
+			if errors.Is(err, sentinel) {
+				found = append(found, sentinel)
+				break
+			}
 		}
 	}
 
+	if len(found) > 0 {
+		return errors.Join(found...)
+	}
+
+	for _, err := range errs {
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func dnsPlainVerdict(matrix []DnsPlainAnswer) error {
+	errs := make([]error, 0, len(matrix))
+	for _, m := range matrix {
+		errs = append(errs, m.Err)
+	}
+
+	err := dnsVerdict(errs)
 	if err != nil {
 		log.Println("dnsPlainVerdict", matrix)
 	}
@@ -204,57 +247,19 @@ func dnsPlainVerdict(matrix []DnsPlainAnswer) error {
 }
 
 func dnsDohVerdict(matrix []DnsDohAnswer) error {
-	// We need to make a single verdict on DNS providers,
-	// so choose the most dangerous case.
-	var err error
+	errs := []error{}
 	for _, m := range matrix {
-		if dohErrImportance(m.BootstrapErr) > dohErrImportance(err) {
-			err = m.BootstrapErr
-		}
-		if len(m.Items) > 0 {
-			for _, item := range m.Items {
-				if dohErrImportance(item.Err) > dohErrImportance(err) {
-					err = item.Err
-				}
-			}
+		errs = append(errs, m.BootstrapErr)
+		for _, item := range m.Items {
+			errs = append(errs, item.Err)
 		}
 	}
 
+	err := dnsVerdict(errs)
 	if err != nil {
 		log.Println("dnsDohVerdict", matrix)
 	}
 	return err
-}
-
-func plainErrImportance(err error) int {
-	switch err {
-	case ErrDnsResolveSpoofing:
-		return 3
-	case ErrDnsNxdomainSpoofing:
-		return 2
-	case nil:
-		return 0
-	default:
-		return 1
-	}
-}
-
-func dohErrImportance(err error) int {
-	if inetutil.IsInetutilErr(err) {
-		return 3
-	}
-	switch err {
-	case ErrDnsDohBootstrapSpoofing:
-		return 5
-	case ErrDnsDohInsecure:
-		return 4
-	case ErrDnsDohNon2xxResp:
-		return 2
-	case nil:
-		return 0
-	default:
-		return 1
-	}
 }
 
 // Resolve in plain mode + spoofing check.
@@ -267,27 +272,32 @@ func dnsPlainMatrix(ctx context.Context, provider DnsPlainProvider, targets []Dn
 
 			func() {
 				ips, err := dnsPlainA(ctx, addr, target.Hostname)
+
 				if err != nil {
 					if dnsErr, ok := errors.AsType[*net.DNSError](err); ok {
 						if dnsErr.IsNotFound {
-							item.Err = ErrDnsNxdomainSpoofing
+							item.Err = errors.Join(item.Err, ErrDnsNxdomainSpoofing)
 							return
 						}
 					}
 
-					item.Err = err
+					if item.Err == nil {
+						item.Err = err
+					}
 					return
 				}
 
 				orig, err := subnetfilterMatchAll(ips, target.Filter)
 				if err != nil {
-					item.Err = err
+					if item.Err == nil {
+						item.Err = err
+					}
 					return
 				}
 
 				item.Items = ips
 				if !orig {
-					item.Err = ErrDnsResolveSpoofing
+					item.Err = errors.Join(item.Err, ErrDnsResolveSpoofing)
 					log.Println("dnsPlainMatrix", "response spoofing", item)
 				}
 			}()
@@ -358,7 +368,7 @@ func subnetfilterMatchAll(ips []netip.Addr, filter string) (bool, error) {
 	return true, nil
 }
 
-func dnsDohPrepareA(target string) ([]byte, error) {
+func dnsPrepareA(target string) ([]byte, error) {
 	b := dnsmessage.NewBuilder(nil, dnsmessage.Header{
 		RecursionDesired: true,
 	})
