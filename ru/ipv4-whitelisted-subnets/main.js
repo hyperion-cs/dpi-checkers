@@ -14,6 +14,8 @@ const TEST_SUITE = [
   { "name": "MT FINANCE", "asns": ["214822"] },
   { "name": "Citytelecom", "asns": ["3175"] },
   { "name": "DDOS GUARD", "asns": ["57724"] },
+  { "name": "Cloud.ru", "asns": ["208677"] },
+  { "name": "New Hosting Technologies", "asns": ["216334"] },
 ];
 
 let TIMEOUT_MS = 5000;
