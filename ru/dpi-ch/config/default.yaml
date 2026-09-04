@@ -271,6 +271,15 @@ checkers:
             hosts:
               - dns.adguard-dns.com
 
+        - name: Quad9
+          plain:
+            - 9.9.9.9:53
+            - 149.112.112.112:53
+          doh:
+            filter: org("quad9")
+            hosts:
+              - dns.quad9.net
+
         - name: Yandex DNS
           plain:
             - 77.88.8.8:53

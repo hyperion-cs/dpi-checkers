@@ -308,6 +308,12 @@ func fullCheckPrettyDnsVerdict(v error) []FullCheckStatusDto {
 		return []FullCheckStatusDto{{Msg: "Ok", Code: "OK"}}
 	}
 
+	// TODO: disable this when HTTP/2 is supported.
+	// It only works as long as we trust providers that use DoH.
+	if len(DnsErrors(v)) == 1 && errors.Is(v, ErrDnsDohNon2xxResp) {
+		return []FullCheckStatusDto{{Msg: "Ok", Code: "OK"}}
+	}
+
 	items := []FullCheckStatusDto{}
 	for _, err := range DnsErrors(v) {
 		switch err {

@@ -31,11 +31,18 @@ func dnsPrettyProviderVerdict(err error) string {
 	if err == nil {
 		return "✅ not detected"
 	}
+
+	dnsErrs := checkers.DnsErrors(err)
+	// TODO: disable this when HTTP/2 is supported.
+	// It only works as long as we trust providers that use DoH.
+	if len(dnsErrs) == 1 && errors.Is(err, checkers.ErrDnsDohNon2xxResp) {
+		return "✅ not detected"
+	}
+
 	if errors.Is(err, ErrPending) {
 		return "⏰ checking..."
 	}
 
-	dnsErrs := checkers.DnsErrors(err)
 	if len(dnsErrs) > 0 {
 		items := []string{}
 		for _, x := range dnsErrs {
