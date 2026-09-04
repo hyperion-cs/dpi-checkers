@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"slices"
+	"strings"
 
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/inetutil"
@@ -27,6 +28,52 @@ var (
 )
 
 func dnsPrettyProviderVerdict(err error) string {
+	if err == nil {
+		return "✅ not detected"
+	}
+
+	dnsErrs := checkers.DnsErrors(err)
+	// TODO: disable this when HTTP/2 is supported.
+	// It only works as long as we trust providers that use DoH.
+	if len(dnsErrs) == 1 && errors.Is(err, checkers.ErrDnsDohNon2xxResp) {
+		return "✅ not detected"
+	}
+
+	if errors.Is(err, ErrPending) {
+		return "⏰ checking..."
+	}
+
+	if len(dnsErrs) > 0 {
+		items := []string{}
+		for _, x := range dnsErrs {
+			switch x {
+			case checkers.ErrDnsResolveSpoofing:
+				items = append(items, "response spoofing")
+			case checkers.ErrDnsNxdomainSpoofing:
+				items = append(items, "nxdomain spoofing")
+			case checkers.ErrDnsDohBootstrapSpoofing:
+				items = append(items, "bootstrap spoofing")
+			case checkers.ErrDnsDohBootstrapEmpty:
+				items = append(items, "empty bootstrap")
+			case checkers.ErrDnsDohInsecure:
+				items = append(items, "invalid https certificate")
+			case checkers.ErrDnsDohNon2xxResp:
+				items = append(items, "non-2xx response")
+			case checkers.ErrDnsSkip:
+				items = append(items, "skip")
+			}
+		}
+
+		prefix := "❗️"
+		switch dnsErrs[0] {
+		case checkers.ErrDnsDohBootstrapEmpty, checkers.ErrDnsDohNon2xxResp:
+			prefix = "⚠️ "
+		case checkers.ErrDnsSkip:
+			prefix = "⏩ "
+		}
+		return prefix + strings.Join(items, ", ")
+	}
+
 	if inetutil.IsInetutilErr(err) {
 		return fmt.Sprintf("❗️ %s", err)
 	}
@@ -35,29 +82,8 @@ func dnsPrettyProviderVerdict(err error) string {
 		return "⚠️ lookup error"
 	}
 
-	switch err {
-	case nil:
-		return "✅ not detected"
-	case ErrPending:
-		return "⏰ checking..."
-	case checkers.ErrDnsNxdomainSpoofing:
-		return "❗️nxdomain spoofing"
-	case checkers.ErrDnsResolveSpoofing:
-		return "❗️response spoofing"
-	case checkers.ErrDnsDohBootstrapSpoofing:
-		return "❗️bootstrap spoofing"
-	case checkers.ErrDnsDohBootstrapEmpty:
-		return "⚠️ empty bootstrap"
-	case checkers.ErrDnsDohInsecure, inetutil.ErrTlsCertificateInvalid:
-		return "❗️invalid https certificate"
-	case checkers.ErrDnsDohNon2xxResp:
-		return "⚠️ non-2xx response"
-	case checkers.ErrDnsSkip:
-		return "⏩ skip"
-	default:
-		log.Println("dnsPrettyProviderVerdict", err)
-		return "⚠️ internal error"
-	}
+	log.Println("dnsPrettyProviderVerdict", err)
+	return "⚠️ internal error"
 }
 
 func webhostPrettyAlive(err error) string {

@@ -48,7 +48,7 @@ type FullCheckDnsLeakDto struct {
 
 type FullCheckDnsReportDto struct {
 	Status    FullCheckStatusDto
-	Providers map[string]FullCheckStatusDto
+	Providers map[string][]FullCheckStatusDto
 }
 
 type FullCheckDnsDto struct {
@@ -303,40 +303,53 @@ func fullCheckDnsLeakDto(outs []DnsLeakWithIpinfoOut) FullCheckDnsLeakDto {
 	return FullCheckDnsLeakDto{Status: FullCheckStatusDto{Msg: "Ok", Code: "OK"}, Items: items}
 }
 
-func fullCheckPrettyDnsVerdict(v error) (string, string) {
+func fullCheckPrettyDnsVerdict(v error) []FullCheckStatusDto {
+	if v == nil {
+		return []FullCheckStatusDto{{Msg: "Ok", Code: "OK"}}
+	}
+
+	// TODO: disable this when HTTP/2 is supported.
+	// It only works as long as we trust providers that use DoH.
+	if len(DnsErrors(v)) == 1 && errors.Is(v, ErrDnsDohNon2xxResp) {
+		return []FullCheckStatusDto{{Msg: "Ok", Code: "OK"}}
+	}
+
+	items := []FullCheckStatusDto{}
+	for _, err := range DnsErrors(v) {
+		switch err {
+		case ErrDnsResolveSpoofing:
+			items = append(items, FullCheckStatusDto{Msg: "Response spoofing", Code: "RESPONSE_SPOOFING"})
+		case ErrDnsNxdomainSpoofing:
+			items = append(items, FullCheckStatusDto{Msg: "NXDOMAIN spoofing", Code: "NXDOMAIN_SPOOFING"})
+		case ErrDnsDohBootstrapSpoofing:
+			items = append(items, FullCheckStatusDto{Msg: "Bootstrap spoofing", Code: "BOOTSTRAP_SPOOFING"})
+		case ErrDnsDohBootstrapEmpty:
+			items = append(items, FullCheckStatusDto{Msg: "Empty bootstrap", Code: "EMPTY_BOOTSTRAP"})
+		case ErrDnsDohInsecure:
+			items = append(items, FullCheckStatusDto{Msg: "Invalid https certificate", Code: "INVALID_HTTPS_CERT"})
+		case ErrDnsDohNon2xxResp:
+			items = append(items, FullCheckStatusDto{Msg: "Non-2xx response", Code: "NON_2XX_RESP"})
+		case ErrDnsSkip:
+			items = append(items, FullCheckStatusDto{Msg: "Skip", Code: "SKIP"})
+		}
+	}
+
+	if len(items) > 0 {
+		return items
+	}
 	if inetutil.IsInetutilErr(v) {
-		return v.Error(), "INETUTIL_ERR"
+		return []FullCheckStatusDto{{Msg: v.Error(), Code: "INETUTIL_ERR"}}
 	}
 	if _, ok := errors.AsType[*net.DNSError](v); ok {
-		return "Lookup error", "LOOKUP_ERR"
+		return []FullCheckStatusDto{{Msg: "Lookup error", Code: "LOOKUP_ERR"}}
 	}
-	switch v {
-	case nil:
-		return "Ok", "OK"
-	case ErrDnsNxdomainSpoofing:
-		return "NXDOMAIN spoofing", "NXDOMAIN_SPOOFING"
-	case ErrDnsResolveSpoofing:
-		return "Response spoofing", "RESPONSE_SPOOFING"
-	case ErrDnsDohBootstrapSpoofing:
-		return "Bootstrap spoofing", "BOOTSTRAP_SPOOFING"
-	case ErrDnsDohBootstrapEmpty:
-		return "Empty bootstrap", "EMPTY_BOOTSTRAP"
-	case ErrDnsDohInsecure, inetutil.ErrTlsCertificateInvalid:
-		return "Invalid https certificate", "INVALID_HTTPS_CERT"
-	case ErrDnsDohNon2xxResp:
-		return "Non-2xx response", "NON_2XX_RESP"
-	case ErrDnsSkip:
-		return "Skip", "SKIP"
-	default:
-		return "Internal error", "INTERNAL_ERR"
-	}
+	return []FullCheckStatusDto{{Msg: "Internal error", Code: "INTERNAL_ERR"}}
 }
 
 func fullCheckDnsReportDto(verdicts []DnsVerdict) FullCheckDnsReportDto {
-	providers := map[string]FullCheckStatusDto{}
+	providers := map[string][]FullCheckStatusDto{}
 	for _, x := range verdicts {
-		verdict, code := fullCheckPrettyDnsVerdict(x.Verdict)
-		providers[x.Provider] = FullCheckStatusDto{Msg: verdict, Code: code}
+		providers[x.Provider] = fullCheckPrettyDnsVerdict(x.Verdict)
 	}
 	return FullCheckDnsReportDto{Status: FullCheckStatusDto{Msg: "Ok", Code: "OK"}, Providers: providers}
 }
