@@ -1,13 +1,17 @@
 package tui
 
 import (
+	"fmt"
 	"log"
 
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 )
 
 func Tui() {
+	fmt.Print(ansi.EraseEntireScreen, ansi.CursorHomePosition)
+
 	router := NewRouter()
 
 	vp := viewport.New(
