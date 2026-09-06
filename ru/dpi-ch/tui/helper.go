@@ -47,6 +47,8 @@ func dnsPrettyProviderVerdict(err error) string {
 		items := []string{}
 		for _, x := range dnsErrs {
 			switch x {
+			case checkers.ErrDnsProviderHijacking:
+				items = append(items, "provider hijacking")
 			case checkers.ErrDnsResolveSpoofing:
 				items = append(items, "response spoofing")
 			case checkers.ErrDnsNxdomainSpoofing:

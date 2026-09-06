@@ -191,11 +191,11 @@ func dnsView(model dnsModel) string {
 			"\n " + dnsTableHelpView() +
 			subtleStyle.Render(fmt.Sprintf("; cursor: %d/%d", cursor, providerTotal))
 
-		providerTbl = "> DNS resolves spoofing/blocking:\n" +
+		providerTbl = "> DNS resolvers censorship:\n" +
 			tableOuterBorderStyle().Render(tbl)
 	}
 	if leakTotal > 0 || !model.fetching {
-		leakTbl = "> DNS servers hijacking test. Actually used:\n"
+		leakTbl = "> Current DNS resolver hijacking test. Actually used:\n"
 		if leakTotal == 0 {
 			leakTbl += tableOuterBorderStyle().Render(" ⚠️ It seems that there is no Internet access  ")
 		} else {

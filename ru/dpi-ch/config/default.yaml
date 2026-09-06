@@ -194,7 +194,7 @@ checkers:
       - https://www.google.com/
 
   dns:
-    table-max-visible-rows: 10
+    table-max-visible-rows: 20
 
     leak:
       timeout: 15s
@@ -216,6 +216,11 @@ checkers:
         http-static-headers:
           Content-Type: application/dns-message
 
+      # hijacking test for a specific provider (not necessarily the current one)
+      # A record — who was the actual resolver
+      whoami:
+        host: whoami.akamai.net
+
       targets:
         - host: www.youtube.com
           filter: org("google")
@@ -235,8 +240,10 @@ checkers:
       providers:
         - name: Cloudflare DNS
           plain:
-            - 1.1.1.1:53
-            - 1.0.0.1:53
+            filter: org("cloudflare")
+            hosts:
+              - 1.1.1.1:53
+              - 1.0.0.1:53
           doh:
             filter: org("cloudflare")
             hosts:
@@ -246,8 +253,10 @@ checkers:
 
         - name: Google DNS
           plain:
-            - 8.8.8.8:53
-            - 8.8.4.4:53
+            filter: org("google")
+            hosts:
+              - 8.8.8.8:53
+              - 8.8.4.4:53
           doh:
             filter: org("google")
             hosts:
@@ -255,8 +264,10 @@ checkers:
 
         - name: OpenDNS
           plain:
-            - 208.67.222.222:53
-            - 208.67.220.220:53
+            filter: org("opendns")
+            hosts:
+              - 208.67.222.222:53
+              - 208.67.220.220:53
           doh:
             filter: org("opendns")
             hosts:
@@ -264,8 +275,10 @@ checkers:
 
         - name: AdGuard DNS
           plain:
-            - 94.140.14.14:53
-            - 94.140.15.15:53
+            filter: org("adguard") || org("datacamp")
+            hosts:
+              - 94.140.14.14:53
+              - 94.140.15.15:53
           doh:
             filter: org("adguard")
             hosts:
@@ -273,27 +286,100 @@ checkers:
 
         - name: Quad9
           plain:
-            - 9.9.9.9:53
-            - 149.112.112.112:53
+            filter: org("quad9") || org("woodynet") || org("i3d.net")
+            hosts:
+              - 9.9.9.9:53
+              - 149.112.112.112:53
           doh:
             filter: org("quad9")
             hosts:
               - dns.quad9.net
 
+        - name: ControlD
+          plain:
+            filter: org("datacamp")
+            hosts:
+              - 76.76.2.0:53
+              - 76.76.10.0:53
+          doh:
+            filter: org("controld")
+            hosts:
+              - freedns.controld.com
+
+        - name: Gcore DNS
+          plain:
+            filter: org("gcore") || org("g-core")
+            hosts:
+              - 95.85.95.85:53
+              - 2.56.220.2:53
+
+        - name: AliDNS
+          plain:
+            filter: org("alibaba")
+            hosts:
+              - 223.5.5.5:53
+              - 223.6.6.6:53
+          doh:
+            filter: org("alibaba")
+            hosts:
+              - dns.alidns.com
+
+        - name: Lumen
+          plain:
+            filter: org("lumen") || org("level 3")
+            hosts:
+              - 4.2.2.1:53
+              - 4.2.2.2:53
+
+        - name: Wikimedia DNS
+          doh:
+            filter: org("wikimedia")
+            hosts:
+              - wikimedia-dns.org
+
+        - name: Mullvad DNS
+          doh:
+            filter: org("mullvad") || org("locix")
+            hosts:
+              - dns.mullvad.net
+
         - name: Yandex DNS
           plain:
-            - 77.88.8.8:53
-            - 77.88.8.1:53
+            filter: org("yandex")
+            hosts:
+              - 77.88.8.8:53
+              - 77.88.8.1:53
 
         - name: NSDI
           plain:
-            - 195.208.4.1:53
-            - 195.208.5.1:53
+            filter: org("msk-ix")
+            hosts:
+              - 195.208.4.1:53
+              - 195.208.5.1:53
 
         - name: MSK-IX DNS
           plain:
-            - 62.76.76.62:53
-            - 62.76.62.76:53
+            filter: org("msk-ix")
+            hosts:
+              - 62.76.76.62:53
+              - 62.76.62.76:53
+
+        - name: Comss.one DNS
+          plain:
+            filter: org("jsc iot") || org("timeweb")
+            hosts:
+              - 83.220.169.155:53
+              - 212.109.195.93:53
+          doh:
+            filter: org("jsc iot") || org("timeweb")
+            hosts:
+              - dns.comss.one
+
+        - name: SkyDNS
+          plain:
+            filter: org("selectel")
+            hosts:
+              - 193.58.251.251:53
 
   whoami:
     timeout: 15s
