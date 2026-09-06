@@ -317,6 +317,8 @@ func fullCheckPrettyDnsVerdict(v error) []FullCheckStatusDto {
 	items := []FullCheckStatusDto{}
 	for _, err := range DnsErrors(v) {
 		switch err {
+		case ErrDnsProviderHijacking:
+			items = append(items, FullCheckStatusDto{Msg: "Provider hijacking", Code: "PROVIDER_HIJACKING"})
 		case ErrDnsResolveSpoofing:
 			items = append(items, FullCheckStatusDto{Msg: "Response spoofing", Code: "RESPONSE_SPOOFING"})
 		case ErrDnsNxdomainSpoofing:

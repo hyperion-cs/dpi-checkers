@@ -67,15 +67,24 @@ type Config struct {
 					HttpStaticHeaders map[string]string `mapstructure:"http-static-headers"`
 				} `mapstructure:"doh-opt"`
 
+				Whoami struct {
+					Host string `mapstructure:"host"`
+				} `mapstructure:"whoami"`
+
 				Targets []struct {
 					Host   string `mapstructure:"host"`
 					Filter string `mapstructure:"filter"`
 				} `mapstructure:"targets"`
 
 				Providers []struct {
-					Name  string   `mapstructure:"name"`
-					Plain []string `mapstructure:"plain"`
-					DoH   struct {
+					Name string `mapstructure:"name"`
+
+					Plain struct {
+						Filter string   `mapstructure:"filter"`
+						Hosts  []string `mapstructure:"hosts"`
+					} `mapstructure:"plain"`
+
+					DoH struct {
 						Filter string   `mapstructure:"filter"`
 						Hosts  []string `mapstructure:"hosts"`
 					} `mapstructure:"doh"`

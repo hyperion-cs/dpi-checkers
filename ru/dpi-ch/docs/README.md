@@ -193,6 +193,10 @@ checkers: # checkers, available in the dpi-ch utility
         path:                # string; doh endpoint path
         http-static-headers: # map[string]string; http headers for doh requests
 
+      whoami: # provider hijacking test (plain mode only)
+        host: # string; domain name whose A record holds the address of the resolver
+              #         that actually answered (e.g. whoami.akamai.net)
+
       targets: # []target-item; list of test targets for resolving
                # target-item structure:
                # host:   # string; domain name for resolving (e.g. google.com)
@@ -200,13 +204,15 @@ checkers: # checkers, available in the dpi-ch utility
     
       providers: # []provider-item; list of dns providers (both plain and doh)
                  # provider-item structure:
-                 # name:  # string; name of the provider
-                 # plain: # []string; list of provider's plain dns resolvers in ip:port format
-                 # doh:   # []provider-doh; provider's doh dns resolvers
-                          # provider-doh structure:
-                          # filter: # string; filter in subnetfilter notation that determines
-                                    #         if a dns BOOTSTRAP resolving occurred without spoofing
-                          # hosts:  # []string; list of provider's doh dns resolvers in domain name format (e.g. dns.google)
+                 # name:   # string; name of the provider
+                 # plain:  # provider-plain; provider's plain dns resolvers
+                           # provider-plain structure:
+                           # filter: # string; a filter in subnetfilter notation to detect provider hijacking
+                           # hosts:  # []string; list of provider's plain dns resolvers in ip:port format
+                 # doh:    # provider-doh; provider's doh dns resolvers
+                           # provider-doh structure:
+                           # filter: # string; a filter in subnetfilter notation to detect DoH bootstrap spoofing
+                           # hosts:  # []string; list of provider's doh dns resolvers in domain name format (e.g. dns.google)
 
   whoami: # aka whoami checker
     timeout: # time.Duration; total timeout for receiving checker results

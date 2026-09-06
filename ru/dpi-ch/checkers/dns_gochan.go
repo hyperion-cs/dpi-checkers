@@ -15,11 +15,10 @@ type DnsPlainGochanIn struct {
 }
 
 type DnsDohGochanIn struct {
-	Id                string
-	Ctx               context.Context
-	BootstrapProvider DnsPlainProvider
-	DohProvider       DnsDohProvider
-	Targets           []DnsTarget
+	Id          string
+	Ctx         context.Context
+	DohProvider DnsDohProvider
+	Targets     []DnsTarget
 }
 
 func DnsPlainGochan(ctx context.Context) <-chan DnsVerdict {
@@ -38,9 +37,10 @@ func DnsPlainGochan(ctx context.Context) <-chan DnsVerdict {
 			}
 
 			matrix := dnsPlainMatrix(in.Ctx, in.Provider, in.Targets)
+			hijacking := dnsPlainHijacking(in.Ctx, in.Provider)
 			return DnsVerdict{
 				Provider: in.Id,
-				Verdict:  dnsPlainVerdict(matrix),
+				Verdict:  dnsPlainVerdict(matrix, hijacking),
 			}
 		},
 	})
@@ -50,7 +50,7 @@ func DnsPlainGochan(ctx context.Context) <-chan DnsVerdict {
 		items = append(items, DnsPlainGochanIn{
 			Id:       p.Name,
 			Ctx:      ctx,
-			Provider: DnsPlainProvider{Addrs: p.Plain},
+			Provider: DnsPlainProvider{Addrs: p.Plain.Hosts, Filter: p.Plain.Filter},
 			Targets:  dnsTargets(),
 		})
 	}
@@ -74,7 +74,7 @@ func DnsDohGochan(ctx context.Context) <-chan DnsVerdict {
 				}
 			}
 
-			matrix := dnsDohMatrix(in.Ctx, in.BootstrapProvider, in.DohProvider, in.Targets)
+			matrix := dnsDohMatrix(in.Ctx, in.DohProvider, in.Targets)
 			return DnsVerdict{
 				Provider: in.Id,
 				Verdict:  dnsDohVerdict(matrix),
@@ -85,11 +85,10 @@ func DnsDohGochan(ctx context.Context) <-chan DnsVerdict {
 	items := []DnsDohGochanIn{}
 	for _, p := range cfg.Providers {
 		items = append(items, DnsDohGochanIn{
-			Id:                p.Name,
-			Ctx:               ctx,
-			BootstrapProvider: DnsPlainProvider{Addrs: p.Plain},
-			DohProvider:       DnsDohProvider{Hosts: p.DoH.Hosts, Filter: p.DoH.Filter},
-			Targets:           dnsTargets(),
+			Id:          p.Name,
+			Ctx:         ctx,
+			DohProvider: DnsDohProvider{Hosts: p.DoH.Hosts, Filter: p.DoH.Filter},
+			Targets:     dnsTargets(),
 		})
 	}
 

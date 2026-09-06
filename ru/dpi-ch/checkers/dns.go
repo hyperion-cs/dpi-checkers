@@ -22,7 +22,8 @@ import (
 )
 
 type DnsPlainProvider struct {
-	Addrs []string // ip:port (udp)
+	Addrs  []string // ip:port (udp)
+	Filter string   // subnetfilter for provider hijacking check
 }
 
 type DnsDohProvider struct {
@@ -72,6 +73,7 @@ type dnsLeakOut struct {
 var (
 	// There may also be network errors
 	ErrDnsSkip                 = errors.New("dns: skip")
+	ErrDnsProviderHijacking    = errors.New("dns: provider hijacking")
 	ErrDnsResolveSpoofing      = errors.New("dns: response spoofing")
 	ErrDnsNxdomainSpoofing     = errors.New("dns: nxdomain spoofing")
 	ErrDnsDohBootstrapSpoofing = errors.New("dns: doh bootstrap spoofing")
@@ -82,6 +84,7 @@ var (
 
 var dnsErrors = []error{
 	// In descending order of importance
+	ErrDnsProviderHijacking,
 	ErrDnsResolveSpoofing,
 	ErrDnsNxdomainSpoofing,
 	ErrDnsDohBootstrapSpoofing,
@@ -101,50 +104,74 @@ func DnsErrors(err error) []error {
 	return out
 }
 
-// Resolve in DoH mode + spoofing check; bsProvider is used for the DoH bootstrap.
-func dnsDohMatrix(ctx context.Context, bsProvider DnsPlainProvider, dohProvider DnsDohProvider, targets []DnsTarget) []DnsDohAnswer {
+// Resolve in DoH mode + spoofing check.
+func dnsDohMatrix(ctx context.Context, dohProvider DnsDohProvider, targets []DnsTarget) []DnsDohAnswer {
 	res := []DnsDohAnswer{}
 
-	bootstraps := map[string][]DnsPlainAnswer{}
+	bootstraps := map[string][]netip.Addr{}
+	bootstrapErrs := map[string]error{}
 	for _, host := range dohProvider.Hosts {
-		target := []DnsTarget{{Hostname: host, Filter: dohProvider.Filter}}
-		bootstraps[host] = dnsPlainMatrix(ctx, bsProvider, target)
+		bootstraps[host], bootstrapErrs[host] = dnsDohBootstrap(ctx, host, dohProvider.Filter)
 	}
 
 	for _, target := range targets {
 		for _, host := range dohProvider.Hosts {
 			ans := DnsDohAnswer{Target: target, ResolverHostname: host, Items: []DnsDohAnswerItem{}}
-			hostBootstrap := bootstraps[host]
 
-			func() {
-				hostIps := map[netip.Addr]struct{}{}
-
-				for _, bs := range hostBootstrap {
-					if errors.Is(bs.Err, ErrDnsResolveSpoofing) {
-						ans.BootstrapErr = ErrDnsDohBootstrapSpoofing
-						return
-					}
-					for _, ip := range bs.Items {
-						hostIps[ip] = struct{}{}
-					}
+			if err := bootstrapErrs[host]; err != nil {
+				ans.BootstrapErr = err
+			} else {
+				for _, ip := range bootstraps[host] {
+					ans.Items = append(ans.Items, dnsDohRaw(ctx, target, host, ip))
 				}
-
-				if len(hostIps) == 0 {
-					ans.BootstrapErr = ErrDnsDohBootstrapEmpty
-					return
-				}
-
-				for ip := range hostIps {
-					item := dnsDohRaw(ctx, target, host, ip)
-					ans.Items = append(ans.Items, item)
-				}
-			}()
+			}
 
 			res = append(res, ans)
 		}
 	}
 
 	return res
+}
+
+// The DoH host is resolved via the system resolver: that is the path a real client
+// takes, so an A record spoofed on the way is exactly what has to be caught here.
+func dnsDohBootstrap(ctx context.Context, host, filter string) ([]netip.Addr, error) {
+	cfg := config.Get().Checkers.Dns.Resolve
+
+	ctx, cancel := context.WithTimeout(ctx, cfg.PlainOpt.Timeout)
+	defer cancel()
+
+	raw, err := inetlookup.LookupIpViaDefault(ctx, host)
+	if err != nil {
+		return nil, err
+	}
+
+	ips := make([]netip.Addr, 0, len(raw))
+	for _, ip := range raw {
+		x := netip.MustParseAddr(ip.String())
+		if x.Is4() {
+			ips = append(ips, x)
+		}
+	}
+
+	if len(ips) == 0 {
+		return nil, ErrDnsDohBootstrapEmpty
+	}
+
+	if filter == "" {
+		return ips, nil
+	}
+
+	orig, err := subnetfilterMatchAll(ips, filter)
+	if err != nil {
+		return nil, err
+	}
+	if !orig {
+		log.Println("dnsDohBootstrap", "bootstrap spoofing", host, ips)
+		return nil, ErrDnsDohBootstrapSpoofing
+	}
+
+	return ips, nil
 }
 
 func dnsDohRaw(ctx context.Context, target DnsTarget, resolverHostname string, resolverIp netip.Addr) DnsDohAnswerItem {
@@ -233,11 +260,12 @@ func dnsVerdict(errs []error) error {
 	return nil
 }
 
-func dnsPlainVerdict(matrix []DnsPlainAnswer) error {
-	errs := make([]error, 0, len(matrix))
+func dnsPlainVerdict(matrix []DnsPlainAnswer, hijacking error) error {
+	errs := make([]error, 0, len(matrix)+1)
 	for _, m := range matrix {
 		errs = append(errs, m.Err)
 	}
+	errs = append(errs, hijacking)
 
 	err := dnsVerdict(errs)
 	if err != nil {
@@ -307,6 +335,24 @@ func dnsPlainMatrix(ctx context.Context, provider DnsPlainProvider, targets []Dn
 	}
 
 	return res
+}
+
+// Whoami-based hijacking check (plain mode only)
+func dnsPlainHijacking(ctx context.Context, provider DnsPlainProvider) error {
+	cfg := config.Get().Checkers.Dns.Resolve
+	if cfg.Whoami.Host == "" || provider.Filter == "" {
+		return nil
+	}
+
+	target := DnsTarget{Hostname: cfg.Whoami.Host, Filter: provider.Filter}
+	for _, ans := range dnsPlainMatrix(ctx, provider, []DnsTarget{target}) {
+		if errors.Is(ans.Err, ErrDnsResolveSpoofing) {
+			log.Println("dnsPlainHijacking", "provider hijacking", ans)
+			return ErrDnsProviderHijacking
+		}
+	}
+
+	return nil
 }
 
 // DNS servers that are actually used. The answer may not be comprehensive.
