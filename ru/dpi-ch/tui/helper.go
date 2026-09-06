@@ -268,5 +268,10 @@ func tableKeyMap() table.KeyMap {
 		key.WithHelp("↓/j", "down"),
 	)
 
+	km.HalfPageDown = key.NewBinding(
+		key.WithKeys("ctrl+d"),
+		key.WithHelp("ctrl+d", "½ page down"),
+	)
+
 	return km
 }
