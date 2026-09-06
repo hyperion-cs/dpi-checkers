@@ -96,31 +96,31 @@ checkers:
         targets:
           - name: Selectel
             filter: org("selectel") && country("ru")
-            tcp1620-skip: true
+
           - name: Timeweb
             filter: org("timeweb") && country("ru")
-            tcp1620-skip: true
+
           - name: Reg.ru
             filter: org("reg.ru") && country("ru")
-            tcp1620-skip: true
+
           - name: Beget
             filter: org("beget") && country("ru")
-            tcp1620-skip: true
+
           - name: RuVDS
-            filter: as(48347) && country("ru")
-            tcp1620-skip: true
+            filter: (as(48347) || as(214822)) && country("ru")
+
           - name: FirstVDS
             filter: as(29182) && country("ru")
-            tcp1620-skip: true
+
           - name: AdminVPS
             filter: org("adminvps") && country("ru")
-            tcp1620-skip: true
+
           - name: Yandex Cloud
             filter: org("yandex.cloud") && country("ru")
-            tcp1620-skip: true
+
           - name: Cloud.ru
             filter: org("cloud.ru") && country("ru")
-            tcp1620-skip: true
+
           - name: VK Cloud
             filter: >
               as(47764) && (subnet("89.208.220.0/22")
@@ -130,8 +130,40 @@ checkers:
               || subnet("212.233.72.0/21")
               || subnet("217.16.16.0/20"))
               && country("ru")
-            tcp1620-skip: true
-  
+
+          - name: Rostelecom / DataLine
+            filter: as(49063) && country("ru")
+
+          - name: MTS Cloud
+            filter: (as(48096) || as(60490) || as(209024)) && country("ru")
+
+          - name: Softline Cloud
+            filter: as(47723) && country("ru")
+
+          - name: EdgeCenter
+            filter: as(210756) && country("ru")
+
+          - name: CDNVideo
+            filter: as(204720) && country("ru")
+
+          - name: IHC.ru
+            filter: as(210079) && country("ru")
+
+          - name: Contell
+            filter: as(204490) && country("ru")
+
+          - name: Netrack
+            filter: as(61400) && country("ru")
+
+          - name: Filanco / DataHouse
+            filter: as(3175) && country("ru")
+
+          - name: DDoS-Guard
+            filter: as(57724) && country("ru")
+
+          - name: LandVPS
+            filter: as(216334) && country("ru")
+
       - name: Mobile Push Notification Providers
         desc: like Google FCM (Android), Apple APNs (iOS) and others
         default: true # internal flag; don't use it in client config
@@ -179,7 +211,7 @@ checkers:
       Accept-Encoding: identity
       Content-Type: application/octet-stream
       User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36
-    table-max-visible-rows: 20
+    table-max-visible-rows: 21
     exclude-default-sections: false
 
   cidrwhitelist:
