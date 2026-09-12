@@ -11,7 +11,7 @@ var inetlookup InetLookup
 
 func TestMain(m *testing.M) {
 	inetlookup = NewGeoliteCsv(GeoliteCsvOpt{
-		GeonameidCountryPath: "./testdata/geolite2_csv/geonameId2country_en.csv",
+		GeonameidCountryPath: "./testdata/geolite2_csv/geonameId2Country_en.csv",
 		CidrCountryPath:      "./testdata/geolite2_csv/cidr2countryIso_ipv4.csv",
 		CidrAsPath:           "./testdata/geolite2_csv/cidr2as_ipv4.csv",
 	})

@@ -15,7 +15,7 @@ var _testSubnetfilter *Subnetfilter
 
 func TestMain(m *testing.M) {
 	il := inetlookup.NewGeoliteCsv(inetlookup.GeoliteCsvOpt{
-		GeonameidCountryPath: "../inetlookup/testdata/geolite2_csv/geonameId2country_en.csv",
+		GeonameidCountryPath: "../inetlookup/testdata/geolite2_csv/geonameId2Country_en.csv",
 		CidrCountryPath:      "../inetlookup/testdata/geolite2_csv/cidr2countryIso_ipv4.csv",
 		CidrAsPath:           "../inetlookup/testdata/geolite2_csv/cidr2as_ipv4.csv",
 	})
