@@ -184,6 +184,8 @@ func webhostAliveCheck(opt WebhostSingleOpt, tlsConn *tls.UConn) error {
 
 	readCtx, cancel := context.WithTimeout(opt.Ctx, cfg.TcpReadTimeout)
 	defer cancel()
+	stopClose := context.AfterFunc(readCtx, func() { tlsConn.Close() })
+	defer stopClose()
 	resp, err := inetutil.TlsReadHttpResponse(readCtx, tlsConn, bufio.NewReader(tlsConn))
 	if err != nil {
 		return err
@@ -226,6 +228,8 @@ func webhostTcp1620check(opt WebhostSingleOpt, tlsConnOpt inetutil.TlsConnOpt) (
 
 	readCtx, cancel := context.WithTimeout(opt.Ctx, cfg.TcpReadTimeout)
 	defer cancel()
+	stopClose := context.AfterFunc(readCtx, func() { tlsConn.Close() })
+	defer stopClose()
 	rxCr := &inetutil.CountingReader{Reader: tlsConn}
 	rxStart := time.Now()
 	resp, err := inetutil.TlsReadHttpResponse(readCtx, tlsConn, bufio.NewReader(rxCr))
@@ -236,6 +240,9 @@ func webhostTcp1620check(opt WebhostSingleOpt, tlsConnOpt inetutil.TlsConnOpt) (
 
 	if err == nil {
 		if _, err = io.Copy(io.Discard, resp.Body); err != nil {
+			if errors.Is(readCtx.Err(), context.DeadlineExceeded) {
+				return WebhostThroughput{}, inetutil.ErrTcpReadTimeout
+			}
 			return WebhostThroughput{}, err
 		}
 		defer resp.Body.Close()

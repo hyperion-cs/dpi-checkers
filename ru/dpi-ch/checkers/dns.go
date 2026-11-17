@@ -199,6 +199,8 @@ func dnsDohRaw(ctx context.Context, target DnsTarget, resolverHostname string, r
 		return res
 	}
 	defer tlsConn.Close()
+	stopClose := context.AfterFunc(innerCtx, func() { tlsConn.Close() })
+	defer stopClose()
 
 	preparedA, err := dnsPrepareA(target.Hostname)
 	if err != nil {

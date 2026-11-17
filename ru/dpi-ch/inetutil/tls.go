@@ -205,7 +205,7 @@ func TlsReadHttpResponse(ctx context.Context, tlsConn *tls.UConn, br *bufio.Read
 
 	resp, err := http.ReadResponse(br, nil)
 	if err != nil {
-		if isTimeoutErr(err) {
+		if isTimeoutErr(err) || errors.Is(ctx.Err(), context.DeadlineExceeded) {
 			return nil, ErrTcpReadTimeout
 		}
 		if handledErr, ok := tryHandleErr(err); ok {

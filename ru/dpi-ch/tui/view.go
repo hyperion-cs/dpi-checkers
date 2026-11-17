@@ -1,7 +1,9 @@
 package tui
 
 import (
+	"cmp"
 	"fmt"
+	"strings"
 
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
@@ -84,6 +86,9 @@ func (rm rootModel) render() string {
 		)
 	}
 
+	if rm.router.Tab == allTab && rm.quitting {
+		s += "\n"
+	}
 	cfgPath, err := config.ConfigPath()
 	if err == nil {
 		s += subtleStyle.Render(
@@ -116,17 +121,64 @@ func whoamiView(model whoamiModel) string {
 }
 
 func allView(model allModel) string {
-	var out string
-	msg := "idle"
-	if model.fetching {
-		msg = "fetching"
-		out = fmt.Sprintf("%s ", model.spinner.View())
+	var lines []string
+	frame := model.spinner.View()
+	for _, kind := range []checkers.FullCheckTask{checkers.FullCheckTaskWhoami, checkers.FullCheckTaskCidrWhitelist} {
+		for _, task := range model.tasks[kind] {
+			lines = append(lines, task.name+": "+allStatusView(task.state, frame, ""))
+		}
 	}
-	if model.progress.Msg != "" {
-		msg = model.progress.Msg
+	var dns []string
+	for _, kind := range []checkers.FullCheckTask{checkers.FullCheckTaskDnsLeak, checkers.FullCheckTaskDnsPlain, checkers.FullCheckTaskDnsDoh} {
+		for _, task := range model.tasks[kind] {
+			dns = append(dns, task.name+": "+allStatusView(task.state, frame, ""))
+		}
 	}
-	out += msg
-	return out
+	if len(dns) > 0 {
+		lines = append(lines, "DNS: { "+strings.Join(dns, dotChar)+" }")
+	}
+	webhost := model.tasks[checkers.FullCheckTaskWebhost]
+	width := 0
+	for _, task := range webhost {
+		width = max(width, lipgloss.Width(task.name))
+	}
+	for i, task := range webhost {
+		prefix := "         "
+		if i == 0 {
+			prefix = "Webhost: "
+		}
+		padding := strings.Repeat(" ", width-lipgloss.Width(task.name)+2)
+		lines = append(lines, prefix+task.name+padding+allStatusView(task.state, frame, ""))
+	}
+	if len(lines) > 0 {
+		lines = append(lines, "")
+	}
+	if model.progress.Msg == "" && !model.fetching {
+		lines = append(lines, "idle")
+	} else {
+		state := model.progress.State
+		if model.fetching && model.progress.Task != checkers.FullCheckTaskNone {
+			state = checkers.FullCheckStateRunning
+		}
+		lines = append(lines, allStatusView(state, frame, cmp.Or(model.progress.Msg, "fetching")))
+	}
+	return strings.Join(lines, "\n")
+}
+
+func allStatusView(state checkers.FullCheckState, frame, msg string) string {
+	switch state {
+	case checkers.FullCheckStateOk:
+		return okStyle.Render("✅ " + cmp.Or(msg, "done"))
+	case checkers.FullCheckStateError:
+		return dangerStyle.Render("❌ " + cmp.Or(msg, "error"))
+	case checkers.FullCheckStateTimeout:
+		return warningStyle.Render("⏰ " + cmp.Or(msg, "timeout"))
+	default:
+		if msg == "" {
+			return frame
+		}
+		return frame + " " + msg
+	}
 }
 
 func cidrwhitelistView(model cidrwhitelistModel) string {

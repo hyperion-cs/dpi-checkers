@@ -23,10 +23,6 @@ import (
 
 var ErrFullCheckInvalidOutputFormat = errors.New("all: invalid output format")
 
-type FullCheckProgress struct {
-	Msg string
-}
-
 type FullCheckWhoamiDto struct {
 	Status   FullCheckStatusDto
 	Ip       string
@@ -103,7 +99,7 @@ func FullCheckGochan(ctx context.Context) <-chan FullCheckProgress {
 	go func() {
 		defer close(progressCh)
 		var wg sync.WaitGroup
-		fullCheckSendProgress(progressCh, FullCheckProgress{Msg: "started"})
+		fullCheckSendProgress(ctx, progressCh, FullCheckProgress{Msg: "started"})
 
 		var whoami *FullCheckWhoamiDto
 		if slices.Contains(cfg.All.Checkers, "whoami") {
@@ -111,16 +107,25 @@ func FullCheckGochan(ctx context.Context) <-chan FullCheckProgress {
 				whoamiRes, whoamiErr := Whoami(ctx)
 				val := fullCheckWhoamiDto(whoamiRes, whoamiErr)
 				whoami = &val
-				fullCheckSendProgress(progressCh, FullCheckProgress{Msg: "whoami ready"})
+				fullCheckSendProgress(ctx, progressCh, FullCheckProgress{
+					Task: FullCheckTaskWhoami, State: fullCheckErrorState(whoamiErr), Msg: "whoami ready",
+				})
 			})
 		}
 
 		var cidrwhitelist *FullCheckCidrwhitelistDto
 		if slices.Contains(cfg.All.Checkers, "cidrwhitelist") {
 			wg.Go(func() {
-				val := fullCheckCidrwhitelistDto(CidrWhitelist(ctx))
+				err := CidrWhitelist(ctx)
+				val := fullCheckCidrwhitelistDto(err)
 				cidrwhitelist = &val
-				fullCheckSendProgress(progressCh, FullCheckProgress{Msg: "cidrwhitelist ready"})
+				state := fullCheckErrorState(err)
+				if err == ErrCidrWhitelistDetected || err == ErrCidrWhitelistNoInetAccess {
+					state = FullCheckStateOk
+				}
+				fullCheckSendProgress(ctx, progressCh, FullCheckProgress{
+					Task: FullCheckTaskCidrWhitelist, State: state, Msg: "cidrwhitelist ready",
+				})
 			})
 		}
 
@@ -131,12 +136,18 @@ func FullCheckGochan(ctx context.Context) <-chan FullCheckProgress {
 			wg.Go(func() {
 				gch := DnsLeakGochan(ctx)
 				items := []DnsLeakWithIpinfoOut{}
+				var leakErr error
 				for v := range gch {
 					items = append(items, v)
+					if v.Err != nil {
+						leakErr = v.Err
+					}
 				}
 				val := fullCheckDnsLeakDto(items)
 				dnsLeak = &val
-				fullCheckSendProgress(progressCh, FullCheckProgress{Msg: "dns:leak ready"})
+				fullCheckSendProgress(ctx, progressCh, FullCheckProgress{
+					Task: FullCheckTaskDnsLeak, State: fullCheckErrorState(leakErr), Msg: "dns:leak ready",
+				})
 			})
 
 			wg.Go(func() {
@@ -147,7 +158,9 @@ func FullCheckGochan(ctx context.Context) <-chan FullCheckProgress {
 				}
 				val := fullCheckDnsReportDto(items)
 				dnsPlain = &val
-				fullCheckSendProgress(progressCh, FullCheckProgress{Msg: "dns:plain ready"})
+				fullCheckSendProgress(ctx, progressCh, FullCheckProgress{
+					Task: FullCheckTaskDnsPlain, State: FullCheckStateOk, Msg: "dns:plain ready",
+				})
 			})
 
 			wg.Go(func() {
@@ -158,14 +171,16 @@ func FullCheckGochan(ctx context.Context) <-chan FullCheckProgress {
 				}
 				val := fullCheckDnsReportDto(items)
 				dnsDoh = &val
-				fullCheckSendProgress(progressCh, FullCheckProgress{Msg: "dns:doh ready"})
+				fullCheckSendProgress(ctx, progressCh, FullCheckProgress{
+					Task: FullCheckTaskDnsDoh, State: FullCheckStateOk, Msg: "dns:doh ready",
+				})
 			})
 		}
 
 		var webhostMu sync.Mutex
 		webhost := map[string]FullCheckWebhostDto{}
 		if slices.Contains(cfg.All.Checkers, "webhost") {
-			for _, s := range cfg.Checkers.Webhost.Sections {
+			for i, s := range cfg.Checkers.Webhost.Sections {
 				wg.Go(func() {
 					gch := WebhostGochanRunner(WebhostGochanRunnerOpt{Ctx: ctx, Targets: s.Targets})
 					for o := range gch.Out {
@@ -177,9 +192,12 @@ func FullCheckGochan(ctx context.Context) <-chan FullCheckProgress {
 						curr.Items = append(curr.Items, fullCheckWebhostItemDto(o))
 						webhost[s.Name] = curr
 						webhostMu.Unlock()
-						fullCheckSendProgress(progressCh, FullCheckProgress{Msg: fmt.Sprintf(`webhost[%s]: "%s" ready`, s.Name, o.Bag.Name)})
+						fullCheckSendProgress(ctx, progressCh, FullCheckProgress{Msg: fmt.Sprintf(`webhost[%s]: "%s" ready`, s.Name, o.Bag.Name)})
 					}
-					if summary := <-gch.Summary; summary.FarmTimeout {
+					summary := <-gch.Summary
+					state := fullCheckErrorState(summary.Err)
+					if summary.FarmTimeout {
+						state = FullCheckStateTimeout
 						webhostMu.Lock()
 						curr, ok := webhost[s.Name]
 						if !ok {
@@ -189,12 +207,17 @@ func FullCheckGochan(ctx context.Context) <-chan FullCheckProgress {
 						webhost[s.Name] = curr
 						webhostMu.Unlock()
 					}
-					fullCheckSendProgress(progressCh, FullCheckProgress{Msg: fmt.Sprintf("webhost[%s] ready", s.Name)})
+					fullCheckSendProgress(ctx, progressCh, FullCheckProgress{
+						Task: FullCheckTaskWebhost, Index: i, State: state, Msg: fmt.Sprintf("webhost[%s] ready", s.Name),
+					})
 				})
 			}
 		}
 
 		wg.Wait()
+		if ctx.Err() != nil {
+			return
+		}
 		r.Whoami = whoami
 		r.CidrWhitelist = cidrwhitelist
 		r.Webhost = webhost
@@ -209,15 +232,15 @@ func FullCheckGochan(ctx context.Context) <-chan FullCheckProgress {
 		savePath, err := fullCheckSavePath()
 		if err != nil {
 			log.Println("fullcheck/savepath:", err)
-			fullCheckSendProgress(progressCh, FullCheckProgress{Msg: "error with the output path; enable debug and check the logs"})
+			fullCheckSendProgress(ctx, progressCh, FullCheckProgress{State: FullCheckStateError, Msg: "error with the output path; enable debug and check the logs"})
 			return
 		}
 		if err = fullCheckSave(r); err != nil {
 			log.Println("fullcheck/save:", err)
-			fullCheckSendProgress(progressCh, FullCheckProgress{Msg: "error when saving to a file; enable debug and check the logs"})
+			fullCheckSendProgress(ctx, progressCh, FullCheckProgress{State: FullCheckStateError, Msg: "error when saving to a file; enable debug and check the logs"})
 			return
 		}
-		fullCheckSendProgress(progressCh, FullCheckProgress{Msg: "done; saved to " + savePath})
+		fullCheckSendProgress(ctx, progressCh, FullCheckProgress{State: FullCheckStateOk, Msg: "done; saved to " + savePath})
 	}()
 
 	return progressCh
@@ -446,16 +469,5 @@ func webhostPrettySiberian(err error) FullCheckStatusDto {
 		return FullCheckStatusDto{Msg: "Skipped", Code: "SKIP"}
 	default:
 		return FullCheckStatusDto{Msg: err.Error(), Code: "ERR"}
-	}
-}
-
-func fullCheckSendProgress(ch chan<- FullCheckProgress, p FullCheckProgress) {
-	debug := config.Get().Debug
-	select {
-	case ch <- p:
-		if debug {
-			log.Println(p)
-		}
-	default:
 	}
 }

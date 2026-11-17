@@ -39,7 +39,7 @@ func Farm(ctx context.Context, opt FarmOpt) []FarmItem {
 			break
 		}
 		last = FarmItem{Ip: ip, Port: opt.Port}
-		if tryConnect(ip, opt.Port, opt.Sni) {
+		if tryConnect(ctx, ip, opt.Port, opt.Sni) {
 			// TODO: consider returning items immediately via channel
 			items = append(items, last)
 		}
@@ -54,9 +54,10 @@ func Farm(ctx context.Context, opt FarmOpt) []FarmItem {
 	return items
 }
 
-func tryConnect(ip netip.Addr, port int, sni string) bool {
+func tryConnect(ctx context.Context, ip netip.Addr, port int, sni string) bool {
 	cfg := config.Get().WebhostFarm
 	conn, err := inetutil.GetHandshakedUTlsConn(inetutil.TlsConnOpt{
+		Ctx:                 ctx,
 		Ip:                  ip,
 		Port:                port,
 		Sni:                 sni,

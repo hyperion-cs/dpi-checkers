@@ -32,6 +32,9 @@ func (rm rootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Only root and updater processing here
 	switch msg := msg.(type) {
 	case exitMsg:
+		if rm.router.Tab == allTab && rm.allModel.cancel != nil {
+			rm.allModel.cancel()
+		}
 		rm.quitting = true
 		rm.syncViewport()
 		return rm, tea.Quit
@@ -445,7 +448,7 @@ func allUpdate(model allModel, msg tea.Msg) (allModel, tea.Cmd) {
 		return model, nil
 	}
 
-	config := config.Get().All
+	cfg := config.Get()
 	if !model.inited {
 		switch msg.(type) {
 		case allInitMsg:
@@ -456,6 +459,25 @@ func allUpdate(model allModel, msg tea.Msg) (allModel, tea.Cmd) {
 			spin.Style = spinnerStyle
 
 			model = allModel{inited: true, spinner: spin, ctx: ctx, cancel: cancel, fetching: true, session: &session{}}
+			model.tasks = make(map[checkers.FullCheckTask][]allTask)
+			for _, name := range cfg.All.Checkers {
+				switch name {
+				case "whoami":
+					model.tasks[checkers.FullCheckTaskWhoami] = []allTask{{name: "Whoami"}}
+				case "cidrwhitelist":
+					model.tasks[checkers.FullCheckTaskCidrWhitelist] = []allTask{{name: "CIDR whitelist"}}
+				case "dns":
+					model.tasks[checkers.FullCheckTaskDnsLeak] = []allTask{{name: "Leak"}}
+					model.tasks[checkers.FullCheckTaskDnsPlain] = []allTask{{name: "Plain"}}
+					model.tasks[checkers.FullCheckTaskDnsDoh] = []allTask{{name: "DoH"}}
+				case "webhost":
+					tasks := make([]allTask, len(cfg.Checkers.Webhost.Sections))
+					for i, section := range cfg.Checkers.Webhost.Sections {
+						tasks[i] = allTask{name: section.Name}
+					}
+					model.tasks[checkers.FullCheckTaskWebhost] = tasks
+				}
+			}
 			return model, tea.Batch(
 				cmdFor(model.session, model.spinner.Tick),
 				allProducerStartCmd(model.session, model.ctx),
@@ -470,11 +492,28 @@ func allUpdate(model allModel, msg tea.Msg) (allModel, tea.Cmd) {
 		model.out = msg.out
 		return model, allConsumerCmd(model.session, model.out)
 	case allProgressMsg:
-		model.progress = checkers.FullCheckProgress(msg)
+		progress := checkers.FullCheckProgress(msg)
+		if progress.Msg != "" {
+			model.progress = progress
+		}
+		tasks := model.tasks[progress.Task]
+		if progress.Index >= 0 && progress.Index < len(tasks) {
+			tasks[progress.Index].state = progress.State
+		}
 		return model, allConsumerCmd(model.session, model.out)
 	case allProducerDoneMsg:
 		model.fetching = false
-		if config.AutoExit {
+		for _, tasks := range model.tasks {
+			for i := range tasks {
+				if tasks[i].state == checkers.FullCheckStateRunning {
+					tasks[i].state = checkers.FullCheckStateError
+				}
+			}
+		}
+		if model.progress.Task != checkers.FullCheckTaskNone || model.progress.State == checkers.FullCheckStateRunning {
+			model.progress = checkers.FullCheckProgress{State: checkers.FullCheckStateError, Msg: "stopped before completion"}
+		}
+		if cfg.All.AutoExit {
 			return model, exitCmd
 		}
 		return model, nil

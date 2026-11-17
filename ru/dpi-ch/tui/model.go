@@ -39,6 +39,12 @@ type allModel struct {
 
 	progress checkers.FullCheckProgress
 	out      <-chan checkers.FullCheckProgress
+	tasks    map[checkers.FullCheckTask][]allTask
+}
+
+type allTask struct {
+	name  string
+	state checkers.FullCheckState
 }
 
 type whoamiModel struct {
