@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io"
 	"log"
 	"net"
 	"strings"
@@ -80,6 +81,7 @@ var (
 	ErrDnsDohBootstrapEmpty    = errors.New("dns: doh bootstrap empty")
 	ErrDnsDohInsecure          = errors.New("dns: doh insecure")
 	ErrDnsDohNon2xxResp        = errors.New("dns: doh non-2xx response")
+	ErrDnsProviderTimeout      = errors.New("dns: provider timeout")
 )
 
 var dnsErrors = []error{
@@ -91,6 +93,7 @@ var dnsErrors = []error{
 	ErrDnsDohBootstrapEmpty,
 	ErrDnsDohInsecure,
 	ErrDnsDohNon2xxResp,
+	ErrDnsProviderTimeout,
 	ErrDnsSkip,
 }
 
@@ -111,6 +114,10 @@ func dnsDohMatrix(ctx context.Context, dohProvider DnsDohProvider, targets []Dns
 	bootstraps := map[string][]netip.Addr{}
 	bootstrapErrs := map[string]error{}
 	for _, host := range dohProvider.Hosts {
+		if err := ctx.Err(); err != nil {
+			bootstrapErrs[host] = err
+			continue
+		}
 		bootstraps[host], bootstrapErrs[host] = dnsDohBootstrap(ctx, host, dohProvider.Filter)
 	}
 
@@ -122,7 +129,12 @@ func dnsDohMatrix(ctx context.Context, dohProvider DnsDohProvider, targets []Dns
 				ans.BootstrapErr = err
 			} else {
 				for _, ip := range bootstraps[host] {
-					ans.Items = append(ans.Items, dnsDohRaw(ctx, target, host, ip))
+					if ctx.Err() != nil {
+						break
+					}
+					ans.Items = append(ans.Items, dnsDohRaw(ctx, target, inetutil.TlsConnOpt{
+						Ip: ip, Port: 443, Sni: host, InsecureVerify: true,
+					}))
 				}
 			}
 
@@ -138,7 +150,7 @@ func dnsDohMatrix(ctx context.Context, dohProvider DnsDohProvider, targets []Dns
 func dnsDohBootstrap(ctx context.Context, host, filter string) ([]netip.Addr, error) {
 	cfg := config.Get().Checkers.Dns.Resolve
 
-	ctx, cancel := context.WithTimeout(ctx, cfg.PlainOpt.Timeout)
+	ctx, cancel := context.WithTimeout(ctx, cfg.PlainOpt.QueryTimeout)
 	defer cancel()
 
 	raw, err := inetlookup.LookupIpViaDefault(ctx, host)
@@ -162,7 +174,7 @@ func dnsDohBootstrap(ctx context.Context, host, filter string) ([]netip.Addr, er
 		return ips, nil
 	}
 
-	orig, err := subnetfilterMatchAll(ips, filter)
+	orig, err := subnetfilterMatchAll(ctx, ips, filter)
 	if err != nil {
 		return nil, err
 	}
@@ -174,20 +186,14 @@ func dnsDohBootstrap(ctx context.Context, host, filter string) ([]netip.Addr, er
 	return ips, nil
 }
 
-func dnsDohRaw(ctx context.Context, target DnsTarget, resolverHostname string, resolverIp netip.Addr) DnsDohAnswerItem {
+func dnsDohRaw(ctx context.Context, target DnsTarget, tlsConnOpt inetutil.TlsConnOpt) DnsDohAnswerItem {
 	cfg := config.Get().Checkers.Dns.Resolve
-	res := DnsDohAnswerItem{ResolverIp: resolverIp}
+	res := DnsDohAnswerItem{ResolverIp: tlsConnOpt.Ip}
 
-	innerCtx, cancel := context.WithTimeout(ctx, cfg.DohOpt.Timeout)
+	innerCtx, cancel := context.WithTimeout(ctx, cfg.DohOpt.QueryTimeout)
 	defer cancel()
 
-	tlsConnOpt := inetutil.TlsConnOpt{
-		Ctx:            innerCtx,
-		Ip:             resolverIp,
-		Port:           443, // TODO: config that
-		Sni:            resolverHostname,
-		InsecureVerify: true,
-	}
+	tlsConnOpt.Ctx = innerCtx
 
 	tlsConn, err := inetutil.GetHandshakedUTlsConn(tlsConnOpt)
 	if err != nil {
@@ -208,7 +214,7 @@ func dnsDohRaw(ctx context.Context, target DnsTarget, resolverHostname string, r
 		return res
 	}
 
-	req, err := http.NewRequest("POST", "https://"+resolverHostname+cfg.DohOpt.Path, bytes.NewReader(preparedA))
+	req, err := http.NewRequest("POST", "https://"+tlsConnOpt.Sni+cfg.DohOpt.Path, bytes.NewReader(preparedA))
 	if err != nil {
 		res.Err = err
 		return res
@@ -228,7 +234,18 @@ func dnsDohRaw(ctx context.Context, target DnsTarget, resolverHostname string, r
 		res.Err = err
 		return res
 	}
-	resp.Body.Close()
+	defer resp.Body.Close()
+	if _, err := io.Copy(io.Discard, resp.Body); err != nil {
+		res.Err = err
+		if errors.Is(innerCtx.Err(), context.DeadlineExceeded) {
+			res.Err = inetutil.ErrTcpReadTimeout
+		}
+		return res
+	}
+	if err := innerCtx.Err(); err != nil {
+		res.Err = err
+		return res
+	}
 
 	if resp.StatusCode != 200 {
 		res.Err = ErrDnsDohNon2xxResp
@@ -298,6 +315,9 @@ func dnsPlainMatrix(ctx context.Context, provider DnsPlainProvider, targets []Dn
 
 	for _, target := range targets {
 		for _, addr := range provider.Addrs {
+			if ctx.Err() != nil {
+				return res
+			}
 			item := DnsPlainAnswer{Target: target, ResolverAddr: addr}
 
 			func() {
@@ -317,7 +337,7 @@ func dnsPlainMatrix(ctx context.Context, provider DnsPlainProvider, targets []Dn
 					return
 				}
 
-				orig, err := subnetfilterMatchAll(ips, target.Filter)
+				orig, err := subnetfilterMatchAll(ctx, ips, target.Filter)
 				if err != nil {
 					if item.Err == nil {
 						item.Err = err
@@ -354,7 +374,7 @@ func dnsPlainHijacking(ctx context.Context, provider DnsPlainProvider) error {
 		}
 	}
 
-	return nil
+	return ctx.Err()
 }
 
 // DNS servers that are actually used. The answer may not be comprehensive.
@@ -395,14 +415,14 @@ func dnsLeakWithIpinfoSingle(ctx context.Context) DnsLeakWithIpinfoOut {
 }
 
 // Checks if subfilter matches specified ip addresses.
-func subnetfilterMatchAll(ips []netip.Addr, filter string) (bool, error) {
+func subnetfilterMatchAll(ctx context.Context, ips []netip.Addr, filter string) (bool, error) {
 	sf := subnetfilter.Default()
 	compiled, err := sf.CompileFilter(filter)
 	if err != nil {
 		return false, err
 	}
 
-	ipset, err := sf.RunFilter(compiled)
+	ipset, err := sf.RunFilter(ctx, compiled)
 	if err != nil {
 		return false, err
 	}
@@ -446,7 +466,7 @@ func dnsPrepareA(target string) ([]byte, error) {
 // Resolves A records for the specified hostname using the specified DNS server.
 func dnsPlainA(ctx context.Context, addr, target string) ([]netip.Addr, error) {
 	cfg := config.Get().Checkers.Dns.Resolve
-	ctx, cancel := context.WithTimeout(ctx, cfg.PlainOpt.Timeout)
+	ctx, cancel := context.WithTimeout(ctx, cfg.PlainOpt.QueryTimeout)
 	defer cancel()
 
 	resolver := &net.Resolver{

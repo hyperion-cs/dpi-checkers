@@ -56,12 +56,14 @@ type Config struct {
 
 			Resolve struct {
 				PlainOpt struct {
-					Timeout time.Duration `mapstructure:"timeout"`
-					Workers int           `mapstructure:"workers"`
+					QueryTimeout    time.Duration `mapstructure:"query-timeout"`
+					ProviderTimeout time.Duration `mapstructure:"provider-timeout"`
+					Workers         int           `mapstructure:"workers"`
 				} `mapstructure:"plain-opt"`
 
 				DohOpt struct {
-					Timeout           time.Duration     `mapstructure:"timeout"`
+					QueryTimeout      time.Duration     `mapstructure:"query-timeout"`
+					ProviderTimeout   time.Duration     `mapstructure:"provider-timeout"`
 					Workers           int               `mapstructure:"workers"`
 					Path              string            `mapstructure:"path"`
 					HttpStaticHeaders map[string]string `mapstructure:"http-static-headers"`

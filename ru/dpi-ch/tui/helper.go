@@ -63,6 +63,8 @@ func dnsPrettyProviderVerdict(err error) string {
 				items = append(items, "non-2xx response")
 			case checkers.ErrDnsSkip:
 				items = append(items, "skip")
+			case checkers.ErrDnsProviderTimeout:
+				items = append(items, "timeout")
 			}
 		}
 

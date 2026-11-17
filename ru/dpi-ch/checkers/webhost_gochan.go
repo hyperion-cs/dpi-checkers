@@ -82,6 +82,7 @@ func WebhostGochanRunner(opt WebhostGochanRunnerOpt) WebhostGochanRunnerOut {
 		opt.Ctx, optCtxCancel = context.WithTimeout(opt.Ctx, cfg.FarmTimeout)
 	}
 	finish := func() {
+		wg.Wait()
 		summary := WebhostGochanRunnerSummary{FarmTimeout: errors.Is(opt.Ctx.Err(), context.DeadlineExceeded), Err: runnerErr}
 		if summary.FarmTimeout && config.Get().Debug {
 			log.Println("webhost checker => farming timeout exceeded; stopping...")
@@ -120,6 +121,11 @@ func WebhostGochanRunner(opt WebhostGochanRunnerOpt) WebhostGochanRunnerOut {
 	wg.Go(func() {
 		defer close(farmGochanIn)
 		for x := range sfGochan {
+			if x.Out.Error != nil {
+				runnerErr = errors.Join(runnerErr, x.Out.Error)
+				webhostSendProgress(progressCh, fmt.Sprintf("subnetfilter => for %q: %v", x.Bag.Name, x.Out.Error))
+				continue
+			}
 			webhostSendProgress(
 				progressCh,
 				fmt.Sprintf(`subnetfilter => for "%s" found subnets: %d`, x.Bag.Name, len(x.Out.IpSet.Prefixes())),

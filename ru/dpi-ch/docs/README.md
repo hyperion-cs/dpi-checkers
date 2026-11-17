@@ -184,11 +184,13 @@ checkers: # checkers, available in the dpi-ch utility
 
     resolve:
       plain-opt:
-        timeout: # time.Duration; timeout for plain dns requests and dst spoofing check
-        workers: # int; number of parallel plain dns workers
+        query-timeout:    # time.Duration; timeout for one plain DNS lookup; also used for DoH bootstrap
+        provider-timeout: # time.Duration; total budget for one provider's plain checks, including filters and hijacking
+        workers:          # int; number of parallel plain dns workers
 
       doh-opt:
-        timeout:             # time.Duration; timeout for doh requests
+        query-timeout:       # time.Duration; timeout for one DoH request, including TCP, TLS and the full response body
+        provider-timeout:    # time.Duration; total budget for one provider's DoH checks, including bootstrap and filters
         workers:             # int; number of parallel doh workers
         path:                # string; doh endpoint path
         http-static-headers: # map[string]string; http headers for doh requests

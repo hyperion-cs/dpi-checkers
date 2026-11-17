@@ -1,10 +1,14 @@
 package subnetfilter
 
 import (
+	"context"
+	"errors"
 	"net/netip"
 	"os"
 	"slices"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/inetlookup"
 
@@ -115,10 +119,84 @@ func compileAndRunFilter(filter string) (*netipx.IPSet, error) {
 		return nil, err
 	}
 
-	subnets, err := _testSubnetfilter.RunFilter(f)
+	subnets, err := _testSubnetfilter.RunFilter(context.Background(), f)
 	if err != nil {
 		return nil, err
 	}
 
 	return subnets, nil
+}
+
+func TestRunFilterCanceled(t *testing.T) {
+	filter, err := _testSubnetfilter.CompileFilter(`host("example.invalid")`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Run("canceled", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(t.Context())
+		cancel()
+		if _, err := _testSubnetfilter.RunFilter(ctx, filter); !errors.Is(err, context.Canceled) {
+			t.Fatalf("got %v, want context canceled", err)
+		}
+	})
+	t.Run("deadline", func(t *testing.T) {
+		ctx, cancel := context.WithDeadline(t.Context(), time.Now().Add(-time.Second))
+		defer cancel()
+		if _, err := _testSubnetfilter.RunFilter(ctx, filter); !errors.Is(err, context.DeadlineExceeded) {
+			t.Fatalf("got %v, want deadline exceeded", err)
+		}
+	})
+}
+
+func TestRunFilterConcurrentContexts(t *testing.T) {
+	filter, err := _testSubnetfilter.CompileFilter(`host("192.0.2.1", "2001:db8::1")`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	canceled, cancel := context.WithCancel(t.Context())
+	cancel()
+	var wg sync.WaitGroup
+	for range 16 {
+		wg.Go(func() {
+			if _, err := _testSubnetfilter.RunFilter(canceled, filter); !errors.Is(err, context.Canceled) {
+				t.Errorf("got %v, want context canceled", err)
+			}
+		})
+		wg.Go(func() {
+			ips, err := _testSubnetfilter.RunFilter(t.Context(), filter)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			for _, ip := range []string{"192.0.2.1", "2001:db8::1"} {
+				if !ips.Contains(netip.MustParseAddr(ip)) {
+					t.Errorf("missing %s", ip)
+				}
+			}
+		})
+	}
+	wg.Wait()
+}
+
+func TestExtractHostname(t *testing.T) {
+	for _, tt := range []struct {
+		filter string
+		host   string
+	}{
+		{`host("example.invalid")`, "example.invalid"},
+		{`host("example.invalid", "other.invalid")`, ""},
+		{`host("example.invalid") || host("other.invalid")`, ""},
+		{`country("ru")`, ""},
+	} {
+		t.Run(tt.filter, func(t *testing.T) {
+			filter, err := _testSubnetfilter.CompileFilter(tt.filter)
+			if err != nil {
+				t.Fatal(err)
+			}
+			host, ok := _testSubnetfilter.ExtractHostname(filter)
+			if host != tt.host || ok != (tt.host != "") {
+				t.Fatalf("got %q, %v, want %q, %v", host, ok, tt.host, tt.host != "")
+			}
+		})
+	}
 }

@@ -37,6 +37,15 @@ type FullCheckProgress struct {
 	Msg   string
 }
 
+func fullCheckDnsState(verdicts []DnsVerdict) FullCheckState {
+	for _, v := range verdicts {
+		if errors.Is(v.Verdict, ErrDnsProviderTimeout) {
+			return FullCheckStateTimeout
+		}
+	}
+	return FullCheckStateOk
+}
+
 func fullCheckErrorState(err error) FullCheckState {
 	if err == nil {
 		return FullCheckStateOk

@@ -238,11 +238,13 @@ checkers:
 
     resolve:
       plain-opt:
-        timeout: 10s
+        query-timeout: 10s
+        provider-timeout: 1m
         workers: 5
 
       doh-opt:
-        timeout: 10s
+        query-timeout: 10s
+        provider-timeout: 1m
         workers: 5
         path: /dns-query
         http-static-headers:

@@ -159,7 +159,7 @@ func FullCheckGochan(ctx context.Context) <-chan FullCheckProgress {
 				val := fullCheckDnsReportDto(items)
 				dnsPlain = &val
 				fullCheckSendProgress(ctx, progressCh, FullCheckProgress{
-					Task: FullCheckTaskDnsPlain, State: FullCheckStateOk, Msg: "dns:plain ready",
+					Task: FullCheckTaskDnsPlain, State: fullCheckDnsState(items), Msg: "dns:plain ready",
 				})
 			})
 
@@ -172,7 +172,7 @@ func FullCheckGochan(ctx context.Context) <-chan FullCheckProgress {
 				val := fullCheckDnsReportDto(items)
 				dnsDoh = &val
 				fullCheckSendProgress(ctx, progressCh, FullCheckProgress{
-					Task: FullCheckTaskDnsDoh, State: FullCheckStateOk, Msg: "dns:doh ready",
+					Task: FullCheckTaskDnsDoh, State: fullCheckDnsState(items), Msg: "dns:doh ready",
 				})
 			})
 		}
@@ -367,6 +367,8 @@ func fullCheckPrettyDnsVerdict(v error) []FullCheckStatusDto {
 			items = append(items, FullCheckStatusDto{Msg: "Non-2xx response", Code: "NON_2XX_RESP"})
 		case ErrDnsSkip:
 			items = append(items, FullCheckStatusDto{Msg: "Skip", Code: "SKIP"})
+		case ErrDnsProviderTimeout:
+			items = append(items, FullCheckStatusDto{Msg: "Provider timeout", Code: "PROVIDER_TIMEOUT"})
 		}
 	}
 

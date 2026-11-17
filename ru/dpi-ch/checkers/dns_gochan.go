@@ -2,6 +2,7 @@ package checkers
 
 import (
 	"context"
+	"errors"
 
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/gochan"
@@ -36,11 +37,17 @@ func DnsPlainGochan(ctx context.Context) <-chan DnsVerdict {
 				}
 			}
 
-			matrix := dnsPlainMatrix(in.Ctx, in.Provider, in.Targets)
-			hijacking := dnsPlainHijacking(in.Ctx, in.Provider)
+			ctx, cancel := context.WithTimeoutCause(in.Ctx, cfg.PlainOpt.ProviderTimeout, ErrDnsProviderTimeout)
+			defer cancel()
+			matrix := dnsPlainMatrix(ctx, in.Provider, in.Targets)
+			hijacking := dnsPlainHijacking(ctx, in.Provider)
+			verdict := dnsPlainVerdict(matrix, hijacking)
+			if errors.Is(context.Cause(ctx), ErrDnsProviderTimeout) {
+				verdict = errors.Join(verdict, ErrDnsProviderTimeout)
+			}
 			return DnsVerdict{
 				Provider: in.Id,
-				Verdict:  dnsPlainVerdict(matrix, hijacking),
+				Verdict:  verdict,
 			}
 		},
 	})
@@ -74,10 +81,16 @@ func DnsDohGochan(ctx context.Context) <-chan DnsVerdict {
 				}
 			}
 
-			matrix := dnsDohMatrix(in.Ctx, in.DohProvider, in.Targets)
+			ctx, cancel := context.WithTimeoutCause(in.Ctx, cfg.DohOpt.ProviderTimeout, ErrDnsProviderTimeout)
+			defer cancel()
+			matrix := dnsDohMatrix(ctx, in.DohProvider, in.Targets)
+			verdict := dnsDohVerdict(matrix)
+			if errors.Is(context.Cause(ctx), ErrDnsProviderTimeout) {
+				verdict = errors.Join(verdict, ErrDnsProviderTimeout)
+			}
 			return DnsVerdict{
 				Provider: in.Id,
-				Verdict:  dnsDohVerdict(matrix),
+				Verdict:  verdict,
 			}
 		},
 	})

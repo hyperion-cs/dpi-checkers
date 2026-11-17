@@ -2,11 +2,15 @@ package checkers
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
+	yaml "go.yaml.in/yaml/v3"
 )
 
 func TestFullCheckProgressBackpressure(t *testing.T) {
@@ -101,6 +105,63 @@ func TestFullCheckSaveError(t *testing.T) {
 	}
 	if last.Task != FullCheckTaskNone || last.State != FullCheckStateError {
 		t.Fatalf("missing save error: %v", last)
+	}
+}
+
+func TestFullCheckDnsProviderTimeout(t *testing.T) {
+	for _, format := range []string{"json", "yaml"} {
+		t.Run(format, func(t *testing.T) {
+			addr := dnsTestServer(t, "missing.example.")
+			cfg := dnsTestConfig(t, fmt.Sprintf(`checkers:
+  dns:
+    resolve:
+      targets: [{host: missing.example.}, {host: silent.example.}]
+      providers:
+        - name: local
+          plain: {hosts: [%q]}
+`, addr))
+			cfg.All.Checkers = []string{"dns"}
+			cfg.All.Format = format
+			cfg.All.Prefix = filepath.Join(t.TempDir(), "report")
+			cfg.All.TsFormat = ""
+			cfg.Checkers.Dns.Leak.Times = 0
+			cfg.Checkers.Dns.Resolve.PlainOpt.ProviderTimeout = 100 * time.Millisecond
+			ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
+			defer cancel()
+			seen := false
+			for p := range FullCheckGochan(ctx) {
+				if p.Task == FullCheckTaskDnsPlain {
+					seen = true
+					if p.State != FullCheckStateTimeout {
+						t.Errorf("got state %v, want timeout", p.State)
+					}
+				}
+			}
+			if !seen || ctx.Err() != nil {
+				t.Fatalf("completion received: %v, context: %v", seen, ctx.Err())
+			}
+			file, err := fullCheckSavePath()
+			if err != nil {
+				t.Fatal(err)
+			}
+			raw, err := os.ReadFile(file)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var report FullCheckDto
+			if format == "json" {
+				err = json.Unmarshal(raw, &report)
+			} else {
+				err = yaml.Unmarshal(raw, &report)
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			statuses := report.Dns.Plain.Providers["local"]
+			if len(statuses) != 2 || statuses[0].Code != "NXDOMAIN_SPOOFING" || statuses[1].Code != "PROVIDER_TIMEOUT" {
+				t.Fatalf("lost DNS findings in report: %v", statuses)
+			}
+		})
 	}
 }
 

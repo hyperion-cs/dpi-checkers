@@ -42,7 +42,7 @@ func Gochan[T any](opt GochanOpt[T]) <-chan GochanOut[T] {
 		Workers: cfg.Workers,
 		Input:   opt.In,
 		Executor: func(in GochanIn[T]) GochanOut[T] {
-			ipset, err := opt.Subnetfilter.RunFilter(in.In.Filter)
+			ipset, err := opt.Subnetfilter.RunFilter(opt.Ctx, in.In.Filter)
 			return GochanOut[T]{Bag: in.Bag, Out: SubnetfilterOut{IpSet: ipset, Error: err}}
 		},
 	})

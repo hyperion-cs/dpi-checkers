@@ -2,6 +2,7 @@ package subnetfilter
 
 import (
 	"context"
+	"maps"
 	"net/netip"
 	"slices"
 	"strings"
@@ -37,6 +38,7 @@ type Subnetfilter struct {
 func New(lookup inetlookup.InetLookup) *Subnetfilter {
 	var s = &Subnetfilter{inetlookup: lookup}
 	var env = map[string]any{
+		"ctx":     context.Background(),
 		"host":    s.host,
 		"subnet":  s.subnet,
 		"as":      s.as,
@@ -53,6 +55,7 @@ func (s *Subnetfilter) CompileFilter(filter string) (*vm.Program, error) {
 	prog, err := expr.Compile(
 		filter,
 		expr.Env(s.env),
+		expr.WithContext("ctx"),
 		expr.Operator("&&", "and"),
 		expr.Operator("||", "or"),
 	)
@@ -60,8 +63,16 @@ func (s *Subnetfilter) CompileFilter(filter string) (*vm.Program, error) {
 	return prog, err
 }
 
-func (s *Subnetfilter) RunFilter(filter *vm.Program) (*netipx.IPSet, error) {
-	v, err := expr.Run(filter, s.env)
+func (s *Subnetfilter) RunFilter(ctx context.Context, filter *vm.Program) (*netipx.IPSet, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	env := maps.Clone(s.env)
+	env["ctx"] = ctx
+	v, err := expr.Run(filter, env)
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +87,7 @@ func (s *Subnetfilter) ExtractHostname(filter *vm.Program) (string, bool) {
 	}
 	root := filter.Node()
 	call, isCall := root.(*ast.CallNode)
-	if !isCall || len(call.Arguments) != 1 {
+	if !isCall || len(call.Arguments) != 2 {
 		return "", false
 	}
 
@@ -84,7 +95,11 @@ func (s *Subnetfilter) ExtractHostname(filter *vm.Program) (string, bool) {
 		return "", false
 	}
 
-	arg := call.Arguments[0]
+	if ctxArg, ok := call.Arguments[0].(*ast.IdentifierNode); !ok || ctxArg.Value != "ctx" {
+		return "", false
+	}
+
+	arg := call.Arguments[1]
 	if v, ok := arg.(*ast.StringNode); ok {
 		return v.Value, true
 	}
@@ -95,13 +110,18 @@ func (s *Subnetfilter) ExtractHostname(filter *vm.Program) (string, bool) {
 // hostname to A/AAAA dns records (/32 subnets)
 // tricks such as deep search are used
 // TODO: clean this up, including deep mode
-func (s *Subnetfilter) host(hosts ...string) *netipx.IPSet {
+func (s *Subnetfilter) host(ctx context.Context, hosts ...string) (*netipx.IPSet, error) {
 	var b netipx.IPSetBuilder
 
 	for _, h := range hosts {
-		ctx := context.Background()
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		ips, err := inetlookup.LookupIpViaDefault(ctx, h)
 		if err != nil {
+			if ctx.Err() != nil {
+				return nil, ctx.Err()
+			}
 			continue
 		}
 		for _, ip := range ips {
@@ -109,12 +129,7 @@ func (s *Subnetfilter) host(hosts ...string) *netipx.IPSet {
 		}
 	}
 
-	set, err := b.IPSet()
-	if err != nil {
-		panic(err)
-	}
-	return set
-
+	return b.IPSet()
 }
 
 // ips or subnets to subnets

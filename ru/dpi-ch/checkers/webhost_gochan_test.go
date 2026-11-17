@@ -65,6 +65,26 @@ func TestWebhostRunnerSummary(t *testing.T) {
 	}
 }
 
+func TestWebhostRunnerFilterError(t *testing.T) {
+	cfg := webhostTestConfig(t)
+	cfg.Checkers.Webhost.FarmTimeout = time.Second
+	out := WebhostGochanRunner(WebhostGochanRunnerOpt{
+		Ctx: t.Context(),
+		Targets: []config.WebhostTarget{
+			{Name: "invalid", Filter: "as(true)"},
+			{Name: "empty", Filter: "subnet()"},
+		},
+	})
+	for range out.Out {
+	}
+	for range out.Progress {
+	}
+	summary := <-out.Summary
+	if summary.Err == nil || summary.FarmTimeout {
+		t.Fatalf("got %v, want filter error", summary)
+	}
+}
+
 func TestWebhostRunnerTimeoutWithFullProgress(t *testing.T) {
 	cfg := webhostTestConfig(t)
 	cfg.Checkers.Webhost.FarmTimeout = time.Second
