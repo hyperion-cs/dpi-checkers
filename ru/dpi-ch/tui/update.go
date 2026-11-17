@@ -324,12 +324,10 @@ func webhostUpdate(model webhostModel, msg tea.Msg) (webhostModel, tea.Cmd) {
 		return webhostProcessItem(msg, model), webhostConsumerCmd(model.session, model.out)
 	case webhostProgressMsg:
 		model.progress = string(msg)
-		if strings.Contains(model.progress, "farming timeout") { // TODO: make it typed
-			model.farmTimeout = true
-		}
 		return model, webhostConsumerCmd(model.session, model.out)
 	case webhostProducerDoneMsg:
 		model.fetching = false
+		model.farmTimeout = msg.FarmTimeout
 		return model, nil
 	case spinner.TickMsg:
 		if model.fetching {

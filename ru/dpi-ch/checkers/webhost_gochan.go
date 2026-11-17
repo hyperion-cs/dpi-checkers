@@ -61,17 +61,34 @@ type WebhostGochanBag struct {
 type WebhostGochanRunnerOut struct {
 	Out      <-chan WebhostGochanOut[WebhostGochanBag]
 	Progress <-chan string
+	Summary  <-chan WebhostGochanRunnerSummary
+}
+
+type WebhostGochanRunnerSummary struct {
+	FarmTimeout bool
 }
 
 func WebhostGochanRunner(opt WebhostGochanRunnerOpt) WebhostGochanRunnerOut {
 	var wg sync.WaitGroup
 	var optCtxCancel context.CancelFunc
 	progressCh := make(chan string, 16)
+	summaryCh := make(chan WebhostGochanRunnerSummary, 1)
 	webhostSendProgress(progressCh, "webhost checker => initialization...")
 
 	cfg := config.Get().Checkers.Webhost
 	if cfg.FarmTimeout > 0 {
 		opt.Ctx, optCtxCancel = context.WithTimeout(opt.Ctx, cfg.FarmTimeout)
+	}
+	finish := func() {
+		summary := WebhostGochanRunnerSummary{FarmTimeout: errors.Is(opt.Ctx.Err(), context.DeadlineExceeded)}
+		if summary.FarmTimeout && config.Get().Debug {
+			log.Println("webhost checker => farming timeout exceeded; stopping...")
+		}
+		summaryCh <- summary
+		close(summaryCh)
+		if optCtxCancel != nil {
+			optCtxCancel()
+		}
 	}
 
 	sf := subnetfilter.New(inetlookup.Default())
@@ -86,14 +103,10 @@ func WebhostGochanRunner(opt WebhostGochanRunnerOpt) WebhostGochanRunnerOut {
 	sfItems, err := getSubnetfilterItems(sf, opt.Targets)
 	if err != nil {
 		webhostSendProgress(progressCh, "subnetfilter => internal error (enable debug and check logs)")
-		defer func() {
-			if optCtxCancel != nil {
-				optCtxCancel()
-			}
-		}()
+		defer finish()
 		close(sfGochanIn)
 		close(progressCh)
-		return WebhostGochanRunnerOut{Out: gochan.Closed[WebhostGochanOut[WebhostGochanBag]](), Progress: progressCh}
+		return WebhostGochanRunnerOut{Out: gochan.Closed[WebhostGochanOut[WebhostGochanBag]](), Progress: progressCh, Summary: summaryCh}
 	}
 	gochan.Push(opt.Ctx, sfGochanIn, sfItems)
 
@@ -122,24 +135,16 @@ func WebhostGochanRunner(opt WebhostGochanRunnerOpt) WebhostGochanRunnerOut {
 
 	webhostGochanIn := make(chan WebhostGochanIn[WebhostGochanBag])
 	webhostGochan := WebhostGochan(WebhostGochanOpt[WebhostGochanBag]{
-		Ctx: opt.Ctx,
-		In:  webhostGochanIn,
-		Post: func() {
-			if optCtxCancel != nil {
-				optCtxCancel()
-			}
-		},
+		Ctx:  opt.Ctx,
+		In:   webhostGochanIn,
+		Post: finish,
 	})
 	webhostSendProgress(progressCh, "webhost checker => initialized")
 
 	go func() {
 		defer close(progressCh)
+		defer wg.Wait()
 		defer close(webhostGochanIn)
-		defer func() {
-			if opt.Ctx != nil && errors.Is(opt.Ctx.Err(), context.DeadlineExceeded) {
-				webhostSendProgress(progressCh, "webhost checker => farming timeout exceeded; stopping...")
-			}
-		}()
 
 		for x := range farmGochan {
 			webhostSendProgress(progressCh,
@@ -166,11 +171,9 @@ func WebhostGochanRunner(opt WebhostGochanRunnerOpt) WebhostGochanRunnerOut {
 				}
 			}
 		}
-
-		wg.Wait()
 	}()
 
-	return WebhostGochanRunnerOut{Out: webhostGochan, Progress: progressCh}
+	return WebhostGochanRunnerOut{Out: webhostGochan, Progress: progressCh, Summary: summaryCh}
 }
 
 func webhostSendProgress(ch chan<- string, p string) {

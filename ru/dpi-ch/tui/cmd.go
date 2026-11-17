@@ -102,7 +102,7 @@ func webhostConsumerCmd(session *session, out checkers.WebhostGochanRunnerOut) t
 			}
 		}
 
-		return msgFor(session, webhostProducerDoneMsg{})
+		return msgFor(session, webhostProducerDoneMsg(<-out.Summary))
 	}
 }
 

@@ -79,7 +79,8 @@ type FullCheckWebhostItemDto struct {
 }
 
 type FullCheckWebhostDto struct {
-	Items []FullCheckWebhostItemDto
+	Items       []FullCheckWebhostItemDto
+	FarmTimeout bool
 }
 
 type FullCheckStatusDto struct {
@@ -177,6 +178,16 @@ func FullCheckGochan(ctx context.Context) <-chan FullCheckProgress {
 						webhost[s.Name] = curr
 						webhostMu.Unlock()
 						fullCheckSendProgress(progressCh, FullCheckProgress{Msg: fmt.Sprintf(`webhost[%s]: "%s" ready`, s.Name, o.Bag.Name)})
+					}
+					if summary := <-gch.Summary; summary.FarmTimeout {
+						webhostMu.Lock()
+						curr, ok := webhost[s.Name]
+						if !ok {
+							curr.Items = []FullCheckWebhostItemDto{}
+						}
+						curr.FarmTimeout = true
+						webhost[s.Name] = curr
+						webhostMu.Unlock()
 					}
 					fullCheckSendProgress(progressCh, FullCheckProgress{Msg: fmt.Sprintf("webhost[%s] ready", s.Name)})
 				})

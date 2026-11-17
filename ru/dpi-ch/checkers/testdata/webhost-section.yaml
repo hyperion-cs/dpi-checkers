@@ -1,0 +1,13 @@
+items:
+  - group: example
+    org: Example
+    as: AS64500
+    location: ZZ
+    ip: 192.0.2.1
+    prefix: 192.0.2.0/24
+    alive: {msg: Ok, code: OK}
+    tls: {v: "1.3", san: [example.test], cn: example.test}
+    tcp1620: {msg: No, code: OK}
+    siberian: {msg: No, code: OK}
+    bursttxkbps: null
+    burstrxkbps: null
