@@ -2,7 +2,6 @@ package tui
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
@@ -108,7 +107,6 @@ func whoamiView(model whoamiModel) string {
 	}
 
 	if model.err != nil {
-		log.Println(model.err)
 		return "error when fetching ;("
 	}
 

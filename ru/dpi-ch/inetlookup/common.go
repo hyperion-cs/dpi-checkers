@@ -3,6 +3,7 @@ package inetlookup
 import (
 	"context"
 	"fmt"
+	"log"
 	"net"
 	"net/netip"
 	"os"
@@ -18,6 +19,8 @@ var (
 	mu     sync.Mutex
 	def    InetLookup
 	inited atomic.Bool
+
+	cgnatPrefix = netip.MustParsePrefix("100.64.0.0/10")
 )
 
 func Inited() bool {
@@ -57,26 +60,49 @@ func LookupIpViaDefault(ctx context.Context, host string) ([]net.IP, error) {
 }
 
 func GetExternalIpViaRipe(ctx context.Context) (netip.Addr, error) {
+	const logPrefix = "inetlookup/ripe"
 	cfg := config.Get().InetLookup
 
 	var ipRaw struct{ Data struct{ Ip string } }
 	if err := inetutil.GetAndUnmarshal(ctx, cfg.RipeApiUrl+"whats-my-ip/data.json", &ipRaw, true, true); err != nil {
+		log.Println(logPrefix, err)
 		return netip.Addr{}, err
 	}
 
-	return netip.ParseAddr(ipRaw.Data.Ip)
+	ip, err := parseExternalIp(ipRaw.Data.Ip)
+	if err != nil {
+		log.Println(logPrefix, err)
+	}
+	return ip, err
 }
 
 func GetExternalIpViaYandex(ctx context.Context) (netip.Addr, error) {
+	const logPrefix = "inetlookup/yandex"
 	cfg := config.Get().InetLookup
 
 	var ip string
 	err := inetutil.GetAndUnmarshal(ctx, cfg.YandexApiUrl+"ip", &ip, true, true)
 	if err != nil {
+		log.Println(logPrefix, err)
 		return netip.Addr{}, err
 	}
 
-	return netip.ParseAddr(ip)
+	addr, err := parseExternalIp(ip)
+	if err != nil {
+		log.Println(logPrefix, err)
+	}
+	return addr, err
+}
+
+func parseExternalIp(raw string) (netip.Addr, error) {
+	ip, err := netip.ParseAddr(raw)
+	if err != nil {
+		return netip.Addr{}, err
+	}
+	if !ip.IsGlobalUnicast() || ip.IsPrivate() || cgnatPrefix.Contains(ip.Unmap()) {
+		return netip.Addr{}, fmt.Errorf("invalid external IP address: %s", ip)
+	}
+	return ip, nil
 }
 
 func fileExists(path string) bool {
