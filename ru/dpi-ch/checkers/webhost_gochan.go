@@ -121,6 +121,9 @@ func WebhostGochanRunner(opt WebhostGochanRunnerOpt) WebhostGochanRunnerOut {
 	wg.Go(func() {
 		defer close(farmGochanIn)
 		for x := range sfGochan {
+			if opt.Ctx.Err() != nil {
+				continue
+			}
 			if x.Out.Error != nil {
 				runnerErr = errors.Join(runnerErr, x.Out.Error)
 				webhostSendProgress(progressCh, fmt.Sprintf("subnetfilter => for %q: %v", x.Bag.Name, x.Out.Error))
@@ -136,50 +139,50 @@ func WebhostGochanRunner(opt WebhostGochanRunnerOpt) WebhostGochanRunnerOut {
 			}
 			select {
 			case <-opt.Ctx.Done():
-				return
 			case farmGochanIn <- in:
 			}
 		}
 	})
 
 	webhostGochanIn := make(chan WebhostGochanIn[WebhostGochanBag])
+	wg.Go(func() {
+		defer close(webhostGochanIn)
+
+		for x := range farmGochan {
+			if opt.Ctx.Err() != nil {
+				continue
+			}
+			webhostSendProgress(progressCh,
+				fmt.Sprintf(`webhostfarm => for "%s" received hosts: %d/%d pcs.`, x.Bag.Name, x.Found, x.Bag.Count),
+			)
+
+			in := WebhostGochanIn[WebhostGochanBag]{
+				Bag: x.Bag,
+				In: WebhostSingleOpt{
+					Ctx:            opt.Ctx,
+					Ip:             x.Out.Ip,
+					Port:           x.Out.Port,
+					Sni:            x.Bag.Sni,
+					Host:           x.Bag.Host,
+					Tcp1620skip:    x.Bag.Tcp1620skip,
+					RandomHostname: x.Bag.RandomHostname,
+				},
+			}
+			select {
+			case <-opt.Ctx.Done():
+			case webhostGochanIn <- in:
+			}
+		}
+	})
 	webhostGochan := WebhostGochan(WebhostGochanOpt[WebhostGochanBag]{
 		Ctx:  opt.Ctx,
 		In:   webhostGochanIn,
 		Post: finish,
 	})
 	webhostSendProgress(progressCh, "webhost checker => initialized")
-
 	go func() {
-		defer close(progressCh)
-		defer wg.Wait()
-		defer close(webhostGochanIn)
-
-		for x := range farmGochan {
-			webhostSendProgress(progressCh,
-				fmt.Sprintf(`webhostfarm => for "%s" received hosts: %d/%d pcs.`, x.Bag.Name, len(x.Out), x.Bag.Count),
-			)
-
-			for _, v := range x.Out {
-				in := WebhostGochanIn[WebhostGochanBag]{
-					Bag: x.Bag,
-					In: WebhostSingleOpt{
-						Ctx:            opt.Ctx,
-						Ip:             v.Ip,
-						Port:           v.Port,
-						Sni:            x.Bag.Sni,
-						Host:           x.Bag.Host,
-						Tcp1620skip:    x.Bag.Tcp1620skip,
-						RandomHostname: x.Bag.RandomHostname,
-					},
-				}
-				select {
-				case <-opt.Ctx.Done():
-					return
-				case webhostGochanIn <- in:
-				}
-			}
-		}
+		wg.Wait()
+		close(progressCh)
 	}()
 
 	return WebhostGochanRunnerOut{Out: webhostGochan, Progress: progressCh, Summary: summaryCh}

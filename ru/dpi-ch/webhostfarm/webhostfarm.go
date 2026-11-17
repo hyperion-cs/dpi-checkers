@@ -24,34 +24,44 @@ type FarmItem struct {
 	Port int
 }
 
-// Randomly scans ip addresses from a specified set of subnets for web service availability.
-// No more than opt.Count items will be returned.
-// Currently, only https with forced tls handshake verification is supported.
-func Farm(ctx context.Context, opt FarmOpt) []FarmItem {
-	items := []FarmItem{}
-	last := FarmItem{}
-
-	for ip := range randomIpsIter(opt.Subnets) {
-		if ctx.Err() != nil {
-			break
+// Randomly scans IP addresses from a set of subnets for HTTPS availability.
+// Streams at most opt.Count items, falling back to the last attempted address if none succeed.
+// Cancel ctx when stopping consumption before the channel closes.
+func Farm(ctx context.Context, opt FarmOpt) <-chan FarmItem {
+	out := make(chan FarmItem)
+	go func() {
+		defer close(out)
+		if opt.Count <= 0 {
+			return
 		}
-		if len(items) >= opt.Count {
-			break
+		found := 0
+		last := FarmItem{}
+		for ip := range randomIpsIter(ctx, opt.Subnets) {
+			if ctx.Err() != nil {
+				return
+			}
+			last = FarmItem{Ip: ip, Port: opt.Port}
+			if !tryConnect(ctx, ip, opt.Port, opt.Sni) {
+				continue
+			}
+			select {
+			case <-ctx.Done():
+				return
+			case out <- last:
+				found++
+			}
+			if found >= opt.Count {
+				return
+			}
 		}
-		last = FarmItem{Ip: ip, Port: opt.Port}
-		if tryConnect(ctx, ip, opt.Port, opt.Sni) {
-			// TODO: consider returning items immediately via channel
-			items = append(items, last)
+		if found == 0 && last.Ip.IsValid() && ctx.Err() == nil {
+			select {
+			case <-ctx.Done():
+			case out <- last:
+			}
 		}
-	}
-
-	if len(items) == 0 {
-		// Try to find hosts with a successful tls handshake,
-		// but in the worst case, return at least one any.
-		items = append(items, last)
-	}
-
-	return items
+	}()
+	return out
 }
 
 func tryConnect(ctx context.Context, ip netip.Addr, port int, sni string) bool {
@@ -73,16 +83,17 @@ func tryConnect(ctx context.Context, ip netip.Addr, port int, sni string) bool {
 
 // Returns a random sequence of ip addresses from a set of subnets (considering their size).
 // It is guaranteed that addresses will not be repeated. Currently, only ipv4 is supported.
-func randomIpsIter(subnets *netipx.IPSet) iter.Seq[netip.Addr] {
+func randomIpsIter(ctx context.Context, subnets *netipx.IPSet) iter.Seq[netip.Addr] {
 	total := ipsetTotal(subnets)
 	if total == 0 {
 		return func(func(netip.Addr) bool) {}
 	}
 
 	processed := map[uint64]struct{}{}
+	ranges := subnets.Ranges()
 	return func(yield func(netip.Addr) bool) {
 		for {
-			if len(processed) >= int(total) {
+			if ctx.Err() != nil || uint64(len(processed)) >= total {
 				return
 			}
 			// TODO: impl random pick with blacklist
@@ -92,7 +103,7 @@ func randomIpsIter(subnets *netipx.IPSet) iter.Seq[netip.Addr] {
 			}
 			processed[k] = struct{}{}
 
-			for _, r := range subnets.Ranges() {
+			for _, r := range ranges {
 				if !r.From().Is4() {
 					continue
 				}

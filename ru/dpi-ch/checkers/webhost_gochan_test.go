@@ -3,6 +3,7 @@ package checkers
 import (
 	"context"
 	"encoding/json"
+	"net"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -91,9 +92,28 @@ func TestWebhostRunnerTimeoutWithFullProgress(t *testing.T) {
 	cfg.Checkers.Webhost.Workers = 8
 	cfg.Subnetfilter.Workers = 8
 	cfg.WebhostFarm.Workers = 8
+	cfg.InetUtil.Fingerprint = "chrome"
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for {
+			conn, err := listener.Accept()
+			if err != nil {
+				return
+			}
+			conn.Close()
+		}
+	}()
+	t.Cleanup(func() { listener.Close(); <-done })
 	targets := make([]config.WebhostTarget, 64)
 	for i := range targets {
-		targets[i] = config.WebhostTarget{Name: "empty", Filter: "subnet()"}
+		targets[i] = config.WebhostTarget{
+			Name: "local", Filter: `subnet("127.0.0.1/32")`, Port: listener.Addr().(*net.TCPAddr).Port,
+		}
 	}
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
