@@ -1,7 +1,10 @@
 package inetlookup
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -59,6 +62,23 @@ func LookupIpViaDefault(ctx context.Context, host string) ([]net.IP, error) {
 	return ips, nil
 }
 
+func GetExternalIpViaMail(ctx context.Context) (netip.Addr, error) {
+	const logPrefix = "inetlookup/mail"
+	cfg := config.Get().InetLookup
+
+	body, err := inetutil.Get(ctx, cfg.MailApiUrl+"ip.html", true, true)
+	if err != nil {
+		log.Println(logPrefix, err)
+		return netip.Addr{}, err
+	}
+
+	ip, err := parseMailExternalIp(body)
+	if err != nil {
+		log.Println(logPrefix, err)
+	}
+	return ip, err
+}
+
 func GetExternalIpViaRipe(ctx context.Context) (netip.Addr, error) {
 	const logPrefix = "inetlookup/ripe"
 	cfg := config.Get().InetLookup
@@ -92,6 +112,20 @@ func GetExternalIpViaYandex(ctx context.Context) (netip.Addr, error) {
 		log.Println(logPrefix, err)
 	}
 	return addr, err
+}
+
+func parseMailExternalIp(body []byte) (netip.Addr, error) {
+	const prefix, suffix = "(none)(", ")"
+	body = bytes.TrimSpace(body)
+	if !bytes.HasPrefix(body, []byte(prefix)) || !bytes.HasSuffix(body, []byte(suffix)) {
+		return netip.Addr{}, errors.New("invalid mail IP response format")
+	}
+
+	var ipRaw struct{ IpAddress string }
+	if err := json.Unmarshal(body[len(prefix):len(body)-len(suffix)], &ipRaw); err != nil {
+		return netip.Addr{}, err
+	}
+	return parseExternalIp(ipRaw.IpAddress)
 }
 
 func parseExternalIp(raw string) (netip.Addr, error) {

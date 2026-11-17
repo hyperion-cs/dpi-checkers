@@ -117,6 +117,7 @@ type Config struct {
 	} `mapstructure:"subnetfilter"`
 
 	InetLookup struct {
+		MailApiUrl   string `mapstructure:"mail-api-url"`
 		RipeApiUrl   string `mapstructure:"ripe-api-url"`
 		YandexApiUrl string `mapstructure:"yandex-api-url"`
 	} `mapstructure:"inetlookup"`

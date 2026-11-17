@@ -82,6 +82,38 @@ func Test4(t *testing.T) {
 	}
 }
 
+func TestParseMailExternalIp(t *testing.T) {
+	tests := []struct {
+		body string
+		want string
+	}{
+		{`(none)({"ipAddress": "31.44.8.1", "xForwardedFor": "(none)"})`, "31.44.8.1"},
+		{" \n(none)({\"ipAddress\":\"31.44.8.1\",\"xForwardedFor\":\"127.0.0.1\"})\n", "31.44.8.1"},
+		{"", ""},
+		{`{"ipAddress":"31.44.8.1"}`, ""},
+		{`callback({"ipAddress":"31.44.8.1"})`, ""},
+		{`(none)({"ipAddress":"31.44.8.1"}`, ""},
+		{`(none)()`, ""},
+		{`(none)({)`, ""},
+		{`(none)({"xForwardedFor":"31.44.8.1"})`, ""},
+		{`(none)({"ipAddress":"127.0.0.1","xForwardedFor":"31.44.8.1"})`, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.body, func(t *testing.T) {
+			got, err := parseMailExternalIp([]byte(tt.body))
+			if tt.want == "" {
+				if err == nil || got.IsValid() {
+					t.Fatalf("got %v, %v; want zero address and error", got, err)
+				}
+				return
+			}
+			if err != nil || got.String() != tt.want {
+				t.Fatalf("got %v, %v; want %s", got, err, tt.want)
+			}
+		})
+	}
+}
+
 func TestParseExternalIp(t *testing.T) {
 	tests := []struct {
 		ip      string

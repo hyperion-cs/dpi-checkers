@@ -24,7 +24,11 @@ func Whoami(ctx context.Context) (WhoamiResult, error) {
 	defer cancel()
 
 	ttlbStart := time.Now()
-	ip, err := inetlookup.GetExternalIpViaYandex(ctx)
+	ip, err := inetlookup.GetExternalIpViaMail(ctx)
+	if err != nil {
+		ttlbStart = time.Now()
+		ip, err = inetlookup.GetExternalIpViaYandex(ctx)
+	}
 	if err != nil {
 		ttlbStart = time.Now()
 		ip, err = inetlookup.GetExternalIpViaRipe(ctx)

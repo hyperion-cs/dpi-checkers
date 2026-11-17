@@ -438,6 +438,7 @@ webhostfarm:
   tls-handshake-timeout: 3s
 
 inetlookup:
+  mail-api-url: https://ip.mail.ru/
   ripe-api-url: https://stat.ripe.net/data/
   yandex-api-url: https://yandex.ru/internet/api/v0/
 
