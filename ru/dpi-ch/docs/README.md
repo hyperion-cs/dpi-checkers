@@ -39,7 +39,7 @@ We recommend using [Terminal](https://github.com/microsoft/terminal) for adequat
 ```powershell
 iwr https://hyperion-cs.github.io/dpi-checkers/ru/dpi-ch/install/windows.ps1 -UseB | iex
 ```
-💡 This script will just find the latest release that matches your architecture, and download, extract, and set it up in the following path: `%LOCALAPPDATA%\dpi-ch\dpich.exe`
+💡 This script will just find the latest release that matches your architecture, and download, extract, and set it up in the following path: `%LOCALAPPDATA%\Programs\dpich\dpich.exe`
 
 #### Docker
 We recommend using the version without Docker, but you are welcome to use it if you prefer.
@@ -61,13 +61,7 @@ docker run --rm -it --pull=always \
   ghcr.io/hyperion-cs/dpich:latest
 ```
 
-💡 If you have your own configuration file, then, in the case where `--pull=always`, you should add something like this to it:
-```yml
-updater:
-  enabled: false
-```
-Because there's no point in trying to update the utility when it's obviously running the latest version.
-This is already set up in the default configuration.
+Pull a new image to update `dpich`. Add `-v dpich-data:/var/lib/dpich` to keep downloaded `inetlookup` data between runs in a named Docker volume called `dpich-data`. To save `ALL` reports on the host, mount an output directory at `/work`.
 
 ## Killer features
 #### ⚡ New method for tcp 16-20 (aka l4-25)
@@ -151,11 +145,20 @@ Attributes can be combined: `[*.]site.com+` means the certificate includes `site
 
 ## Configuration
 You can view the default configuration [here](https://github.com/hyperion-cs/dpi-checkers/blob/main/ru/dpi-ch/config/default.yaml) (incl. as an example; some options are internal and are not intended to be changed by users).<br>
-In any case, any option in the default configuration can be overwritten by users using a [YAML](https://en.wikipedia.org/wiki/YAML) file. To do this, create a `config.yaml` file near the executable file (the path to the file can be changed with the `--cfg` command line [argument](https://github.com/hyperion-cs/dpi-checkers/tree/main/ru/dpi-ch/docs#flags)). The current configuration structure is available [here](https://github.com/hyperion-cs/dpi-checkers/blob/main/ru/dpi-ch/config/config.go), but below is an attempt to describe it in more detail.
+In any case, any option in the default configuration can be overwritten by users using a [.yaml](https://en.wikipedia.org/wiki/YAML) file. To do this, edit the `config.yaml` file that `dpich` creates on startup at the default path below (the path to the file can be changed with the `--cfg` command line [argument](https://github.com/hyperion-cs/dpi-checkers/tree/main/ru/dpi-ch/docs#flags)). The current configuration structure is available [here](https://github.com/hyperion-cs/dpi-checkers/blob/main/ru/dpi-ch/config/config.go), but below is an attempt to describe it in more detail.
+
+| Platform | Default configuration file | Default data directory |
+| --- | --- | --- |
+| Linux (incl. Android) | `$XDG_CONFIG_HOME/dpich/config.yaml` or `~/.config/dpich/config.yaml` | `$XDG_DATA_HOME/dpich/` or `~/.local/share/dpich/` |
+| macOS | `~/Library/Application Support/dpich/config.yaml` | `~/Library/Application Support/dpich/data/` |
+| Windows | `%APPDATA%\dpich\config.yaml` | `%LOCALAPPDATA%\dpich\data` |
+| Docker | `/etc/dpich/config.yaml` | `/var/lib/dpich/` |
+
+Press `p` in the tui to switch between these paths in the header. Relative data paths in .yaml are resolved from the directory containing that file.
 
 Structure of primary options (internal hidden):
 ```yaml
-debug: # bool; if true, debug info will be saved to the debug.log file near the executable file
+debug: # bool; if true, debug info will be saved to the debug.log file in the data directory
 
 checkers: # checkers, available in the dpi-ch utility
   cidrwhitelist: # aka cidrwhitelist checker
@@ -279,15 +282,15 @@ updater: # used to automatically update the dpi-ch utility and related stuff (e.
 
 ## Flags
 The utility has some flags (command-line args) that can sometimes be useful:
-| Flag                        | Description                                  |
-| --------------------------- | -------------------------------------------- |
-| `--all`                     | Run all checks immediately (result to file)  |
-| `--import-all :string`       | View saved ALL results from a json/yaml file |
-| `--cfg :string`             | `.yaml` config path (default: `config.yaml`) |
-| `--force-inetlookup-update` | Force run the `inetlookup` update mechanism  |
-| `--force-update`            | Force run the `dpi-ch` update mechanism      |
-| `--ui :string`              | UI mode: `t` \| `web` (default: `t`)         |
-| `--version`                 | Print version                                |
+| Flag                        | Description                                                   |
+| --------------------------- | ------------------------------------------------------------- |
+| `--all`                     | Run all checks immediately (result to file)                   |
+| `--import-all :string`      | View saved ALL results from a json/yaml file                  |
+| `--cfg :string`             | `.yaml` config path (see [platform defaults](#configuration)) |
+| `--force-inetlookup-update` | Force run the `inetlookup` update mechanism                   |
+| `--force-update`            | Force run the `dpi-ch` update mechanism                       |
+| `--ui :string`              | UI mode: `t` \| `web` (default: `t`)                          |
+| `--version`                 | Print version                                                 |
 
 ## Similar projects
 It so happens that similar projects (unrelated to ours) are under development at the same time, and we are happy to tell you about them.

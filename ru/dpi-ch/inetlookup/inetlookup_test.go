@@ -1,10 +1,15 @@
 package inetlookup
 
 import (
+	"errors"
 	"net/netip"
 	"os"
+	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
+
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
 )
 
 var inetlookup InetLookup
@@ -18,6 +23,24 @@ func TestMain(m *testing.M) {
 
 	code := m.Run()
 	os.Exit(code)
+}
+
+func TestInitDefaultReportsMissingAndMalformedCSV(t *testing.T) {
+	cfg := &config.Get().InetlookupGeolitecsv
+	previous := *cfg
+	t.Cleanup(func() { *cfg = previous })
+	cfg.GeonameidCountry = filepath.Join(t.TempDir(), "geonameid-country.csv")
+
+	if err := InitDefault(); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("missing CSV returned %v", err)
+	}
+	const malformed = "geoname_id,locale_code,continent_code,continent_name,country_iso_code\ninvalid,en,EU,Europe,RU\n"
+	if err := os.WriteFile(cfg.GeonameidCountry, []byte(malformed), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := InitDefault(); err == nil || !strings.Contains(err.Error(), cfg.GeonameidCountry) {
+		t.Fatalf("malformed CSV should report its path, got %v", err)
+	}
 }
 
 func Test1(t *testing.T) {

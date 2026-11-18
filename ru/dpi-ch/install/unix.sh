@@ -3,10 +3,8 @@ set -euo pipefail
 
 REPO="hyperion-cs/dpi-checkers"
 
-APP_DIR="${APP_DIR:-$HOME/.local/dpi-ch}"
 BIN_DIR="${BIN_DIR:-$HOME/.local/bin}"
-BIN_PATH="$APP_DIR/dpich"
-LINK_PATH="$BIN_DIR/dpich"
+APP_DIR="${APP_DIR:-$BIN_DIR}"
 
 require() {
 	command -v "$1" >/dev/null || {
@@ -23,7 +21,12 @@ uname_os="$(uname -o 2>/dev/null || uname -s)"
 case "$uname_os" in
 Android) os="android" ;;
 Darwin) os="darwin" ;;
-GNU/Linux | Linux) os="linux" ;;
+GNU/Linux | Linux)
+	os="linux"
+	if [[ -n "${TERMUX_VERSION:-}" ]]; then
+		os="android"
+	fi
+	;;
 *)
 	echo "Unsupported OS: $uname_os" >&2
 	exit 1
@@ -42,18 +45,32 @@ esac
 platform="${os}-${arch}"
 echo "Platform detected: $platform"
 
-tmp_dir="$(mktemp -d)"
+mkdir -p -- "$APP_DIR" "$BIN_DIR"
+APP_DIR="$(CDPATH= cd -- "$APP_DIR" && pwd -P)"
+BIN_DIR="$(CDPATH= cd -- "$BIN_DIR" && pwd -P)"
+BIN_PATH="$APP_DIR/dpich"
+LINK_PATH="$BIN_DIR/dpich"
+
+if [[ -d "$BIN_PATH" || -d "$LINK_PATH" ]]; then
+	echo "Installation destination is a directory: $BIN_PATH or $LINK_PATH" >&2
+	exit 1
+fi
+
+tmp_dir="$(mktemp -d "$APP_DIR/.dpich-install.XXXXXX")"
 tmp_json="$tmp_dir/release.json"
 tmp_zip="$tmp_dir/archive.zip"
+staged_bin="$tmp_dir/dpich"
+link_tmp_dir=""
 
 cleanup() {
-	rm -rf "$tmp_dir"
+	rm -rf -- "$tmp_dir"
+	if [[ -n "$link_tmp_dir" ]]; then
+		rm -rf -- "$link_tmp_dir"
+	fi
 }
 trap cleanup EXIT
 
-mkdir -p "$APP_DIR" "$BIN_DIR"
 echo "Install directory prepared: $APP_DIR"
-echo "Binary link directory prepared: $BIN_DIR"
 
 if [[ -n "${ASSET_URL:-}" ]]; then
 	asset_url="$ASSET_URL"
@@ -79,38 +96,35 @@ fi
 curl -fL "$asset_url" -o "$tmp_zip"
 echo "Archive downloaded: $asset_url"
 
-unzip -o "$tmp_zip" -d "$APP_DIR" >/dev/null
-echo "Archive extracted to: $APP_DIR"
+unzip -o "$tmp_zip" dpich -d "$tmp_dir" >/dev/null
 
-if [[ ! -f "$BIN_PATH" ]]; then
-	echo "Binary not found after extraction: $BIN_PATH" >&2
+if [[ ! -f "$staged_bin" || ! -s "$staged_bin" || -L "$staged_bin" ]]; then
+	echo "Archive contains no usable dpich binary" >&2
 	exit 1
 fi
 
-chmod +x "$BIN_PATH"
-echo "Binary made executable: $BIN_PATH"
+chmod +x "$staged_bin"
+if [[ "$BIN_PATH" != "$LINK_PATH" ]]; then
+	link_tmp_dir="$(mktemp -d "$BIN_DIR/.dpich-install.XXXXXX")"
+	ln -s -- "$BIN_PATH" "$link_tmp_dir/dpich"
+fi
 
-ln -sf "$BIN_PATH" "$LINK_PATH"
-echo "Symlink created: $LINK_PATH -> $BIN_PATH"
+mv -f -- "$staged_bin" "$BIN_PATH"
 
-case ":$PATH:" in
-*":$BIN_DIR:"*)
-	echo "PATH already contains: $BIN_DIR"
-	echo "Run:"
+if [[ -n "$link_tmp_dir" ]]; then
+	mv -f -- "$link_tmp_dir/dpich" "$LINK_PATH"
+	echo "Symlink created: $LINK_PATH -> $BIN_PATH"
+fi
+
+echo "Run:"
+if [[ "$(command -v dpich)" -ef "$BIN_PATH" ]]; then
 	echo "  dpich"
-	;;
-*)
-	echo "PATH does not contain: $BIN_DIR"
+else
+	printf '  %q\n' "$BIN_PATH"
 	echo
-	echo "Run without PATH:"
-	echo "  ${BIN_PATH/#$HOME/~}"
-	echo
-	echo "To run simply as 'dpich', add this to your shell config:"
-	echo
-	echo "  export PATH=\"$BIN_DIR:\$PATH\""
-	;;
-esac
+	echo "To run as 'dpich', put its directory first in PATH by adding this to your shell config."
+	printf '  export PATH=%q:"$PATH"\n' "$BIN_DIR"
+fi
 
 echo
 echo "Successfully installed: $BIN_PATH"
-echo "Symlink: $LINK_PATH"

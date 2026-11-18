@@ -4,7 +4,6 @@ import (
 	"encoding/csv"
 	"fmt"
 	"io"
-	"iter"
 	"net/netip"
 	"os"
 	"slices"
@@ -36,19 +35,64 @@ type geoliteCsv struct {
 	cidrCountry []cidr2CountryIso
 }
 
-// TODO: we need indexes instead of direct scans through csv iterators
+// TODO: index the loaded CSV records for faster lookups.
 func NewGeoliteCsv(opt GeoliteCsvOpt) InetLookup {
+	lookup, err := loadGeoliteCsv(opt)
+	if err != nil {
+		prettyPanic("NewGeoliteCsv", err)
+	}
+	return lookup
+}
+
+func loadGeoliteCsv(opt GeoliteCsvOpt) (InetLookup, error) {
 	lkpr := &geoliteCsv{cidrAs: []cidr2As{}, cidrCountry: []cidr2CountryIso{}}
-	gnId2Iso := getGeonameidCountry(opt.GeonameidCountryPath)
-
-	for v := range cidrAsCsvIter(opt.CidrAsPath) {
-		lkpr.cidrAs = append(lkpr.cidrAs, v)
+	gnId2Iso := make(map[int32]string)
+	if err := readGeoliteCSV(opt.GeonameidCountryPath, 5, func(row []string) error {
+		id, err := parseInt32(row[0])
+		if err != nil {
+			return err
+		}
+		gnId2Iso[id] = row[4]
+		return nil
+	}); err != nil {
+		return nil, err
 	}
-	for v := range cidr2CountryIsoCsvIter(opt.CidrCountryPath, gnId2Iso) {
-		lkpr.cidrCountry = append(lkpr.cidrCountry, v)
+	if err := readGeoliteCSV(opt.CidrAsPath, 3, func(row []string) error {
+		cidr, err := netip.ParsePrefix(row[0])
+		if err != nil {
+			return err
+		}
+		asn, err := parseInt32(row[1])
+		if err != nil {
+			return err
+		}
+		lkpr.cidrAs = append(lkpr.cidrAs, cidr2As{cidr: cidr, asn: asn, org: row[2]})
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	if err := readGeoliteCSV(opt.CidrCountryPath, 4, func(row []string) error {
+		cidr, err := netip.ParsePrefix(row[0])
+		if err != nil {
+			return err
+		}
+		var id int32
+		for _, value := range row[1:4] {
+			id, err = parseInt32(value)
+			if err != nil {
+				return err
+			}
+			if id != 0 {
+				break
+			}
+		}
+		lkpr.cidrCountry = append(lkpr.cidrCountry, cidr2CountryIso{cidr: cidr, countryIso: gnId2Iso[id]})
+		return nil
+	}); err != nil {
+		return nil, err
 	}
 
-	return lkpr
+	return lkpr, nil
 }
 
 func (l *geoliteCsv) Cidrs(opt CidrsOpt) *netipx.IPSet {
@@ -148,129 +192,43 @@ func (l *geoliteCsv) IpInfo(ip netip.Addr) IpInfo {
 	return info
 }
 
-func cidr2CountryIsoCsvIter(path string, geonameId2countryIso map[int32]string) iter.Seq[cidr2CountryIso] {
-	f, _ := os.Open(path)
-	r := csv.NewReader(f)
-
-	// header skip
-	_, err := r.Read()
+func readGeoliteCSV(path string, minFields int, readRow func([]string) error) error {
+	f, err := os.Open(path)
 	if err != nil {
-		prettyPanic("cidr2CountryIsoCsvIter", err)
+		return err
 	}
-
-	return func(yield func(cidr2CountryIso) bool) {
-		for {
-			row, err := r.Read()
-			if err == io.EOF {
-				f.Close()
-				return
-			}
-			if err != nil {
-				prettyPanic("cidr2CountryIsoCsvIter", err)
-			}
-			if len(row) < 4 {
-				prettyPanic("cidr2CountryIsoCsvIter", fmt.Errorf("unexpected number of columns in csv"))
-			}
-
-			geonameId := mustInt32(row[1])
-			if geonameId == 0 {
-				geonameId = mustInt32(row[2])
-			}
-			if geonameId == 0 {
-				geonameId = mustInt32(row[3])
-			}
-
-			v := cidr2CountryIso{
-				cidr:       netip.MustParsePrefix(row[0]),
-				countryIso: geonameId2countryIso[geonameId],
-			}
-			if !yield(v) {
-				f.Close()
-				return
-			}
-		}
-	}
-}
-
-func cidrAsCsvIter(path string) iter.Seq[cidr2As] {
-	f, _ := os.Open(path)
-	r := csv.NewReader(f)
-
-	// header skip
-	_, err := r.Read()
-	if err != nil {
-		prettyPanic("cidrAsCsvIter", err)
-	}
-
-	return func(yield func(cidr2As) bool) {
-		for {
-			row, err := r.Read()
-			if err == io.EOF {
-				f.Close()
-				return
-			}
-			if err != nil {
-				prettyPanic("cidrAsCsvIter", err)
-			}
-			if len(row) < 3 {
-				prettyPanic("cidr2AsIter", fmt.Errorf("unexpected number of columns in csv"))
-			}
-
-			v := cidr2As{
-				cidr: netip.MustParsePrefix(row[0]),
-				asn:  mustInt32(row[1]),
-				org:  row[2],
-			}
-			if !yield(v) {
-				f.Close()
-				return
-			}
-		}
-
-	}
-}
-
-func getGeonameidCountry(path string) map[int32]string {
-	f, _ := os.Open(path)
 	defer f.Close()
-	r := csv.NewReader(f)
-	m := make(map[int32]string)
 
-	// header skip
-	_, err := r.Read()
+	r := csv.NewReader(f)
+	header, err := r.Read()
 	if err != nil {
-		prettyPanic("getGeonameidCountry", err)
+		return fmt.Errorf("%s: CSV header: %w", path, err)
+	}
+	if len(header) < minFields {
+		return fmt.Errorf("%s: expected at least %d CSV columns, got %d", path, minFields, len(header))
 	}
 
 	for {
 		row, err := r.Read()
 		if err == io.EOF {
-			break
+			return nil
 		}
 		if err != nil {
-			prettyPanic("getGeonameId2CountryIso", err)
+			return fmt.Errorf("%s: %w", path, err)
 		}
-		if len(row) < 5 {
-			prettyPanic("getGeonameId2CountryIso", fmt.Errorf("unexpected number of columns in csv"))
+		if err := readRow(row); err != nil {
+			line, _ := r.FieldPos(0)
+			return fmt.Errorf("%s:%d: %w", path, line, err)
 		}
-
-		geonameId := mustInt32(row[0])
-		iso := row[4]
-		m[geonameId] = iso
 	}
-
-	return m
 }
 
-func mustInt32(s string) int32 {
+func parseInt32(s string) (int32, error) {
 	if s == "" {
-		return 0
+		return 0, nil
 	}
 	i, err := strconv.ParseInt(s, 10, 32)
-	if err != nil {
-		prettyPanic("mustInt32", err)
-	}
-	return int32(i)
+	return int32(i), err
 }
 
 func prettyPanic(loc string, err error) string {

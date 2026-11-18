@@ -5,216 +5,34 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
-	"path"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"time"
 
-	"github.com/creativeprojects/go-selfupdate"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/inetutil"
-	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/internal/version"
 )
-
-type SelfCheckUpdatesResult struct {
-	AssetUrl      string
-	AssetFilename string
-	AssetVersion  string
-	Required      bool
-}
 
 const HASH_POSTFIX = ".hash"
 
-var ErrInternal = errors.New("updater/self: internal")
-var ErrUnsupportedOsOrArch = errors.New("updater/self: unsupported os/arch")
-
-// Determines if it is time to update using the timestamp file
-func TimeToUpdate(tsfile string) (bool, error) {
-	cfg := config.Get().Updater
-	dst := path.Join(cfg.RootDir, tsfile)
-
-	if _, err := os.Stat(dst); err != nil {
-		return true, nil
-	}
-
-	ts, err := readUpdateTimestamp(dst)
+func updateDue(tsfile string) bool {
+	cfg := config.Get()
+	data, err := os.ReadFile(cfg.DataPath(tsfile))
 	if err != nil {
-		return true, nil
+		return true
 	}
-
-	delta := time.Duration(time.Now().Unix()-ts) * time.Second
-	if delta > cfg.Period {
-		return true, nil
-	}
-
-	return false, nil
-}
-
-func readUpdateTimestamp(dst string) (int64, error) {
-	data, err := os.ReadFile(dst)
-	if err != nil {
-		return 0, err
-	}
-
 	ts, err := strconv.ParseInt(string(data), 10, 64)
-	if err != nil {
-		return 0, err
-	}
-
-	return ts, nil
+	return err != nil || time.Since(time.Unix(ts, 0)) > cfg.Updater.Period
 }
 
 func writeUpdateTimestamp(dst string) error {
 	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return err
 	}
-
-	ts := strconv.FormatInt(time.Now().Unix(), 10)
-	return os.WriteFile(dst, []byte(ts), 0644)
-}
-
-// Updates itself. Automatically downloads, unzips, and replaces the executable file.
-// If the update is successful, it is necessary to restart manually.
-func SelfUpdate(ctx context.Context, url, filename, version string) error {
-	exe, err := selfupdate.ExecutablePath()
-	if err != nil {
-		log.Println("updater/self: could not locate executable path")
-		return ErrInternal
-	}
-
-	// TODO: On windows, this hides the previous binary; it's a good idea to run a cleanup when the dpich is restarted.
-	if err := selfupdate.UpdateTo(ctx, url, filename, exe); err != nil {
-		log.Println("updater/self: error occurred while updating binary: ", err, url, filename, exe)
-		return ErrInternal
-	}
-
-	log.Printf("updater/self: successfully updated to version %s", version)
-
-	cfg := config.Get().Updater
-	tsfile := path.Join(cfg.RootDir, cfg.SelfTsFile)
-	err = writeUpdateTimestamp(tsfile)
-	if err != nil {
-		log.Printf("updater/self: fail to update ts file: %s", tsfile)
-	}
-
-	return nil
-}
-
-// Checks if there are new versions of itself.
-func SelfCheckUpdates(ctx context.Context) (SelfCheckUpdatesResult, error) {
-	cfg := config.Get().Updater
-	ctx, cancel := context.WithTimeout(ctx, cfg.Timeout)
-	defer cancel()
-
-	latest, found, err := selfupdate.DetectLatest(ctx, selfupdate.NewRepositorySlug(cfg.Self.Owner, cfg.Self.Repo))
-	if ctxErr := ctx.Err(); ctxErr != nil {
-		return SelfCheckUpdatesResult{}, ctxErr
-	}
-	if err != nil {
-		log.Printf("updater/self: %s\n", err)
-		return SelfCheckUpdatesResult{}, ErrInternal
-	}
-
-	if !found {
-		log.Printf("updater/self: latest version for %s/%s not found\n", runtime.GOOS, runtime.GOARCH)
-		return SelfCheckUpdatesResult{}, ErrUnsupportedOsOrArch
-	}
-
-	if latest.LessOrEqual(version.Value) {
-		tsfile := path.Join(cfg.RootDir, cfg.SelfTsFile)
-		err = writeUpdateTimestamp(tsfile)
-		if err != nil {
-			log.Printf("updater/self: fail to update ts file: %s", tsfile)
-		}
-		return SelfCheckUpdatesResult{Required: false}, nil
-	}
-
-	return SelfCheckUpdatesResult{
-		AssetUrl:      latest.AssetURL,
-		AssetFilename: latest.AssetName,
-		AssetVersion:  latest.Version(),
-		Required:      true,
-	}, nil
-}
-
-func GeoliteUpdate(ctx context.Context) error {
-	cfg := config.Get().Updater
-	dir := path.Join(cfg.RootDir, cfg.Geolite.Dir)
-
-	if err := geolitePartUpdate(ctx, cfg.Geolite.CidrAs.From, path.Join(dir, cfg.Geolite.CidrAs.To)); err != nil {
-		return err
-	}
-	if err := geolitePartUpdate(ctx, cfg.Geolite.CidrCountry.From, path.Join(dir, cfg.Geolite.CidrCountry.To)); err != nil {
-		return err
-	}
-	if err := geolitePartUpdate(ctx, cfg.Geolite.GeonameidCountry.From, path.Join(dir, cfg.Geolite.GeonameidCountry.To)); err != nil {
-		return err
-	}
-	log.Println("updater/geolite: successfully updated")
-
-	tsfile := path.Join(cfg.RootDir, cfg.InetlookupTsFile)
-	err := writeUpdateTimestamp(tsfile)
-	if err != nil {
-		log.Printf("updater/geolite: fail to update ts file: %s", tsfile)
-	}
-
-	return nil
-}
-
-func geolitePartUpdate(ctx context.Context, from, to string) error {
-	cfg := config.Get().Updater
-
-	localHash, err := readLocalHash(to)
-	if err != nil {
-		return err
-	}
-
-	ctx, cancel := context.WithTimeout(ctx, cfg.Timeout)
-	defer cancel()
-	remoteHash, err := remoteHash(
-		ctx,
-		cfg.Geolite.Owner,
-		cfg.Geolite.Repo,
-		from,
-		cfg.Geolite.Branch,
-	)
-	if err != nil {
-		return err
-	}
-
-	if localHash == remoteHash && !cfg.ForceInetlookupUpdate {
-		return nil
-	}
-
-	log.Println("geoliteCidrAsUpdate:download", localHash, remoteHash)
-	ctx, cancel = context.WithTimeout(ctx, cfg.Timeout)
-	defer cancel()
-	if err = download(ctx, contentUrl(
-		cfg.Geolite.Owner,
-		cfg.Geolite.Repo,
-		from,
-		cfg.Geolite.Branch,
-	), to); err != nil {
-		return err
-	}
-
-	return writeLocalHash(to, remoteHash)
-}
-
-func writeLocalHash(path, hash string) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return err
-	}
-
-	if err := os.WriteFile(path+HASH_POSTFIX, []byte(hash), 0o644); err != nil {
-		return err
-	}
-	return nil
+	return os.WriteFile(dst, []byte(strconv.FormatInt(time.Now().Unix(), 10)), 0o644)
 }
 
 func readLocalHash(path string) (string, error) {
@@ -238,44 +56,41 @@ func remoteHash(ctx context.Context, owner, repo, path, branch string) (string, 
 	return respRaw.Sha, nil
 }
 
-func download(ctx context.Context, url, dst string) error {
+func openDownload(ctx context.Context, url string) (io.ReadCloser, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	defer resp.Body.Close()
-
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("bad status: %s", resp.Status)
+		resp.Body.Close()
+		return nil, fmt.Errorf("download: %s", resp.Status)
 	}
+	return resp.Body, nil
+}
 
-	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
-		return err
-	}
-
-	tmp := dst + ".tmp"
-	defer os.Remove(tmp)
-
-	f, err := os.Create(tmp)
+func download(ctx context.Context, url, stagedPath string) error {
+	body, err := openDownload(ctx, url)
 	if err != nil {
 		return err
 	}
-
-	if _, err := io.Copy(f, resp.Body); err != nil {
-		f.Close()
+	defer body.Close()
+	f, err := os.Create(stagedPath)
+	if err != nil {
 		return err
 	}
-
-	if err := f.Close(); err != nil {
+	n, err := io.Copy(f, body)
+	if err := errors.Join(err, f.Close()); err != nil {
 		return err
 	}
-
-	return os.Rename(tmp, dst)
+	if n == 0 {
+		return errors.New("downloaded CSV is empty")
+	}
+	return nil
 }
 
 func attrUrl(owner, repo, path, branch string) string {

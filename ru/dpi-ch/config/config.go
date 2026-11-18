@@ -4,11 +4,11 @@ import (
 	"bytes"
 	_ "embed"
 	"errors"
+	"fmt"
 	"os"
-	"path"
 	"path/filepath"
 	"reflect"
-	"runtime"
+	"syscall"
 	"time"
 
 	"github.com/spf13/viper"
@@ -195,98 +195,103 @@ type WebhostTarget struct {
 	RandomHostname bool   `mapstructure:"random-hostname"`
 }
 
-const CfgDefPath = "config.yaml"
-
 var _cfg = &Config{}
-var _path = CfgDefPath // absolute path
+var _path string
+var _createErr error
 
 //go:embed default.yaml
 var _defRaw []byte
 
-func Load(path string) error {
+//go:embed template.yaml
+var userTemplate []byte
+
+func Load(file string) error {
+	useDefault := file == ""
+	if useDefault {
+		var err error
+		file, err = defaultConfigPath()
+		if err != nil {
+			return err
+		}
+	}
+	file, err := filepath.Abs(file)
+	if err != nil {
+		return err
+	}
+
 	v := viper.New()
 	v.SetConfigType("yaml")
 	if err := v.ReadConfig(bytes.NewReader(_defRaw)); err != nil {
 		return err
 	}
 
-	defTmp := &Config{}
-	if err := v.Unmarshal(defTmp); err != nil {
+	var defSec []WebhostSection
+	if err := v.UnmarshalKey("checkers.webhost.sections", &defSec); err != nil {
 		return err
 	}
 
-	_, err := os.Stat(path)
-	if path != CfgDefPath && err != nil {
-		return err
-	}
-
-	if err == nil {
-		if userRaw, err := os.Open(path); err == nil {
-			defer userRaw.Close()
-			if err := v.MergeConfig(userRaw); err != nil {
-				return err
+	userRaw, err := os.ReadFile(file)
+	var createErr error
+	if useDefault && (errors.Is(err, os.ErrNotExist) || errors.Is(err, syscall.ENOTDIR)) {
+		var created bool
+		created, createErr = createConfig(file)
+		err = nil
+		if createErr == nil && !created {
+			userRaw, err = os.ReadFile(file)
+			if errors.Is(err, os.ErrNotExist) {
+				createErr, err = err, nil
 			}
 		}
 	}
+	if err != nil {
+		return err
+	}
+	if userRaw != nil {
+		if err := v.MergeConfig(bytes.NewReader(userRaw)); err != nil {
+			return fmt.Errorf("read %s: %w", file, err)
+		}
+	}
 
-	if err := v.Unmarshal(_cfg); err != nil {
+	var cfg Config
+	if err := v.Unmarshal(&cfg); err != nil {
+		return err
+	}
+	if err := cfg.resolvePaths(filepath.Dir(file)); err != nil {
 		return err
 	}
 
-	defSec := defTmp.Checkers.Webhost.Sections
-	userSec := _cfg.Checkers.Webhost.Sections
-	if !_cfg.Checkers.Webhost.ExcludeDefaultSections && !reflect.DeepEqual(defSec, userSec) {
-		_cfg.Checkers.Webhost.Sections = append(defSec, userSec...)
+	userSec := cfg.Checkers.Webhost.Sections
+	if !cfg.Checkers.Webhost.ExcludeDefaultSections && !reflect.DeepEqual(defSec, userSec) {
+		cfg.Checkers.Webhost.Sections = append(defSec, userSec...)
 	}
 
 	// TODO: add config validator
-	_path = path
+	*_cfg = cfg
+	_path = file
+	_createErr = createErr
 	return nil
+}
+
+func createConfig(file string) (bool, error) {
+	if err := os.MkdirAll(filepath.Dir(file), 0o700); err != nil {
+		return false, err
+	}
+	f, err := os.OpenFile(file, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if errors.Is(err, os.ErrExist) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	_, writeErr := f.Write(userTemplate)
+	if err := errors.Join(writeErr, f.Close()); err != nil {
+		return false, errors.Join(err, os.Remove(file))
+	}
+	return true, nil
 }
 
 func Get() *Config {
 	return _cfg
-}
-
-// Returns the absolute path to the folder with the dpi-ch binary file
-func BinFolder() (string, error) {
-	execPath, err := os.Executable()
-	if err != nil {
-		return "", err
-	}
-
-	if runtime.GOOS == "android" {
-		switch filepath.Base(execPath) {
-		case "linker", "linker64":
-			if len(os.Args) == 0 || !filepath.IsAbs(os.Args[0]) {
-				return "", errors.New(
-					"system linker requires an absolute binary path in args[0]",
-				)
-			}
-
-			execPath = os.Args[0]
-		}
-	}
-
-	execPath, err = filepath.EvalSymlinks(execPath)
-	if err != nil {
-		return "", err
-	}
-
-	return filepath.Dir(execPath), nil
-}
-
-// Returns the absolute path to the current configuration
-func ConfigPath() (string, error) {
-	if path.IsAbs(_path) {
-		return filepath.Clean(_path), nil
-	}
-
-	binFolder, err := BinFolder()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Clean(filepath.Join(binFolder, _path)), nil
 }
 
 func ForceInetlookupUpdateFlag() {

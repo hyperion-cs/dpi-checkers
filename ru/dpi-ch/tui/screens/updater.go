@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"net"
 	"os"
 
 	"charm.land/bubbles/v2/spinner"
 	tea "charm.land/bubbletea/v2"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/inetlookup"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/tui/primitives"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/updater"
 )
@@ -33,23 +35,23 @@ type UpdaterDoneMsg struct{}
 
 func OpenUpdater(ctx context.Context) (Screen, tea.Cmd) {
 	cfg := config.Get()
-	selfTtu, _ := updater.TimeToUpdate(cfg.Updater.SelfTsFile)
-	inetlookupTtu, _ := updater.TimeToUpdate(cfg.Updater.InetlookupTsFile)
-	if !cfg.Updater.ForceUpdate && !cfg.Updater.ForceInetlookupUpdate && !(cfg.Updater.Enabled && (selfTtu || inetlookupTtu)) {
+	updateGeoLite := cfg.Updater.ForceInetlookupUpdate || (cfg.Updater.Enabled && updater.GeoliteDue())
+	var updateSelf bool
+	if !cfg.Updater.ForceInetlookupUpdate && !config.Container() && !(cfg.All.Flag && cfg.All.AutoExit) {
+		updateSelf = cfg.Updater.ForceUpdate || (cfg.Updater.Enabled && updater.SelfUpdateDue())
+	}
+	if !updateSelf && !updateGeoLite {
 		return nil, nil
 	}
 
 	model := &Updater{fetching: true, spinner: primitives.NewSpinner(), ctx: ctx}
-	if cfg.Updater.ForceInetlookupUpdate || (cfg.All.Flag && cfg.All.AutoExit && inetlookupTtu) {
+	if !updateSelf {
 		return model, model.startInetlookup()
-	}
-	if cfg.All.Flag && cfg.All.AutoExit {
-		return model, func() tea.Msg { return UpdaterDoneMsg{} }
 	}
 
 	model.progress = "checking for updates to itself"
 	return model, tea.Batch(
-		updaterSelfCmd(ctx, cfg.Updater.ForceUpdate, inetlookupTtu),
+		updaterSelfCmd(ctx, cfg.Updater.ForceUpdate, updateGeoLite),
 		model.spinner.Tick,
 	)
 }
@@ -81,19 +83,18 @@ func (model *Updater) startInetlookup() tea.Cmd {
 	return tea.Batch(updaterInetlookupCmd(model.ctx), model.spinner.Tick)
 }
 
-func updaterSelfCmd(ctx context.Context, force, inetlookupTtu bool) tea.Cmd {
+func updaterSelfCmd(ctx context.Context, force, updateGeoLite bool) tea.Cmd {
 	return func() tea.Msg {
 		upd, err := updater.SelfCheckUpdates(ctx)
-		if err == updater.ErrUnsupportedOsOrArch {
-			// TODO: the user should be warned about this.
-			return updaterStartInetlookupMsg{}
+		unsupported := errors.Is(err, updater.ErrUnsupportedOsOrArch)
+		if err != nil && !unsupported {
+			if force {
+				return updaterErrMsg{err: err}
+			}
+			log.Printf("updater/self: %v", err)
 		}
-		if err != nil {
-			return updaterErrMsg{err: err}
-		}
-
-		if !upd.Required {
-			if !force && inetlookupTtu {
+		if err != nil || !upd.Required {
+			if updateGeoLite && (unsupported || !force) {
 				return updaterStartInetlookupMsg{}
 			}
 			return UpdaterDoneMsg{}
@@ -109,7 +110,13 @@ func updaterSelfCmd(ctx context.Context, force, inetlookupTtu bool) tea.Cmd {
 func updaterInetlookupCmd(ctx context.Context) tea.Cmd {
 	return func() tea.Msg {
 		if err := updater.GeoliteUpdate(ctx); err != nil {
-			return updaterErrMsg{err: err}
+			if ctx.Err() != nil {
+				return updaterErrMsg{err: err}
+			}
+			if lookupErr := inetlookup.InitDefault(); lookupErr != nil {
+				return updaterErrMsg{err: errors.Join(err, lookupErr)}
+			}
+			log.Printf("updater/geolite: using local database after update failed: %v", err)
 		}
 		return UpdaterDoneMsg{}
 	}
@@ -126,7 +133,7 @@ func isTimeoutErr(err error) bool {
 func (model *Updater) View() string {
 	if model.err != nil {
 		if isTimeoutErr(model.err) {
-			return "⚠️ error: network timeout in the update mechanism; you can skip this step or restart the utility"
+			return "⚠️ error: network timeout while checking for updates"
 		}
 		return fmt.Sprintf("⚠️ error: %v", model.err)
 	}
