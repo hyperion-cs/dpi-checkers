@@ -2,9 +2,7 @@ package tui
 
 import (
 	"context"
-	"fmt"
-	"os"
-	"path/filepath"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -15,6 +13,7 @@ import (
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers/fullcheck"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/inetlookup"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/tui/primitives"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/tui/screens"
 )
 
@@ -125,13 +124,8 @@ func TestUpdaterContinuesToAll(t *testing.T) {
 	lookupFixture(cfg)
 	cfg.Updater.Enabled = true
 	cfg.Updater.RootDir = t.TempDir()
-	cfg.Updater.SelfTsFile = "self.ts"
 	cfg.Updater.InetlookupTsFile = "geoip.ts"
-	cfg.Updater.Period = time.Hour
 	cfg.Updater.ForceUpdate, cfg.Updater.ForceInetlookupUpdate = false, false
-	if err := os.WriteFile(filepath.Join(cfg.Updater.RootDir, cfg.Updater.InetlookupTsFile), fmt.Append(nil, time.Now().Unix()), 0600); err != nil {
-		t.Fatal(err)
-	}
 	cfg.All.Flag, cfg.All.AutoExit = true, true
 
 	model := newRootModel(TuiOpt{})
@@ -140,7 +134,7 @@ func TestUpdaterContinuesToAll(t *testing.T) {
 		t.Fatal("startup did not select the updater")
 	}
 	updaterRun := model.session
-	model, cmd = update(model, cmd())
+	model, cmd = update(model, sessionMsg{updaterRun, screens.UpdaterDoneMsg{}})
 	if model.screen != nil || updaterRun.ctx.Err() != context.Canceled || cmd == nil {
 		t.Fatal("updater completion did not schedule initialization for ALL")
 	}
@@ -165,6 +159,70 @@ func TestUpdaterContinuesToAll(t *testing.T) {
 	model, cmd = update(model, sessionMsg{run, screens.AllExitMsg{}})
 	if cmd == nil || !model.quitting || run.ctx.Err() != context.Canceled {
 		t.Fatal("ALL exit did not cancel the active task")
+	}
+}
+
+func TestPathsToggleInLastRow(t *testing.T) {
+	cfg := testConfig(t)
+	lookupFixture(cfg)
+	inetlookup.Default()
+	model := newRootModel(TuiOpt{})
+	model.configPath = "/config/dpich/config.yaml"
+	model.dataPath = "/data/dpich"
+	checkFooter := func(path string) {
+		t.Helper()
+		const label = " · p: config/data · path: "
+		rendered := strings.TrimSpace(ansi.Strip(model.render()))
+		last := rendered[strings.LastIndexByte(rendered, '\n')+1:]
+		if !strings.HasSuffix(last, label+path) || strings.Count(rendered, label) != 1 {
+			t.Fatalf("expected %q only in the last row, got %q", path, last)
+		}
+	}
+	checkFooter(model.configPath)
+	model, _ = update(model, tea.KeyPressMsg{Code: 'p', Text: "p"})
+	checkFooter(model.dataPath)
+
+	model, _ = update(model, tea.KeyPressMsg{Code: tea.KeyEnter})
+	if model.screen == nil {
+		t.Fatal("main menu did not open a checker")
+	}
+	checkFooter(model.dataPath)
+	model, _ = update(model, tea.KeyPressMsg{Code: 'з', Text: "з"})
+	checkFooter(model.configPath)
+
+	model, _ = update(model, tea.KeyPressMsg{Code: tea.KeyBackspace})
+	checkFooter(model.configPath)
+}
+
+func TestPathsFooterHighlightsOnlyUnwrittenConfig(t *testing.T) {
+	model := newRootModel(TuiOpt{})
+	model.configPath = "/config/dpich/config.yaml"
+	model.dataPath = "/data/dpich"
+	model.configCreateFailed = true
+	if footer := model.renderFooter(); !strings.HasSuffix(footer, primitives.DangerStyle.Render(model.configPath)) {
+		t.Fatalf("missing config path should be highlighted: %q", footer)
+	}
+	model.showDataPath = true
+	if footer := model.renderFooter(); !strings.HasSuffix(footer, primitives.SubtleStyle.Render(model.dataPath)) {
+		t.Fatalf("data path should use its normal style: %q", footer)
+	}
+}
+
+func TestLookupFailureKeepsAllFromStarting(t *testing.T) {
+	model := newRootModel(TuiOpt{})
+	model.session = newSession()
+	run := model.session
+	err := errors.New("invalid GeoLite CSV")
+	model, cmd := update(model, sessionMsg{run, lookupReadyMsg{all: true, err: err}})
+	if cmd != nil || model.screen != nil || run.ctx.Err() != context.Canceled {
+		t.Fatal("lookup failure did not cancel startup before ALL")
+	}
+	if text := ansi.Strip(model.render()); !strings.Contains(text, err.Error()) {
+		t.Fatalf("lookup failure is missing from the TUI: %q", text)
+	}
+	model, cmd = update(model, tea.KeyPressMsg{Code: tea.KeyEnter})
+	if cmd != nil || model.screen != nil {
+		t.Fatal("lookup failure allowed a checker to start")
 	}
 }
 

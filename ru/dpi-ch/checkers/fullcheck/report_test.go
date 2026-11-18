@@ -14,10 +14,26 @@ import (
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers/dns"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers/webhost"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers/whoami"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/inetlookup"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/inetutil"
 	yaml "go.yaml.in/yaml/v3"
 )
+
+func TestRelativeSavePath(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	cfg := &config.Get().All
+	previous := *cfg
+	t.Cleanup(func() { *cfg = previous })
+	cfg.Prefix = filepath.Join("exports", "results_")
+	cfg.TsFormat, cfg.Format = "fixed", "json"
+
+	path, err := savePath()
+	if want := filepath.Join(dir, "exports", "results_fixed.json"); err != nil || path != want {
+		t.Fatalf("report path = %q (%v), want %q", path, err, want)
+	}
+}
 
 func TestImportFormats(t *testing.T) {
 	want := ReportDto{

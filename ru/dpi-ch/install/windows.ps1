@@ -19,18 +19,42 @@ if ($Arch -ne "AMD64") {
     exit 1
 }
 
-$AppDir = Join-Path $env:LOCALAPPDATA "dpi-ch"
+$AppDir = Join-Path $env:LOCALAPPDATA "Programs\dpich"
+$LegacyAppDir = Join-Path $env:LOCALAPPDATA "dpi-ch"
 $BinPath = Join-Path $AppDir "dpich.exe"
+
+function Update-InstallPath([string]$Value) {
+    $Found = $false
+    $Entries = @(
+        foreach ($Entry in $Value -split ";") {
+            $Directory = [Environment]::ExpandEnvironmentVariables($Entry.Trim().Trim('"')).Replace("/", "\").TrimEnd("\")
+            if ($Directory -eq $AppDir -or $Directory -eq $LegacyAppDir) {
+                if (-not $Found) {
+                    $AppDir
+                    $Found = $true
+                }
+            } elseif ($Entry) {
+                $Entry
+            }
+        }
+        if (-not $Found) {
+            $AppDir
+        }
+    )
+    $Entries -join ";"
+}
 
 Write-Host "Platform detected: $Platform"
 
-$TmpDir = New-Item -ItemType Directory -Path (Join-Path ([IO.Path]::GetTempPath()) ([IO.Path]::GetRandomFileName()))
+New-Item -ItemType Directory -Force -Path $AppDir | Out-Null
+Write-Host "Install directory prepared: $AppDir"
+
+$TmpDir = Join-Path $AppDir (".dpich-install-" + [IO.Path]::GetRandomFileName())
+New-Item -ItemType Directory -Path $TmpDir | Out-Null
 $TmpZip = Join-Path $TmpDir "dpich.zip"
+$BackupBin = Join-Path $TmpDir "dpich.exe.bak"
 
 try {
-    New-Item -ItemType Directory -Force -Path $AppDir | Out-Null
-    Write-Host "Install directory prepared: $AppDir"
-
     $ReleaseUrl = "https://api.github.com/repos/$Repo/releases/latest"
     $Release = Invoke-RestMethod -Uri $ReleaseUrl
     Write-Host "Latest release info fetched: https://api.github.com/repos/$Repo/releases/latest"
@@ -49,25 +73,26 @@ try {
     Invoke-WebRequest -Uri $Asset.browser_download_url -OutFile $TmpZip
     Write-Host "Archive downloaded: $TmpZip"
 
-    Expand-Archive -Path $TmpZip -DestinationPath $AppDir -Force
-    Write-Host "Archive extracted to: $AppDir"
+    $StagingDir = Join-Path $TmpDir "extracted"
+    $StagedBin = Join-Path $StagingDir "dpich.exe"
+    Expand-Archive -Path $TmpZip -DestinationPath $StagingDir
 
-    if (-not (Test-Path $BinPath)) {
-        Write-Error "Binary not found after extraction: $BinPath"
-        exit 1
+    if (-not (Test-Path -LiteralPath $StagedBin -PathType Leaf) -or (Get-Item -LiteralPath $StagedBin).Length -eq 0) {
+        throw "Archive contains no usable dpich.exe binary"
+    }
+    if ([IO.File]::Exists($BinPath)) {
+        [IO.File]::Replace($StagedBin, $BinPath, $BackupBin)
+    } else {
+        [IO.File]::Move($StagedBin, $BinPath)
     }
 
     $UserPath = [Environment]::GetEnvironmentVariable("Path", "User")
-    $PathItems = $UserPath -split ";" | ForEach-Object { $_.TrimEnd("\") }
-    $NormalizedAppDir = $AppDir.TrimEnd("\")
-
-    if ($PathItems -contains $NormalizedAppDir) {
-        Write-Host "PATH already contains: $AppDir"
-    } else {
-        [Environment]::SetEnvironmentVariable("Path", "$UserPath;$AppDir", "User")
-        $env:Path += ";$AppDir"
-        Write-Host "Added to user PATH: $AppDir"
+    $UpdatedPath = Update-InstallPath $UserPath
+    if ($UserPath -cne $UpdatedPath) {
+        [Environment]::SetEnvironmentVariable("Path", $UpdatedPath, "User")
     }
+    $env:Path = Update-InstallPath $env:Path
+    Write-Host "User PATH configured: $AppDir"
 
     Write-Host
     Write-Host "Run:"
@@ -75,8 +100,15 @@ try {
 
     Write-Host
     Write-Host "Successfully installed: $BinPath"
-    Write-Host "All temporary files have been cleaned up."
 }
 finally {
-    Remove-Item -Recurse -Force $TmpDir -ErrorAction SilentlyContinue
+    if ([IO.File]::Exists($BackupBin) -and -not [IO.File]::Exists($BinPath)) {
+        try {
+            [IO.File]::Move($BackupBin, $BinPath)
+        } catch {
+            Write-Warning "Previous binary kept at $BackupBin"
+            throw
+        }
+    }
+    Remove-Item -LiteralPath $TmpDir -Recurse -Force -ErrorAction SilentlyContinue
 }

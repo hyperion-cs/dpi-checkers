@@ -8,7 +8,7 @@ import (
 	"io"
 	"net"
 	"os"
-	"path"
+	"path/filepath"
 	"slices"
 	"strings"
 	"time"
@@ -155,16 +155,7 @@ func (r *DnsDto) HasResults() bool {
 func savePath() (string, error) {
 	cfg := config.Get().All
 	reportPath := cfg.Prefix + time.Now().Format(cfg.TsFormat) + "." + cfg.Format
-
-	if !path.IsAbs(reportPath) {
-		binFolder, err := config.BinFolder()
-		if err != nil {
-			return "", err
-		}
-		reportPath = path.Join(binFolder, reportPath)
-	}
-
-	return path.Clean(reportPath), nil
+	return filepath.Abs(reportPath)
 }
 
 func save(reportPath string, dto *ReportDto) error {

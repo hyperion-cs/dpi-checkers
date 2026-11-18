@@ -9,8 +9,6 @@ import (
 	"log"
 	"net"
 	"net/netip"
-	"os"
-	"path"
 	"sync"
 	"sync/atomic"
 
@@ -31,27 +29,39 @@ func Inited() bool {
 }
 
 func Default() InetLookup {
+	lookup, err := initDefault()
+	if err != nil {
+		panic(err)
+	}
+	return lookup
+}
+
+// InitDefault loads the configured GeoLite files for subsequent lookup calls.
+func InitDefault() error {
+	_, err := initDefault()
+	return err
+}
+
+func initDefault() (InetLookup, error) {
 	mu.Lock()
 	defer mu.Unlock()
 
-	geolitecsvCfg := config.Get().InetlookupGeolitecsv
-	if def == nil {
-		ilOpt := GeoliteCsvOpt{
-			CidrAsPath:           geolitecsvCfg.CidrAs,
-			CidrCountryPath:      geolitecsvCfg.CidrCountry,
-			GeonameidCountryPath: geolitecsvCfg.GeonameidCountry,
-		}
-		if !fileExists(ilOpt.CidrAsPath) || !fileExists(ilOpt.CidrCountryPath) || !fileExists(ilOpt.GeonameidCountryPath) {
-			panic(
-				fmt.Sprintf("inetlookup/geolite: some .csv files are missing in ./%s; try running the utility with the --force-inetlookup-update flag",
-					path.Dir(ilOpt.CidrAsPath)),
-			)
-		}
-		def = NewGeoliteCsv(ilOpt)
-		inited.Store(true)
+	if def != nil {
+		return def, nil
 	}
 
-	return def
+	cfg := config.Get().InetlookupGeolitecsv
+	lookup, err := loadGeoliteCsv(GeoliteCsvOpt{
+		CidrAsPath:           cfg.CidrAs,
+		CidrCountryPath:      cfg.CidrCountry,
+		GeonameidCountryPath: cfg.GeonameidCountry,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("inetlookup/geolite: %w", err)
+	}
+	def = lookup
+	inited.Store(true)
+	return def, nil
 }
 
 func LookupIpViaDefault(ctx context.Context, host string) ([]net.IP, error) {
@@ -137,9 +147,4 @@ func parseExternalIp(raw string) (netip.Addr, error) {
 		return netip.Addr{}, fmt.Errorf("invalid external IP address: %s", ip)
 	}
 	return ip, nil
-}
-
-func fileExists(path string) bool {
-	_, err := os.Stat(path)
-	return !os.IsNotExist(err)
 }

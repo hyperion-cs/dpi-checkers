@@ -34,7 +34,14 @@ func main() {
 		return nil
 	})
 
-	cfgPath := flag.String("cfg", config.CfgDefPath, ".yaml config path")
+	var cfgPath string
+	flag.Func("cfg", "path to a YAML config `file` (default: platform config.yaml)", func(path string) error {
+		if path == "" {
+			return errors.New("config path must not be empty")
+		}
+		cfgPath = path
+		return nil
+	})
 	flag.Parse()
 
 	var tuiOpt tui.TuiOpt
@@ -52,26 +59,29 @@ func main() {
 		}
 		tuiOpt = tui.TuiOpt{Report: report, ReportPath: file}
 	}
-	if err := chdirToBin(); err != nil {
-		panic(err)
+
+	if !*ver || cfgPath != "" {
+		if err := config.Load(cfgPath); err != nil {
+			log.Fatalf("config load err: %v", err)
+		}
+	}
+	if *ver {
+		fmt.Println(version.Value)
+		return
 	}
 
-	if err := config.Load(*cfgPath); err != nil {
-		log.Fatalf("config load err: %v", err)
-	}
-
-	log.SetOutput(io.Discard)
 	if config.Get().Debug {
-		f, err := tea.LogToFile("debug.log", "debug")
+		debugLog := config.Get().DataPath("debug.log")
+		if err := os.MkdirAll(filepath.Dir(debugLog), 0o755); err != nil {
+			log.Fatalf("debug log err: %v", err)
+		}
+		f, err := tea.LogToFile(debugLog, "debug")
 		if err != nil {
 			log.Fatalf("debug log err: %v", err)
 		}
 		defer f.Close()
-	}
-
-	if *ver {
-		fmt.Println(version.Value)
-		return
+	} else {
+		log.SetOutput(io.Discard)
 	}
 
 	// this is ignored if the ALL + auto-exit flags are set
@@ -102,18 +112,4 @@ func main() {
 			c.Close()
 		}
 	}
-}
-
-func chdirToBin() error {
-	// don't change workdir in dev environment
-	if version.Value == version.Init {
-		return nil
-	}
-
-	binFolder, err := config.BinFolder()
-	if err != nil {
-		return err
-	}
-
-	return os.Chdir(binFolder)
 }

@@ -444,11 +444,6 @@ inetlookup:
   ripe-api-url: https://stat.ripe.net/data/
   yandex-api-url: https://yandex.ru/internet/api/v0/
 
-inetlookup-geolitecsv:
-  cidr-as: ./data/geolite/cidr-as.csv
-  cidr-country: ./data/geolite/cidr-country.csv
-  geonameid-country: ./data/geolite/geonameid-country.csv
-
 inetutil:
   iface: ""            # empty is default network interface
   fingerprint: edge    # edge is not observed in the "siberian" restrictions
@@ -462,12 +457,11 @@ updater:
   self-ts-file: self-ts
   inetlookup-ts-file: inetlookup-ts
   timeout: 120s
-  root-dir: ./data
   self:
     owner: hyperion-cs
     repo: dpi-checkers
   geolite:
-    dir: ./geolite
+    dir: geolite
     owner: Loyalsoldier
     repo: geoip
     branch: release

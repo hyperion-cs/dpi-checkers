@@ -26,18 +26,25 @@ type TuiOpt struct {
 }
 
 type rootModel struct {
-	menu     *screens.Menu
-	screen   screens.Screen
-	title    string
-	session  *session
-	viewport viewport.Model
-	footer   string
-	offline  bool
-	quitting bool
+	menu               *screens.Menu
+	screen             screens.Screen
+	title              string
+	session            *session
+	viewport           viewport.Model
+	configPath         string
+	dataPath           string
+	configCreateFailed bool
+	showDataPath       bool
+	lookupErr          error
+	offline            bool
+	quitting           bool
 }
 
 type startupMsg struct{}
-type lookupReadyMsg struct{ all bool }
+type lookupReadyMsg struct {
+	all bool
+	err error
+}
 
 func newRootModel(opt TuiOpt) rootModel {
 	var menu *screens.Menu
@@ -50,15 +57,14 @@ func newRootModel(opt TuiOpt) rootModel {
 	vp.SoftWrap = false
 	vp.FillHeight = false
 
-	footer := version.Value
-	if cfgPath, err := config.ConfigPath(); err == nil {
-		footer += primitives.DotChar + "config path: " + cfgPath
-	}
+	cfgPath, _ := config.ConfigPath()
 	model := rootModel{
-		menu:     menu,
-		viewport: vp,
-		footer:   primitives.SubtleStyle.Render("\n" + footer),
-		offline:  opt.Report != nil,
+		menu:               menu,
+		viewport:           vp,
+		configPath:         cfgPath,
+		dataPath:           config.DataDir(),
+		configCreateFailed: config.ConfigCreateError() != nil,
+		offline:            opt.Report != nil,
 	}
 	model.syncViewport()
 	return model
@@ -103,7 +109,13 @@ func (rm rootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmd = rm.loadLookup(config.Get().All.Flag)
 		}
 	case lookupReadyMsg:
-		if msg.all && !rm.offline {
+		if rm.offline {
+			return rm, nil
+		}
+		if msg.err != nil {
+			rm.cancel()
+			rm.lookupErr = msg.err
+		} else if msg.all {
 			cmd = rm.open(screens.AllTitle, screens.OpenAll)
 		}
 	case screens.UpdaterDoneMsg:
@@ -129,6 +141,8 @@ func (rm rootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			rm.viewport.ScrollUp(verticalScrollStep)
 		case "s":
 			rm.viewport.ScrollDown(verticalScrollStep)
+		case "p", "з":
+			rm.showDataPath = !rm.showDataPath
 		case "q", "й", "esc", "ctrl+c", "ctrl+с":
 			rm.quit()
 			cmd = tea.Quit
@@ -145,7 +159,7 @@ func (rm rootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				rm.resetScroll()
 			}
 		case "enter":
-			if rm.screen == nil && rm.session == nil && !rm.menu.Loading() {
+			if rm.screen == nil && rm.session == nil && rm.lookupErr == nil && !rm.menu.Loading() {
 				title, open := rm.menu.Selection()
 				if open != nil {
 					cmd = rm.open(title, open)
@@ -155,10 +169,10 @@ func (rm rootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	if !rm.quitting {
-		if rm.screen == nil {
-			cmd = tea.Batch(cmd, rm.menu.Update(msg))
-		} else {
+		if rm.screen != nil {
 			cmd = tea.Batch(cmd, rm.session.bind(rm.screen.Update(msg)))
+		} else if rm.lookupErr == nil {
+			cmd = tea.Batch(cmd, rm.menu.Update(msg))
 		}
 	}
 	rm.syncViewport()
@@ -179,8 +193,7 @@ func (rm *rootModel) open(title string, open screens.OpenFunc) tea.Cmd {
 
 func (rm *rootModel) loadLookup(all bool) tea.Cmd {
 	cmd := func() tea.Msg {
-		inetlookup.Default()
-		return lookupReadyMsg{all: all}
+		return lookupReadyMsg{all: all, err: inetlookup.InitDefault()}
 	}
 	if all {
 		rm.session = newSession()
@@ -222,6 +235,21 @@ func (rm *rootModel) syncViewport() {
 	rm.viewport.SetYOffset(rm.viewport.YOffset())
 }
 
+func (rm rootModel) renderFooter() string {
+	const separator = " · "
+	footer := version.Value + separator + "p: config/data"
+	path, style := rm.configPath, primitives.SubtleStyle
+	if rm.showDataPath {
+		path = rm.dataPath
+	} else if rm.configCreateFailed {
+		style = primitives.DangerStyle
+	}
+	if path == "" {
+		return primitives.SubtleStyle.Render(footer)
+	}
+	return primitives.SubtleStyle.Render(footer+separator+"path: ") + style.Render(primitives.TerminalText(path))
+}
+
 func (rm rootModel) render() string {
 	var text string
 	switch {
@@ -232,8 +260,9 @@ func (rm rootModel) render() string {
 			primitives.SelectedStyle.Render("https://t.me/dpi_checkers"),
 		)
 		return primitives.MainStyle.Render("\n" + text + "\n\n")
-	case rm.screen == nil && rm.menu.Loading():
-		return primitives.MainStyle.Render("\n" + rm.menu.View() + "\n\n")
+	case rm.screen == nil && rm.lookupErr != nil:
+		text = primitives.DangerStyle.Render("GeoLite initialization failed: " + primitives.TerminalText(rm.lookupErr.Error()))
+		text += "\n\n" + primitives.SubtleStyle.Render("q, esc: quit")
 	case rm.screen == nil:
 		text = rm.menu.View()
 	default:
@@ -251,5 +280,5 @@ func (rm rootModel) render() string {
 		}
 	}
 
-	return primitives.MainStyle.Render("\n" + text + rm.footer + "\n\n")
+	return primitives.MainStyle.Render("\n" + text + "\n" + rm.renderFooter() + "\n\n")
 }
