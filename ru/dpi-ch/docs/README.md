@@ -127,6 +127,28 @@ The default configuration already includes default filter options for popular we
 
 :bulb: Want anything else? Create an [issue](https://github.com/hyperion-cs/dpi-checkers/issues) or [PR](https://github.com/hyperion-cs/dpi-checkers/pulls).
 
+## Understanding the results
+
+We hope most values and the logic behind the results are more or less clear, but below we explain a few things we thought were worth clarifying.
+
+#### Webhost checker
+
+##### Cert SAN/CN
+
+Only the "primary" domain extracted from the certificate (selected using special rules) is shown, along with a few attributes, because more information simply won't fit. `ALL` mode exports everything available (also included in logs in debug mode).
+
+The attributes in the `Cert SAN/CN` column are:
+
+| Attribute | Meaning |
+|---|---|
+| Trailing `+` | The certificate contains other domain names (even after wildcard merging, etc.). |
+| Leading `[*.]` | The certificate includes both the wildcard and its base domain (e.g. `*.site.com` + `site.com`). |
+| Leading `*.` | The certificate includes only the wildcard form of this domain. |
+| Leading `///.` | The name is too long and has been shortened to TLD+1. |
+| Leading `///` | The name is too long even after shortening to TLD+1 and has been truncated. |
+
+Attributes can be combined: `[*.]site.com+` means the certificate includes `site.com`, `*.site.com`, and other domain names.
+
 ## Configuration
 You can view the default configuration [here](https://github.com/hyperion-cs/dpi-checkers/blob/main/ru/dpi-ch/config/default.yaml) (incl. as an example; some options are internal and are not intended to be changed by users).<br>
 In any case, any option in the default configuration can be overwritten by users using a [YAML](https://en.wikipedia.org/wiki/YAML) file. To do this, create a `config.yaml` file near the executable file (the path to the file can be changed with the `--cfg` command line [argument](https://github.com/hyperion-cs/dpi-checkers/tree/main/ru/dpi-ch/docs#flags)). The current configuration structure is available [here](https://github.com/hyperion-cs/dpi-checkers/blob/main/ru/dpi-ch/config/config.go), but below is an attempt to describe it in more detail.
