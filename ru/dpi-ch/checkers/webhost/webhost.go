@@ -1,4 +1,4 @@
-package checkers
+package webhost
 
 import (
 	"bufio"
@@ -21,7 +21,12 @@ import (
 	tls "github.com/refraction-networking/utls"
 )
 
-type WebhostSingleOpt struct {
+const (
+	randomHostnameAlphabet = "abcdefghijklmnopqrstuvwxyz0123456789"
+	randomHostnameLen      = 12
+)
+
+type SingleOpt struct {
 	Ctx            context.Context
 	Ip             netip.Addr
 	Port           int
@@ -32,16 +37,16 @@ type WebhostSingleOpt struct {
 	RandomHostname bool
 }
 
-type WebhostTls struct {
+type Tls struct {
 	V   uint16
 	San []string
 	Cn  string
 }
 
-type WebhostSingleResult struct {
+type SingleResult struct {
 	IpInfo   inetlookup.IpInfo
 	Port     int
-	Tls      *WebhostTls
+	Tls      *Tls
 	Sni      string
 	Host     string
 	Alive    error
@@ -49,10 +54,10 @@ type WebhostSingleResult struct {
 	Siberian error
 
 	// Set only if Tcp1620 == nil
-	Throughput WebhostThroughput
+	Throughput Throughput
 }
 
-type WebhostThroughput struct {
+type Throughput struct {
 	TxBytes   int64
 	RxBytes   int64
 	TxElapsed time.Duration
@@ -60,15 +65,12 @@ type WebhostThroughput struct {
 }
 
 var (
-	ErrWebhostBlockedBySni = errors.New("tls: blocked by sni")
-	ErrWebhostInternal     = errors.New("check: internal error")
-	ErrWebhostSkip         = errors.New("check: skip")
+	ErrBlockedBySni = errors.New("tls: blocked by sni") // Displayed verbatim in the TUI.
+	ErrInternal     = errors.New("webhost: internal error")
+	ErrSkip         = errors.New("webhost: skip")
 )
 
-const RANDOM_HOSTNAME_ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789"
-const RANDOM_HOSTNAME_LEN = 12
-
-func (t *WebhostTls) VersionString() string {
+func (t *Tls) VersionString() string {
 	if t == nil {
 		return " — "
 	}
@@ -88,7 +90,7 @@ func (t *WebhostTls) VersionString() string {
 }
 
 // Kbps returns both rates when both directions were measured.
-func (t WebhostThroughput) Kbps() (*float64, *float64) {
+func (t Throughput) Kbps() (*float64, *float64) {
 	if t.TxElapsed <= 0 || t.RxElapsed <= 0 {
 		return nil, nil
 	}
@@ -99,7 +101,7 @@ func (t WebhostThroughput) Kbps() (*float64, *float64) {
 	return &txKbps, &rxKbps
 }
 
-func WebhostSingle(opt WebhostSingleOpt) WebhostSingleResult {
+func Single(opt SingleOpt) SingleResult {
 	if opt.RandomHostname {
 		rndHostname, _ := randomHostname()
 		opt.Sni = rndHostname
@@ -107,7 +109,7 @@ func WebhostSingle(opt WebhostSingleOpt) WebhostSingleResult {
 	}
 
 	ipinfo := inetlookup.Default().IpInfo(opt.Ip)
-	res := WebhostSingleResult{
+	res := SingleResult{
 		IpInfo: ipinfo,
 		Port:   opt.Port,
 		Sni:    opt.Sni,
@@ -126,17 +128,17 @@ func WebhostSingle(opt WebhostSingleOpt) WebhostSingleResult {
 		TlsHandshakeTimeout: cfg.TlsHandshakeTimeout,
 	}
 
-	tlsConn, err := webhostHandshakesCheck(opt, tlsConnOpt)
+	tlsConn, err := checkHandshakes(opt, tlsConnOpt)
 	if err != nil {
 		res.Alive = err
-		res.Tcp1620 = ErrWebhostSkip
-		res.Siberian = ErrWebhostSkip
+		res.Tcp1620 = ErrSkip
+		res.Siberian = ErrSkip
 		return res
 	}
 	defer tlsConn.Close()
 
 	tlsConnState := tlsConn.ConnectionState()
-	res.Tls = &WebhostTls{V: tlsConnState.Version}
+	res.Tls = &Tls{V: tlsConnState.Version}
 	if len(tlsConnState.PeerCertificates) > 0 {
 		cert := tlsConnState.PeerCertificates[0]
 		log.Println("webhost; ip: ", opt.Ip, "san: ", cert.DNSNames, "cn: ", cert.Subject.CommonName)
@@ -145,24 +147,24 @@ func WebhostSingle(opt WebhostSingleOpt) WebhostSingleResult {
 	}
 
 	if opt.Ctx.Err() != nil {
-		res.Tcp1620 = ErrWebhostSkip
-		res.Siberian = ErrWebhostSkip
+		res.Tcp1620 = ErrSkip
+		res.Siberian = ErrSkip
 		return res
 	}
 
 	// The order of the checks is important.
 
-	res.Alive = webhostAliveCheck(opt, tlsConn)
+	res.Alive = checkAlive(opt, tlsConn)
 	if res.Alive != nil && res.Alive != inetutil.ErrHttpMalformedResponse {
-		res.Tcp1620 = ErrWebhostSkip
-		res.Siberian = ErrWebhostSkip
+		res.Tcp1620 = ErrSkip
+		res.Siberian = ErrSkip
 		return res
 	}
 
 	if opt.Tcp1620skip || opt.Ctx.Err() != nil {
-		res.Tcp1620 = ErrWebhostSkip
+		res.Tcp1620 = ErrSkip
 	} else {
-		thp, err := webhostTcp1620check(opt, tlsConnOpt)
+		thp, err := checkTcp1620(opt, tlsConnOpt)
 		if err != nil {
 			res.Tcp1620 = err
 		}
@@ -170,17 +172,17 @@ func WebhostSingle(opt WebhostSingleOpt) WebhostSingleResult {
 	}
 
 	if opt.SiberianSkip || opt.Ctx.Err() != nil {
-		res.Siberian = ErrWebhostSkip
+		res.Siberian = ErrSkip
 	} else {
-		res.Siberian = webhostSiberianCheck(tlsConnOpt)
+		res.Siberian = checkSiberian(tlsConnOpt)
 	}
 
 	return res
 }
 
-func webhostHandshakesCheck(webhostOpt WebhostSingleOpt, tlsConnOpt inetutil.TlsConnOpt) (*tls.UConn, error) {
+func checkHandshakes(opt SingleOpt, tlsConnOpt inetutil.TlsConnOpt) (*tls.UConn, error) {
 	tlsConn, err := inetutil.GetHandshakedUTlsConn(tlsConnOpt)
-	if inetutil.IsInetutilErr(err) && !webhostOpt.RandomHostname && tlsConnOpt.Sni != "" {
+	if inetutil.IsInetutilErr(err) && !opt.RandomHostname && tlsConnOpt.Sni != "" {
 		// TODO: We can determine this in 1 pass using Org by IP + move that into config.
 		snis := []string{"cf.com", "google.com"}
 		for _, s := range snis {
@@ -188,7 +190,7 @@ func webhostHandshakesCheck(webhostOpt WebhostSingleOpt, tlsConnOpt inetutil.Tls
 			tlsConn, err = inetutil.GetHandshakedUTlsConn(tlsConnOpt)
 			if err == nil {
 				tlsConn.Close()
-				err = ErrWebhostBlockedBySni
+				err = ErrBlockedBySni
 				break
 			}
 		}
@@ -197,7 +199,7 @@ func webhostHandshakesCheck(webhostOpt WebhostSingleOpt, tlsConnOpt inetutil.Tls
 	return tlsConn, err
 }
 
-func webhostAliveCheck(opt WebhostSingleOpt, tlsConn *tls.UConn) error {
+func checkAlive(opt SingleOpt, tlsConn *tls.UConn) error {
 	cfg := config.Get().Checkers.Webhost
 
 	req, err := http.NewRequest("HEAD", "https://"+opt.Host, http.NoBody)
@@ -226,10 +228,10 @@ func webhostAliveCheck(opt WebhostSingleOpt, tlsConn *tls.UConn) error {
 	return nil
 }
 
-func webhostTcp1620check(opt WebhostSingleOpt, tlsConnOpt inetutil.TlsConnOpt) (WebhostThroughput, error) {
+func checkTcp1620(opt SingleOpt, tlsConnOpt inetutil.TlsConnOpt) (Throughput, error) {
 	tlsConn, err := inetutil.GetHandshakedUTlsConn(tlsConnOpt)
 	if err != nil {
-		return WebhostThroughput{}, err
+		return Throughput{}, err
 	}
 	defer tlsConn.Close()
 
@@ -239,7 +241,7 @@ func webhostTcp1620check(opt WebhostSingleOpt, tlsConnOpt inetutil.TlsConnOpt) (
 	// keep-alive increases the chance that we will be able to push enough data into the connection
 	req, err := http.NewRequest("POST", "https://"+opt.Host, bytes.NewReader(body))
 	if err != nil {
-		return WebhostThroughput{}, err
+		return Throughput{}, err
 	}
 	req.Close = false
 	inetutil.SetHeaders(&req.Header, cfg.HttpStaticHeaders)
@@ -249,12 +251,12 @@ func webhostTcp1620check(opt WebhostSingleOpt, tlsConnOpt inetutil.TlsConnOpt) (
 	txStart := time.Now()
 	txBytes, err := inetutil.TlsWriteHttpRequest(writeCtx, tlsConn, req)
 	if err != nil {
-		return WebhostThroughput{}, err
+		return Throughput{}, err
 	}
 	txElapsed := time.Since(txStart)
 
 	if opt.Ctx.Err() != nil {
-		return WebhostThroughput{}, ErrWebhostSkip
+		return Throughput{}, ErrSkip
 	}
 
 	readCtx, cancel := context.WithTimeout(opt.Ctx, cfg.TcpReadTimeout)
@@ -266,21 +268,21 @@ func webhostTcp1620check(opt WebhostSingleOpt, tlsConnOpt inetutil.TlsConnOpt) (
 	resp, err := inetutil.TlsReadHttpResponse(readCtx, tlsConn, bufio.NewReader(rxCr))
 
 	if err != nil && err != inetutil.ErrHttpMalformedResponse {
-		return WebhostThroughput{}, err
+		return Throughput{}, err
 	}
 
 	if err == nil {
 		if _, err = io.Copy(io.Discard, resp.Body); err != nil {
 			if errors.Is(readCtx.Err(), context.DeadlineExceeded) {
-				return WebhostThroughput{}, inetutil.ErrTcpReadTimeout
+				return Throughput{}, inetutil.ErrTcpReadTimeout
 			}
-			return WebhostThroughput{}, err
+			return Throughput{}, err
 		}
 		defer resp.Body.Close()
 	}
 
 	rxElapsed := time.Since(rxStart)
-	return WebhostThroughput{
+	return Throughput{
 		TxBytes:   txBytes,
 		TxElapsed: txElapsed,
 		RxBytes:   rxCr.Bytes,
@@ -288,7 +290,7 @@ func webhostTcp1620check(opt WebhostSingleOpt, tlsConnOpt inetutil.TlsConnOpt) (
 	}, nil
 }
 
-func webhostSiberianCheck(tlsConnOpt inetutil.TlsConnOpt) error {
+func checkSiberian(tlsConnOpt inetutil.TlsConnOpt) error {
 	cfg := config.Get().Checkers.Webhost
 	fingerprint := inetutil.Fingerprints[cfg.SiberianFingerprint]
 	if fingerprint == nil {
@@ -360,12 +362,12 @@ func randomBytes(n int) ([]byte, error) {
 
 func randomHostname() (string, error) {
 	const tld = "com"
-	b := make([]byte, RANDOM_HOSTNAME_LEN)
+	b := make([]byte, randomHostnameLen)
 	if _, err := rand.Read(b); err != nil {
 		return "", err
 	}
 
-	const rha = RANDOM_HOSTNAME_ALPHABET
+	const rha = randomHostnameAlphabet
 	for i := range b {
 		b[i] = rha[int(b[i])%len(rha)]
 	}

@@ -4,7 +4,10 @@ import (
 	"context"
 	"time"
 
-	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers/dns"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers/fullcheck"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers/webhost"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers/whoami"
 
 	"charm.land/bubbles/v2/spinner"
 	"charm.land/bubbles/v2/table"
@@ -20,7 +23,7 @@ type rootModel struct {
 	quitting bool
 	router   *router
 	viewport viewport.Model
-	report   *checkers.FullCheckDto
+	report   *fullcheck.ReportDto
 
 	allModel           allModel
 	whoamiModel        whoamiModel
@@ -39,21 +42,21 @@ type allModel struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 
-	progress checkers.FullCheckProgress
-	out      <-chan checkers.FullCheckProgress
-	tasks    map[checkers.FullCheckTask][]allTask
+	progress fullcheck.Progress
+	out      <-chan fullcheck.Progress
+	tasks    map[fullcheck.Task][]allTask
 }
 
 type allTask struct {
 	name  string
-	state checkers.FullCheckState
+	state fullcheck.State
 }
 
 type whoamiModel struct {
 	session  *session
 	fetching bool
 	spinner  spinner.Model
-	result   checkers.WhoamiResult
+	result   whoami.Result
 	err      error
 	ctx      context.Context
 	cancel   context.CancelFunc
@@ -80,13 +83,13 @@ type webhostModel struct {
 
 	ctx    context.Context
 	cancel context.CancelFunc
-	out    checkers.WebhostGochanRunnerOut
+	out    webhost.RunOut
 }
 
 type dnsChannelModel struct {
-	providerPlain <-chan checkers.DnsVerdict
-	providerDoh   <-chan checkers.DnsVerdict
-	leak          <-chan checkers.DnsLeakWithIpinfoOut
+	providerPlain <-chan dns.Verdict
+	providerDoh   <-chan dns.Verdict
+	leak          <-chan dns.LeakResult
 	progress      chan string
 }
 

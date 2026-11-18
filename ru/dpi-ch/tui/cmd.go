@@ -3,7 +3,11 @@ package tui
 import (
 	"context"
 
-	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers/cidrwhitelist"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers/dns"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers/fullcheck"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers/webhost"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers/whoami"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/inetlookup"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/updater"
@@ -66,27 +70,26 @@ func exitCmd() tea.Msg {
 
 func whoamiFetchCmd(session *session, ctx context.Context) tea.Cmd {
 	return func() tea.Msg {
-		res, err := checkers.Whoami(ctx)
+		res, err := whoami.Check(ctx)
 		return msgFor(session, whoamiResultMsg{res, err})
 	}
 }
 
 func cidrwhitelistCheckCmd(session *session, ctx context.Context) tea.Cmd {
 	return func() tea.Msg {
-		err := checkers.CidrWhitelist(ctx)
+		err := cidrwhitelist.Check(ctx)
 		return msgFor(session, cidrwhitelistResultMsg{err: err})
 	}
 }
 
 func webhostProducerStartCmd(session *session, ctx context.Context, targets []config.WebhostTarget) tea.Cmd {
 	return func() tea.Msg {
-		opt := checkers.WebhostGochanRunnerOpt{Ctx: ctx, Targets: targets}
-		out := checkers.WebhostGochanRunner(opt)
+		out := webhost.Run(ctx, targets)
 		return msgFor(session, webhostProducerStartedMsg{out})
 	}
 }
 
-func webhostConsumerCmd(session *session, out checkers.WebhostGochanRunnerOut) tea.Cmd {
+func webhostConsumerCmd(session *session, out webhost.RunOut) tea.Cmd {
 	return func() tea.Msg {
 		for out.Out != nil || out.Progress != nil {
 			select {
@@ -113,9 +116,9 @@ func dnsProducerStartCmd(session *session, ctx context.Context) tea.Cmd {
 	return func() tea.Msg {
 		return msgFor(session, dnsProducerStartedMsg{
 			out: dnsChannelModel{
-				leak:          checkers.DnsLeakGochan(ctx),
-				providerPlain: checkers.DnsPlainGochan(ctx),
-				providerDoh:   checkers.DnsDohGochan(ctx),
+				leak:          dns.LeakGochan(ctx),
+				providerPlain: dns.PlainGochan(ctx),
+				providerDoh:   dns.DohGochan(ctx),
 				progress:      make(chan string, 16),
 			},
 		})
@@ -155,12 +158,12 @@ func dnsConsumerCmd(session *session, out dnsChannelModel) tea.Cmd {
 func allProducerStartCmd(session *session, ctx context.Context) tea.Cmd {
 	return func() tea.Msg {
 		return msgFor(session, allProducerStartedMsg{
-			out: checkers.FullCheckGochan(ctx),
+			out: fullcheck.Gochan(ctx),
 		})
 	}
 }
 
-func allConsumerCmd(session *session, p <-chan checkers.FullCheckProgress) tea.Cmd {
+func allConsumerCmd(session *session, p <-chan fullcheck.Progress) tea.Cmd {
 	return func() tea.Msg {
 		if p == nil {
 			return msgFor(session, allProducerDoneMsg{})

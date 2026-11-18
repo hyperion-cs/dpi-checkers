@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers/fullcheck"
 
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
@@ -12,7 +12,7 @@ import (
 )
 
 type TuiOpt struct {
-	Report     *checkers.FullCheckDto
+	Report     *fullcheck.ReportDto
 	ReportPath string
 }
 

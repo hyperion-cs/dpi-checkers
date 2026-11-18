@@ -11,7 +11,9 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers/dns"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers/fullcheck"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers/webhost"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/inetutil"
 	"golang.org/x/net/publicsuffix"
 
@@ -42,7 +44,7 @@ func dnsPrettyProviderVerdict(err error, fetching bool) string {
 		return "—"
 	}
 
-	dnsErrs := checkers.DnsErrors(err)
+	dnsErrs := dns.Errors(err)
 	var items []string
 	if len(dnsErrs) > 0 {
 		items = append(items, dnsPrettyErrors(dnsErrs))
@@ -56,12 +58,12 @@ func dnsPrettyProviderVerdict(err error, fetching bool) string {
 			items = append(items, "❗️ "+cause.Error())
 		}
 	}
-	if errors.Is(err, checkers.ErrFullCheckUnknownReason) {
+	if errors.Is(err, fullcheck.ErrUnknownReason) {
 		items = append(items, unknownResultText)
 	}
 	// TODO: disable this when HTTP/2 is supported.
 	// It only works as long as we trust providers that use DoH.
-	if len(items) == 1 && len(dnsErrs) == 1 && dnsErrs[0] == checkers.ErrDnsDohNon2xxResp {
+	if len(items) == 1 && len(dnsErrs) == 1 && dnsErrs[0] == dns.ErrDohNon2xxResp {
 		return "✅ not detected"
 	}
 	if len(items) > 0 {
@@ -80,32 +82,32 @@ func dnsPrettyErrors(errs []error) string {
 	items := make([]string, 0, len(errs))
 	for _, err := range errs {
 		switch err {
-		case checkers.ErrDnsProviderHijacking:
+		case dns.ErrProviderHijacking:
 			items = append(items, "provider hijacking")
-		case checkers.ErrDnsResolveSpoofing:
+		case dns.ErrResolveSpoofing:
 			items = append(items, "response spoofing")
-		case checkers.ErrDnsNxdomainSpoofing:
+		case dns.ErrNxdomainSpoofing:
 			items = append(items, "nxdomain spoofing")
-		case checkers.ErrDnsDohBootstrapSpoofing:
+		case dns.ErrDohBootstrapSpoofing:
 			items = append(items, "bootstrap spoofing")
-		case checkers.ErrDnsDohBootstrapEmpty:
+		case dns.ErrDohBootstrapEmpty:
 			items = append(items, "empty bootstrap")
-		case checkers.ErrDnsDohInsecure:
+		case dns.ErrDohInsecure:
 			items = append(items, "invalid https certificate")
-		case checkers.ErrDnsDohNon2xxResp:
+		case dns.ErrDohNon2xxResp:
 			items = append(items, "non-2xx response")
-		case checkers.ErrDnsSkip:
+		case dns.ErrSkip:
 			items = append(items, "skip")
-		case checkers.ErrDnsProviderTimeout:
+		case dns.ErrProviderTimeout:
 			items = append(items, "timeout")
 		}
 	}
 
 	prefix := "❗️"
 	switch errs[0] {
-	case checkers.ErrDnsDohBootstrapEmpty, checkers.ErrDnsDohNon2xxResp:
+	case dns.ErrDohBootstrapEmpty, dns.ErrDohNon2xxResp:
 		prefix = "⚠️ "
-	case checkers.ErrDnsSkip:
+	case dns.ErrSkip:
 		prefix = "⏩ "
 	}
 	return prefix + strings.Join(items, ", ")
@@ -117,7 +119,9 @@ func webhostPrettyAlive(err error) string {
 		return "🟢 yes"
 	case inetutil.ErrHttpMalformedResponse:
 		return "🟢 custom http"
-	case checkers.ErrFullCheckUnknownReason, inetutil.ErrTlsInvalidKeyShare, inetutil.ErrTlsBadRecordMac:
+	case fullcheck.ErrUnknownReason:
+		return unknownResultText
+	case inetutil.ErrTlsInvalidKeyShare, inetutil.ErrTlsBadRecordMac:
 		return fmt.Sprintf("⚠️ %s", err)
 	}
 
@@ -130,12 +134,12 @@ func webhostPrettyTcp1620(err error) string {
 		return "✅ no"
 	case inetutil.ErrTcpWriteTimeout, inetutil.ErrTcpReadTimeout:
 		return "❗️detected"
-	case checkers.ErrWebhostSkip:
+	case webhost.ErrSkip:
 		return "⚠️ skip"
 	case inetutil.ErrTlsWriteBrokenPipe:
 		return "⚠️ not supported by host"
 	default:
-		return fmt.Sprintf("⚠️ %s", err)
+		return resultErrorText(err, fmt.Sprintf("⚠️ %s", err))
 	}
 }
 
@@ -175,10 +179,10 @@ func webhostPrettySiberian(err error) string {
 		return "✅ no"
 	case inetutil.ErrTlsHandshakeTimeout, inetutil.ErrTlsHandshakeFail:
 		return "❗️detected"
-	case checkers.ErrWebhostSkip:
+	case webhost.ErrSkip:
 		return "⚠️ skip"
 	default:
-		return fmt.Sprintf("⚠️ %s", err)
+		return resultErrorText(err, fmt.Sprintf("⚠️ %s", err))
 	}
 }
 

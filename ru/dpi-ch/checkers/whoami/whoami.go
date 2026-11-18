@@ -1,4 +1,4 @@
-package checkers
+package whoami
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/inetlookup"
 )
 
-type WhoamiResult struct {
+type Result struct {
 	Ip       string
 	Subnet   string
 	Asn      string
@@ -18,7 +18,7 @@ type WhoamiResult struct {
 	Ttlb     time.Duration
 }
 
-func Whoami(ctx context.Context) (WhoamiResult, error) {
+func Check(ctx context.Context) (Result, error) {
 	cfg := config.Get().Checkers.Whoami
 	ctx, cancel := context.WithTimeout(ctx, cfg.Timeout)
 	defer cancel()
@@ -34,14 +34,14 @@ func Whoami(ctx context.Context) (WhoamiResult, error) {
 		ip, err = inetlookup.GetExternalIpViaRipe(ctx)
 	}
 	if err != nil {
-		return WhoamiResult{}, err
+		return Result{}, err
 	}
 	ttlb := time.Since(ttlbStart)
 
 	il := inetlookup.Default()
 	info := il.IpInfo(ip)
 
-	return WhoamiResult{
+	return Result{
 		Ip:       info.Ip.String(),
 		Subnet:   info.Subnet.String(),
 		Asn:      fmt.Sprintf("AS%d", info.Asn),

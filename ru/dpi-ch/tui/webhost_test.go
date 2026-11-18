@@ -3,7 +3,7 @@ package tui
 import (
 	"testing"
 
-	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers/webhost"
 )
 
 func TestWebhostTypedTimeout(t *testing.T) {
@@ -13,14 +13,14 @@ func TestWebhostTypedTimeout(t *testing.T) {
 		progress <- "farming timeout appears in ordinary text"
 	}
 	close(progress)
-	items := make(chan checkers.WebhostGochanOut[checkers.WebhostGochanBag])
+	items := make(chan webhost.Item)
 	close(items)
-	summary := make(chan checkers.WebhostGochanRunnerSummary, 1)
-	summary <- checkers.WebhostGochanRunnerSummary{FarmTimeout: true}
+	summary := make(chan webhost.Summary, 1)
+	summary <- webhost.Summary{FarmTimeout: true}
 	close(summary)
 	model := webhostModel{
 		session: s, inited: true, fetching: true,
-		out: checkers.WebhostGochanRunnerOut{Out: items, Progress: progress, Summary: summary},
+		out: webhost.RunOut{Out: items, Progress: progress, Summary: summary},
 	}
 	cmd := webhostConsumerCmd(s, model.out)
 	for i := 0; i <= cap(progress); i++ {

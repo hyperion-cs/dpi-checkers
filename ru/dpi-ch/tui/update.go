@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers/fullcheck"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/inetlookup"
 
@@ -359,19 +359,19 @@ func webhostUpdate(model webhostModel, msg tea.Msg) (webhostModel, tea.Cmd) {
 func webhostProcessItem(msg webhostItemMsg, model webhostModel) webhostModel {
 	model.progress = fmt.Sprintf(
 		`webhost checker => for "%s" host is ready: %v`,
-		msg.Bag.Name,
-		msg.Out.IpInfo.Ip,
+		msg.Group,
+		msg.Result.IpInfo.Ip,
 	)
 
 	item := webhostTableItem{
-		group: msg.Bag.Name, info: inetlookup.IpInfoAsStrings(msg.Out.IpInfo),
-		alive: msg.Out.Alive, tcp1620: msg.Out.Tcp1620, siberian: msg.Out.Siberian,
-		tlsVersion: msg.Out.Tls.VersionString(),
+		group: msg.Group, info: inetlookup.IpInfoAsStrings(msg.Result.IpInfo),
+		alive: msg.Result.Alive, tcp1620: msg.Result.Tcp1620, siberian: msg.Result.Siberian,
+		tlsVersion: msg.Result.Tls.VersionString(),
 	}
-	if msg.Out.Tls != nil {
-		item.san, item.cn = msg.Out.Tls.San, msg.Out.Tls.Cn
+	if msg.Result.Tls != nil {
+		item.san, item.cn = msg.Result.Tls.San, msg.Result.Tls.Cn
 	}
-	item.txKbps, item.rxKbps = msg.Out.Throughput.Kbps()
+	item.txKbps, item.rxKbps = msg.Result.Throughput.Kbps()
 	return webhostApplyItems(model, []webhostTableItem{item})
 }
 
@@ -411,23 +411,23 @@ func allUpdate(model allModel, msg tea.Msg) (allModel, tea.Cmd) {
 			spin.Style = spinnerStyle
 
 			model = allModel{inited: true, spinner: spin, ctx: ctx, cancel: cancel, fetching: true, session: &session{}}
-			model.tasks = make(map[checkers.FullCheckTask][]allTask)
+			model.tasks = make(map[fullcheck.Task][]allTask)
 			for _, name := range cfg.All.Checkers {
 				switch name {
 				case "whoami":
-					model.tasks[checkers.FullCheckTaskWhoami] = []allTask{{name: "Whoami"}}
+					model.tasks[fullcheck.TaskWhoami] = []allTask{{name: "Whoami"}}
 				case "cidrwhitelist":
-					model.tasks[checkers.FullCheckTaskCidrWhitelist] = []allTask{{name: "CIDR whitelist"}}
+					model.tasks[fullcheck.TaskCidrWhitelist] = []allTask{{name: "CIDR whitelist"}}
 				case "dns":
-					model.tasks[checkers.FullCheckTaskDnsLeak] = []allTask{{name: "Leak"}}
-					model.tasks[checkers.FullCheckTaskDnsPlain] = []allTask{{name: "Plain"}}
-					model.tasks[checkers.FullCheckTaskDnsDoh] = []allTask{{name: "DoH"}}
+					model.tasks[fullcheck.TaskDnsLeak] = []allTask{{name: "Leak"}}
+					model.tasks[fullcheck.TaskDnsPlain] = []allTask{{name: "Plain"}}
+					model.tasks[fullcheck.TaskDnsDoh] = []allTask{{name: "DoH"}}
 				case "webhost":
 					tasks := make([]allTask, len(cfg.Checkers.Webhost.Sections))
 					for i, section := range cfg.Checkers.Webhost.Sections {
 						tasks[i] = allTask{name: section.Name}
 					}
-					model.tasks[checkers.FullCheckTaskWebhost] = tasks
+					model.tasks[fullcheck.TaskWebhost] = tasks
 				}
 			}
 			return model, tea.Batch(
@@ -444,7 +444,7 @@ func allUpdate(model allModel, msg tea.Msg) (allModel, tea.Cmd) {
 		model.out = msg.out
 		return model, allConsumerCmd(model.session, model.out)
 	case allProgressMsg:
-		progress := checkers.FullCheckProgress(msg)
+		progress := fullcheck.Progress(msg)
 		if progress.Msg != "" {
 			model.progress = progress
 		}
@@ -457,13 +457,13 @@ func allUpdate(model allModel, msg tea.Msg) (allModel, tea.Cmd) {
 		model.fetching = false
 		for _, tasks := range model.tasks {
 			for i := range tasks {
-				if tasks[i].state == checkers.FullCheckStateRunning {
-					tasks[i].state = checkers.FullCheckStateError
+				if tasks[i].state == fullcheck.StateRunning {
+					tasks[i].state = fullcheck.StateError
 				}
 			}
 		}
-		if model.progress.Task != checkers.FullCheckTaskNone || model.progress.State == checkers.FullCheckStateRunning {
-			model.progress = checkers.FullCheckProgress{State: checkers.FullCheckStateError, Msg: "stopped before completion"}
+		if model.progress.Task != fullcheck.TaskNone || model.progress.State == fullcheck.StateRunning {
+			model.progress = fullcheck.Progress{State: fullcheck.StateError, Msg: "stopped before completion"}
 		}
 		if cfg.All.AutoExit {
 			return model, exitCmd

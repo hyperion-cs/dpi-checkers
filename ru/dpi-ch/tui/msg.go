@@ -2,7 +2,10 @@ package tui
 
 import (
 	tea "charm.land/bubbletea/v2"
-	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers/dns"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers/fullcheck"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers/webhost"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers/whoami"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
 )
 
@@ -10,7 +13,7 @@ type exitMsg struct{}
 
 type whoamiInitMsg struct{}
 type whoamiResultMsg struct {
-	result checkers.WhoamiResult
+	result whoami.Result
 	err    error
 }
 
@@ -23,10 +26,10 @@ type webhostInitMsg struct {
 	Targets []config.WebhostTarget
 }
 type webhostProducerStartedMsg struct {
-	out checkers.WebhostGochanRunnerOut
+	out webhost.RunOut
 }
-type webhostProducerDoneMsg checkers.WebhostGochanRunnerSummary
-type webhostItemMsg checkers.WebhostGochanOut[checkers.WebhostGochanBag]
+type webhostProducerDoneMsg webhost.Summary
+type webhostItemMsg webhost.Item
 type webhostProgressMsg string
 
 type dnsInitMsg struct{}
@@ -34,16 +37,16 @@ type dnsProducerStartedMsg struct {
 	out dnsChannelModel
 }
 type dnsProducerDoneMsg struct{}
-type dnsLeakMsg checkers.DnsLeakWithIpinfoOut
-type dnsProviderPlainMsg checkers.DnsVerdict
-type dnsProviderDohMsg checkers.DnsVerdict
+type dnsLeakMsg dns.LeakResult
+type dnsProviderPlainMsg dns.Verdict
+type dnsProviderDohMsg dns.Verdict
 type dnsProgressMsg string
 
 type allInitMsg struct{}
 type allProducerStartedMsg struct {
-	out <-chan checkers.FullCheckProgress
+	out <-chan fullcheck.Progress
 }
-type allProgressMsg checkers.FullCheckProgress
+type allProgressMsg fullcheck.Progress
 type allProducerDoneMsg struct{}
 
 type updaterInitMsg struct {

@@ -9,7 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers/fullcheck"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/inetutil"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/internal/version"
@@ -46,7 +46,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("import path: %v", err)
 		}
-		report, err := checkers.FullCheckImport(file)
+		report, err := fullcheck.Import(file)
 		if err != nil {
 			log.Fatalf("import report: %v", err)
 		}

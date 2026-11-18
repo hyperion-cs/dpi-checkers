@@ -6,11 +6,12 @@ import (
 	"slices"
 	"time"
 
-	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers/fullcheck"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers/whoami"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/inetlookup"
 )
 
-func reportMenu(report *checkers.FullCheckDto, file string) *MenuState {
+func reportMenu(report *fullcheck.ReportDto, file string) *MenuState {
 	m := &MenuState{header: "Results from: " + terminalText(file)}
 	if report.Whoami != nil {
 		m.Add(whoamiTitle, "", whoamiTab, true, nil)
@@ -32,14 +33,14 @@ func (rm *rootModel) openReportTab(item MenuItem) {
 	case whoamiTab:
 		r := rm.report.Whoami
 		rm.whoamiModel = whoamiModel{
-			result: checkers.WhoamiResult{
+			result: whoami.Result{
 				Ip: r.Ip, Subnet: r.Subnet, Asn: r.Asn, Org: r.Org,
 				Location: r.Location, Ttlb: time.Duration(r.TtlbMs) * time.Millisecond,
 			},
-			err: checkers.FullCheckErrorFromReason(r.Status.Reason),
+			err: fullcheck.ErrorFromReason(r.Status.Reason),
 		}
 	case cidrwhitelistTab:
-		rm.cidrwhitelistModel = cidrwhitelistModel{err: checkers.FullCheckErrorFromReason(rm.report.CidrWhitelist.Status.Reason)}
+		rm.cidrwhitelistModel = cidrwhitelistModel{err: fullcheck.ErrorFromReason(rm.report.CidrWhitelist.Status.Reason)}
 	case webhostTab:
 		section := rm.report.Webhost[item.Name]
 		items := make([]webhostTableItem, 0, len(section.Items))
@@ -73,7 +74,7 @@ func (rm *rootModel) openReportTab(item MenuItem) {
 		}
 		model = dnsUpdateProviderTable(model)
 		if r.Leak != nil {
-			model.leakErr = checkers.FullCheckErrorFromReason(r.Leak.Status.Reason)
+			model.leakErr = fullcheck.ErrorFromReason(r.Leak.Status.Reason)
 			model = dnsApplyLeakItems(model, r.Leak.Items)
 		}
 		model.focusPopulatedTable()
@@ -81,15 +82,15 @@ func (rm *rootModel) openReportTab(item MenuItem) {
 	}
 }
 
-func reportWebhostItem(item checkers.FullCheckWebhostItemDto) webhostTableItem {
+func reportWebhostItem(item fullcheck.WebhostItemDto) webhostTableItem {
 	r := webhostTableItem{
 		group: item.Group,
 		info: inetlookup.IpInfoStrings{
 			Ip: item.IP, Subnet: item.Prefix, Asn: item.AS, Org: item.Org, Location: item.Location,
 		},
-		alive:      checkers.FullCheckErrorFromReason(item.Alive.Reason),
-		tcp1620:    checkers.FullCheckErrorFromReason(item.Tcp1620.Reason),
-		siberian:   checkers.FullCheckErrorFromReason(item.Siberian.Reason),
+		alive:      fullcheck.ErrorFromReason(item.Alive.Reason),
+		tcp1620:    fullcheck.ErrorFromReason(item.Tcp1620.Reason),
+		siberian:   fullcheck.ErrorFromReason(item.Siberian.Reason),
 		tlsVersion: " — ",
 		txKbps:     item.BurstTxKbps,
 		rxKbps:     item.BurstRxKbps,
@@ -100,16 +101,16 @@ func reportWebhostItem(item checkers.FullCheckWebhostItemDto) webhostTableItem {
 	return r
 }
 
-func reportDnsError(statuses []checkers.FullCheckStatusDto) error {
+func reportDnsError(statuses []fullcheck.StatusDto) error {
 	switch len(statuses) {
 	case 0:
-		return checkers.ErrFullCheckUnknownReason
+		return fullcheck.ErrUnknownReason
 	case 1:
-		return checkers.FullCheckErrorFromReason(statuses[0].Reason)
+		return fullcheck.ErrorFromReason(statuses[0].Reason)
 	}
 	errs := make([]error, 0, len(statuses))
 	for _, status := range statuses {
-		errs = append(errs, checkers.FullCheckErrorFromReason(status.Reason))
+		errs = append(errs, fullcheck.ErrorFromReason(status.Reason))
 	}
 	return errors.Join(errs...)
 }

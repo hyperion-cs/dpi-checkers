@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers/dns"
 )
 
 func TestDnsProviderTimeoutVerdict(t *testing.T) {
@@ -14,8 +14,8 @@ func TestDnsProviderTimeoutVerdict(t *testing.T) {
 		want string
 	}{
 		{nil, "✅ not detected"},
-		{checkers.ErrDnsProviderTimeout, "❗️timeout"},
-		{errors.Join(checkers.ErrDnsResolveSpoofing, checkers.ErrDnsProviderTimeout), "❗️response spoofing, timeout"},
+		{dns.ErrProviderTimeout, "❗️timeout"},
+		{errors.Join(dns.ErrResolveSpoofing, dns.ErrProviderTimeout), "❗️response spoofing, timeout"},
 	} {
 		if got := dnsPrettyProviderVerdict(tt.err, false); got != tt.want {
 			t.Errorf("got %q, want %q", got, tt.want)

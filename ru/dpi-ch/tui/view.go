@@ -5,7 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers/cidrwhitelist"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers/fullcheck"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/internal/version"
 
@@ -126,13 +127,13 @@ func whoamiView(model whoamiModel) string {
 func allView(model allModel) string {
 	var lines []string
 	frame := model.spinner.View()
-	for _, kind := range []checkers.FullCheckTask{checkers.FullCheckTaskWhoami, checkers.FullCheckTaskCidrWhitelist} {
+	for _, kind := range []fullcheck.Task{fullcheck.TaskWhoami, fullcheck.TaskCidrWhitelist} {
 		for _, task := range model.tasks[kind] {
 			lines = append(lines, task.name+": "+allStatusView(task.state, frame, ""))
 		}
 	}
 	var dns []string
-	for _, kind := range []checkers.FullCheckTask{checkers.FullCheckTaskDnsLeak, checkers.FullCheckTaskDnsPlain, checkers.FullCheckTaskDnsDoh} {
+	for _, kind := range []fullcheck.Task{fullcheck.TaskDnsLeak, fullcheck.TaskDnsPlain, fullcheck.TaskDnsDoh} {
 		for _, task := range model.tasks[kind] {
 			dns = append(dns, task.name+": "+allStatusView(task.state, frame, ""))
 		}
@@ -140,7 +141,7 @@ func allView(model allModel) string {
 	if len(dns) > 0 {
 		lines = append(lines, "DNS: { "+strings.Join(dns, dotChar)+" }")
 	}
-	webhost := model.tasks[checkers.FullCheckTaskWebhost]
+	webhost := model.tasks[fullcheck.TaskWebhost]
 	width := 0
 	for _, task := range webhost {
 		width = max(width, lipgloss.Width(task.name))
@@ -160,21 +161,21 @@ func allView(model allModel) string {
 		lines = append(lines, "idle")
 	} else {
 		state := model.progress.State
-		if model.fetching && model.progress.Task != checkers.FullCheckTaskNone {
-			state = checkers.FullCheckStateRunning
+		if model.fetching && model.progress.Task != fullcheck.TaskNone {
+			state = fullcheck.StateRunning
 		}
 		lines = append(lines, allStatusView(state, frame, cmp.Or(model.progress.Msg, "fetching")))
 	}
 	return strings.Join(lines, "\n")
 }
 
-func allStatusView(state checkers.FullCheckState, frame, msg string) string {
+func allStatusView(state fullcheck.State, frame, msg string) string {
 	switch state {
-	case checkers.FullCheckStateOk:
+	case fullcheck.StateOk:
 		return okStyle.Render("✅ " + cmp.Or(msg, "done"))
-	case checkers.FullCheckStateError:
+	case fullcheck.StateError:
 		return dangerStyle.Render("❌ " + cmp.Or(msg, "error"))
-	case checkers.FullCheckStateTimeout:
+	case fullcheck.StateTimeout:
 		return warningStyle.Render("⏰ " + cmp.Or(msg, "timeout"))
 	default:
 		if msg == "" {
@@ -193,11 +194,11 @@ func cidrwhitelistView(model cidrwhitelistModel) string {
 		return okStyle.Render("You're NOT under one ;)")
 	}
 
-	if model.err == checkers.ErrCidrWhitelistDetected {
+	if model.err == cidrwhitelist.ErrDetected {
 		return dangerStyle.Render("You're UNDER one :(")
 	}
 
-	if model.err == checkers.ErrCidrWhitelistNoInetAccess {
+	if model.err == cidrwhitelist.ErrNoInetAccess {
 		return warningStyle.Render("It seems that there is no Internet access (even to resources from the whitelist).")
 	}
 
@@ -205,7 +206,7 @@ func cidrwhitelistView(model cidrwhitelistModel) string {
 }
 
 func resultErrorText(err error, fallback string) string {
-	if err == checkers.ErrFullCheckUnknownReason {
+	if err == fullcheck.ErrUnknownReason {
 		return unknownResultText
 	}
 	return fallback
@@ -255,14 +256,14 @@ func dnsView(model dnsModel) string {
 	if model.showLeak && (leakTotal > 0 || !model.fetching) {
 		leakTbl = "> Current DNS resolver hijacking test. Actually used:\n"
 		if leakTotal == 0 {
-			text := "No DNS resolver results"
+			text := "⚠️ No DNS resolver results"
 			if model.leakErr != nil {
-				text = model.leakErr.Error()
+				text = resultErrorText(model.leakErr, "⚠️ "+model.leakErr.Error())
 			}
-			leakTbl += tableOuterBorderStyle().Render(" ⚠️ " + text + " ")
+			leakTbl += tableOuterBorderStyle().Render(" " + text + " ")
 		} else {
 			leakTbl += dnsTableView(model.leakTable)
-			if model.leakErr == checkers.ErrFullCheckUnknownReason {
+			if model.leakErr == fullcheck.ErrUnknownReason {
 				leakTbl += "\n" + warningStyle.Render(unknownResultText)
 			}
 		}

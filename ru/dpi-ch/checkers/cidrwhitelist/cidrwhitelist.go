@@ -1,6 +1,6 @@
 // Checks if a censor restricts tcp/udp/etc connections by ip subnets (aka cidr censorship)
 
-package checkers
+package cidrwhitelist
 
 import (
 	"context"
@@ -12,10 +12,10 @@ import (
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/inetutil"
 )
 
-var ErrCidrWhitelistDetected = errors.New("cidr whitelist detected")
-var ErrCidrWhitelistNoInetAccess = errors.New("no internet access")
+var ErrDetected = errors.New("cidrwhitelist: detected")
+var ErrNoInetAccess = errors.New("cidrwhitelist: no internet access")
 
-func CidrWhitelist(ctx context.Context) error {
+func Check(ctx context.Context) error {
 	cfg := config.Get().Checkers.CidrWhitelist
 
 	var wg sync.WaitGroup
@@ -55,9 +55,9 @@ func CidrWhitelist(ctx context.Context) error {
 
 	// ONLY resources from the whitelist are available
 	if wlCount > 0 {
-		return ErrCidrWhitelistDetected
+		return ErrDetected
 	}
 
 	// It seems there is no Internet connection
-	return ErrCidrWhitelistNoInetAccess
+	return ErrNoInetAccess
 }

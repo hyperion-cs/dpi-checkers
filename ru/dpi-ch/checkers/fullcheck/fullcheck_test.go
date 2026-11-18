@@ -1,25 +1,31 @@
-package checkers
+package fullcheck
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
+	"reflect"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers/dns"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers/internal/testutil"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
 )
 
-func TestFullCheckProgressBackpressure(t *testing.T) {
+func TestProgressBackpressure(t *testing.T) {
 	for _, canceled := range []bool{false, true} {
 		ctx, cancel := context.WithCancel(t.Context())
-		ch := make(chan FullCheckProgress, 1)
-		ch <- FullCheckProgress{Msg: "detail"}
-		fullCheckSendProgress(ctx, ch, FullCheckProgress{Msg: "discardable detail"})
-		terminal := FullCheckProgress{Task: FullCheckTaskWhoami, State: FullCheckStateOk}
+		ch := make(chan Progress, 1)
+		ch <- Progress{Msg: "detail"}
+		sendProgress(ctx, ch, Progress{Msg: "discardable detail"})
+		terminal := Progress{Task: TaskWhoami, State: StateOk}
 		done := make(chan struct{})
 		go func() {
-			fullCheckSendProgress(ctx, ch, terminal)
+			sendProgress(ctx, ch, terminal)
 			close(done)
 		}()
 		if canceled {
@@ -46,8 +52,8 @@ func TestFullCheckProgressBackpressure(t *testing.T) {
 	}
 }
 
-func TestFullCheckTaskCompletion(t *testing.T) {
-	cfg := webhostTestConfig(t)
+func TestTaskCompletion(t *testing.T) {
+	cfg := testutil.WebhostConfig(t)
 	cfg.All.Checkers = []string{"cidrwhitelist", "dns", "webhost"}
 	cfg.All.Format = "json"
 	cfg.All.Prefix = filepath.Join(t.TempDir(), "report")
@@ -67,10 +73,10 @@ func TestFullCheckTaskCompletion(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
 	defer cancel()
 	seen := make(map[[2]int]bool)
-	var last FullCheckProgress
-	for p := range FullCheckGochan(ctx) {
+	var last Progress
+	for p := range Gochan(ctx) {
 		last = p
-		if p.Task == FullCheckTaskNone {
+		if p.Task == TaskNone {
 			continue
 		}
 		id := [2]int{int(p.Task), p.Index}
@@ -78,38 +84,38 @@ func TestFullCheckTaskCompletion(t *testing.T) {
 			t.Fatalf("duplicate completion: %v", p)
 		}
 		seen[id] = true
-		want := FullCheckStateOk
-		if p.Task == FullCheckTaskWebhost && p.Index == 1 {
-			want = FullCheckStateError
+		want := StateOk
+		if p.Task == TaskWebhost && p.Index == 1 {
+			want = StateError
 		}
 		if p.State != want {
 			t.Fatalf("got state %v, want %v for %v", p.State, want, id)
 		}
 	}
-	if len(seen) != 44 || last.Task != FullCheckTaskNone || last.State != FullCheckStateOk {
+	if len(seen) != 44 || last.Task != TaskNone || last.State != StateOk {
 		t.Fatalf("unfinished ALL: %d tasks, last event %v", len(seen), last)
 	}
 }
 
-func TestFullCheckSaveError(t *testing.T) {
-	cfg := webhostTestConfig(t)
+func TestSaveError(t *testing.T) {
+	cfg := testutil.WebhostConfig(t)
 	cfg.All.Checkers = nil
 	cfg.All.Format = "invalid"
 	cfg.All.Prefix = filepath.Join(t.TempDir(), "report")
-	var last FullCheckProgress
-	for p := range FullCheckGochan(t.Context()) {
+	var last Progress
+	for p := range Gochan(t.Context()) {
 		last = p
 	}
-	if last.Task != FullCheckTaskNone || last.State != FullCheckStateError {
+	if last.Task != TaskNone || last.State != StateError {
 		t.Fatalf("missing save error: %v", last)
 	}
 }
 
-func TestFullCheckDnsProviderTimeout(t *testing.T) {
+func TestDnsProviderTimeout(t *testing.T) {
 	for _, format := range []string{"json", "yaml"} {
 		t.Run(format, func(t *testing.T) {
-			addr := dnsTestServer(t, "missing.example.")
-			cfg := dnsTestConfig(t, fmt.Sprintf(`checkers:
+			addr := testutil.DnsServer(t, "missing.example.")
+			cfg := testutil.DnsConfig(t, fmt.Sprintf(`checkers:
   dns:
     resolve:
       targets: [{host: missing.example.}, {host: silent.example.}]
@@ -126,10 +132,10 @@ func TestFullCheckDnsProviderTimeout(t *testing.T) {
 			ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
 			defer cancel()
 			seen := false
-			for p := range FullCheckGochan(ctx) {
-				if p.Task == FullCheckTaskDnsPlain {
+			for p := range Gochan(ctx) {
+				if p.Task == TaskDnsPlain {
 					seen = true
-					if p.State != FullCheckStateTimeout {
+					if p.State != StateTimeout {
 						t.Errorf("got state %v, want timeout", p.State)
 					}
 				}
@@ -137,30 +143,30 @@ func TestFullCheckDnsProviderTimeout(t *testing.T) {
 			if !seen || ctx.Err() != nil {
 				t.Fatalf("completion received: %v, context: %v", seen, ctx.Err())
 			}
-			file, err := fullCheckSavePath()
+			file, err := savePath()
 			if err != nil {
 				t.Fatal(err)
 			}
-			report, err := FullCheckImport(file)
+			report, err := Import(file)
 			if err != nil {
 				t.Fatal(err)
 			}
 			statuses := report.Dns.Plain.Providers["local"]
 			if len(statuses) != 2 || statuses[0].Code != "NXDOMAIN_SPOOFING" || statuses[1].Code != "PROVIDER_TIMEOUT" ||
-				FullCheckErrorFromReason(statuses[0].Reason) != ErrDnsNxdomainSpoofing || FullCheckErrorFromReason(statuses[1].Reason) != ErrDnsProviderTimeout {
+				ErrorFromReason(statuses[0].Reason) != dns.ErrNxdomainSpoofing || ErrorFromReason(statuses[1].Reason) != dns.ErrProviderTimeout {
 				t.Fatalf("lost DNS findings in report: %v", statuses)
 			}
 		})
 	}
 }
 
-func TestFullCheckCancellationWithFullProgress(t *testing.T) {
-	cfg := webhostTestConfig(t)
+func TestCancellationWithFullProgress(t *testing.T) {
+	cfg := testutil.WebhostConfig(t)
 	cfg.All.Checkers = []string{"webhost"}
 	cfg.Checkers.Webhost.Sections = make([]config.WebhostSection, 40)
 	ctx, cancel := context.WithTimeout(t.Context(), 50*time.Millisecond)
 	defer cancel()
-	out := FullCheckGochan(ctx)
+	out := Gochan(ctx)
 	<-ctx.Done()
 	if len(out) != cap(out) {
 		t.Fatalf("progress is not full: %d/%d", len(out), cap(out))
@@ -175,5 +181,46 @@ func TestFullCheckCancellationWithFullProgress(t *testing.T) {
 	case <-done:
 	case <-time.After(time.Second):
 		t.Fatal("ALL did not close after cancellation with a full progress buffer")
+	}
+}
+
+func TestWebhostTimeout(t *testing.T) {
+	for _, format := range []string{"json", "yaml"} {
+		t.Run(format, func(t *testing.T) {
+			cfg := testutil.WebhostConfig(t)
+			cfg.Checkers.Webhost.FarmTimeout = time.Nanosecond
+			cfg.Checkers.Webhost.Sections = []config.WebhostSection{{Name: "section"}}
+			cfg.All.Checkers = []string{"webhost"}
+			cfg.All.Format = format
+			cfg.All.Prefix = filepath.Join(t.TempDir(), "report")
+			cfg.All.TsFormat = "-2006-01-02_15-04-05.000000000"
+			var last Progress
+			for progress := range Gochan(t.Context()) {
+				last = progress
+			}
+			file, ok := strings.CutPrefix(last.Msg, "done; saved to ")
+			if last.State != StateOk || !ok {
+				t.Fatalf("missing saved report path: %v", last)
+			}
+			body, err := os.ReadFile(file)
+			if err != nil {
+				t.Fatal(err)
+			}
+			prefix := "{\n  \"Version\": 1,\n"
+			if format == "yaml" {
+				prefix = "version: 1\n"
+			}
+			if !bytes.HasPrefix(body, []byte(prefix)) {
+				t.Fatalf("report should begin with version 1: %s", body)
+			}
+			report, err := Import(file)
+			if err != nil {
+				t.Fatal(err)
+			}
+			section, ok := report.Webhost["section"]
+			if !ok || !section.FarmTimeout || !reflect.DeepEqual(section.Items, []WebhostItemDto{}) {
+				t.Fatalf("expected a timed-out section with an empty list of items: %s", body)
+			}
+		})
 	}
 }

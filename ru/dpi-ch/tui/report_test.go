@@ -10,7 +10,10 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
-	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers/cidrwhitelist"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers/dns"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers/fullcheck"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers/webhost"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/inetlookup"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/inetutil"
@@ -56,11 +59,11 @@ func openReportTab(t *testing.T, model rootModel, name string) rootModel {
 
 func TestImportMenuAndOfflineNavigation(t *testing.T) {
 	importTestConfig(t)
-	report := &checkers.FullCheckDto{
+	report := &fullcheck.ReportDto{
 		Version:       1,
-		Whoami:        &checkers.FullCheckWhoamiDto{Status: checkers.FullCheckStatusDto{Code: "ERR", Reason: "NONE"}, Ip: "192.0.2.1", TtlbMs: 42},
-		CidrWhitelist: &checkers.FullCheckCidrwhitelistDto{Status: checkers.FullCheckStatusDto{Code: "OK", Reason: "CHECKERS_ERR_CIDR_WHITELIST_DETECTED"}},
-		Webhost: map[string]checkers.FullCheckWebhostDto{
+		Whoami:        &fullcheck.WhoamiDto{Status: fullcheck.StatusDto{Code: "ERR", Reason: "NONE"}, Ip: "192.0.2.1", TtlbMs: 42},
+		CidrWhitelist: &fullcheck.CidrWhitelistDto{Status: fullcheck.StatusDto{Code: "OK", Reason: "CHECKERS_CIDRWHITELIST_ERR_DETECTED"}},
+		Webhost: map[string]fullcheck.WebhostDto{
 			"saved section": {FarmTimeout: true},
 		},
 	}
@@ -87,7 +90,7 @@ func TestImportMenuAndOfflineNavigation(t *testing.T) {
 		t.Fatal("return to imported menu scheduled work")
 	}
 	model = openReportTab(t, next.(rootModel), "Am I under the CIDR whitelist?")
-	if model.cidrwhitelistModel.err != checkers.ErrCidrWhitelistDetected || !strings.Contains(ansi.Strip(model.View().Content), "You're UNDER one") || model.cidrwhitelistModel.ctx != nil {
+	if model.cidrwhitelistModel.err != cidrwhitelist.ErrDetected || !strings.Contains(ansi.Strip(model.View().Content), "You're UNDER one") || model.cidrwhitelistModel.ctx != nil {
 		t.Fatal("CIDR did not display the saved status in the first frame")
 	}
 	model = openReportTab(t, model, "saved section")
@@ -109,24 +112,24 @@ func TestImportMenuAndOfflineNavigation(t *testing.T) {
 
 func TestImportUsesLiveWebhostTable(t *testing.T) {
 	importTestConfig(t)
-	item := checkers.WebhostGochanOut[checkers.WebhostGochanBag]{
-		Bag: checkers.WebhostGochanBag{Name: "example"},
-		Out: checkers.WebhostSingleResult{
+	item := webhost.Item{
+		Group: "example",
+		Result: webhost.SingleResult{
 			IpInfo:     inetlookup.IpInfo{Ip: netip.MustParseAddr("192.0.2.1"), Subnet: netip.MustParsePrefix("192.0.2.0/24"), Asn: 64496, Org: "Example", CountryIso: "ZZ"},
-			Tls:        &checkers.WebhostTls{V: 0x0304, Cn: "example.invalid", San: []string{"example.invalid"}},
+			Tls:        &webhost.Tls{V: 0x0304, Cn: "example.invalid", San: []string{"example.invalid"}},
 			Tcp1620:    inetutil.ErrTcpReadTimeout,
-			Throughput: checkers.WebhostThroughput{TxBytes: 1250, RxBytes: 2500, TxElapsed: time.Second, RxElapsed: time.Second},
+			Throughput: webhost.Throughput{TxBytes: 1250, RxBytes: 2500, TxElapsed: time.Second, RxElapsed: time.Second},
 		},
 	}
 	live := webhostProcessItem(webhostItemMsg(item), webhostInitModel())
 	txKbps, rxKbps := 10.0, 20.0
-	dto := checkers.FullCheckWebhostItemDto{
+	dto := fullcheck.WebhostItemDto{
 		Group: "example", Org: "Example", AS: "AS64496", Location: "ZZ", IP: "192.0.2.1", Prefix: "192.0.2.0/24",
-		Alive: checkers.FullCheckStatusDto{Reason: "NONE"}, Tls: &checkers.FullCheckWebhostTls{V: "1.3", Cn: "example.invalid", San: []string{"example.invalid"}},
-		Tcp1620: checkers.FullCheckStatusDto{Reason: "INETUTIL_ERR_TCP_READ_TIMEOUT"}, Siberian: checkers.FullCheckStatusDto{Reason: "NONE"},
+		Alive: fullcheck.StatusDto{Reason: "NONE"}, Tls: &fullcheck.WebhostTlsDto{V: "1.3", Cn: "example.invalid", San: []string{"example.invalid"}},
+		Tcp1620: fullcheck.StatusDto{Reason: "INETUTIL_ERR_TCP_READ_TIMEOUT"}, Siberian: fullcheck.StatusDto{Reason: "NONE"},
 		BurstTxKbps: &txKbps, BurstRxKbps: &rxKbps,
 	}
-	report := &checkers.FullCheckDto{Version: 1, Webhost: map[string]checkers.FullCheckWebhostDto{"saved": {Items: []checkers.FullCheckWebhostItemDto{dto, dto}}}}
+	report := &fullcheck.ReportDto{Version: 1, Webhost: map[string]fullcheck.WebhostDto{"saved": {Items: []fullcheck.WebhostItemDto{dto, dto}}}}
 	model := openReportTab(t, newRootModel(TuiOpt{Report: report}), "saved")
 	if !reflect.DeepEqual(model.webhostModel.table.Rows(), append(live.table.Rows(), live.table.Rows()...)) {
 		t.Fatal("live and imported webhost rows differ")
@@ -140,18 +143,18 @@ func TestImportUsesLiveWebhostTable(t *testing.T) {
 func TestImportUsesLiveDnsTables(t *testing.T) {
 	importTestConfig(t)
 	leakItems := []inetlookup.IpInfoStrings{{Ip: "192.0.2.2"}, {Ip: "192.0.2.1"}}
-	report := &checkers.FullCheckDto{Version: 1, Dns: &checkers.FullCheckDnsDto{
-		Plain: &checkers.FullCheckDnsReportDto{Providers: map[string][]checkers.FullCheckStatusDto{"example resolver": {{Reason: "CHECKERS_ERR_DNS_PROVIDER_TIMEOUT"}}}},
-		Doh: &checkers.FullCheckDnsReportDto{Providers: map[string][]checkers.FullCheckStatusDto{
-			"non2xx resolver": {{Reason: "CHECKERS_ERR_DNS_DOH_NON_2XX_RESP"}, {Reason: "CHECKERS_ERR_DNS_PROVIDER_TIMEOUT"}},
+	report := &fullcheck.ReportDto{Version: 1, Dns: &fullcheck.DnsDto{
+		Plain: &fullcheck.DnsReportDto{Providers: map[string][]fullcheck.StatusDto{"example resolver": {{Reason: "CHECKERS_DNS_ERR_PROVIDER_TIMEOUT"}}}},
+		Doh: &fullcheck.DnsReportDto{Providers: map[string][]fullcheck.StatusDto{
+			"non2xx resolver": {{Reason: "CHECKERS_DNS_ERR_DOH_NON_2XX_RESP"}, {Reason: "CHECKERS_DNS_ERR_PROVIDER_TIMEOUT"}},
 		}},
-		Leak: &checkers.FullCheckDnsLeakDto{Status: checkers.FullCheckStatusDto{Reason: "NONE"}, Items: leakItems},
+		Leak: &fullcheck.DnsLeakDto{Status: fullcheck.StatusDto{Reason: "NONE"}, Items: leakItems},
 	}}
 	model := openReportTab(t, newRootModel(TuiOpt{Report: report}), "DNS")
-	live := dnsProcessPlainProvider(dnsProviderPlainMsg{Provider: "example resolver", Verdict: checkers.ErrDnsProviderTimeout}, dnsInitModel())
+	live := dnsProcessPlainProvider(dnsProviderPlainMsg{Provider: "example resolver", Verdict: dns.ErrProviderTimeout}, dnsInitModel())
 	live = dnsProcessDohProvider(dnsProviderDohMsg{
 		Provider: "non2xx resolver",
-		Verdict:  errors.Join(checkers.ErrDnsDohNon2xxResp, checkers.ErrDnsProviderTimeout),
+		Verdict:  errors.Join(dns.ErrDohNon2xxResp, dns.ErrProviderTimeout),
 	}, live)
 	live = dnsProcessLeak(dnsLeakMsg{Items: leakItems}, live)
 	if got, want := model.dnsModel.providerTable.Rows(), live.providerTable.Rows(); !reflect.DeepEqual(got, want) {
@@ -182,12 +185,12 @@ func TestImportUsesLiveDnsTables(t *testing.T) {
 
 func TestImportMissingDnsAndUnknownStatus(t *testing.T) {
 	importTestConfig(t)
-	report := &checkers.FullCheckDto{Version: 1, Dns: &checkers.FullCheckDnsDto{
-		Doh: &checkers.FullCheckDnsReportDto{Providers: map[string][]checkers.FullCheckStatusDto{
-			"future reason":  {{Reason: "CHECKERS_ERR_DNS_PROVIDER_TIMEOUT"}, {Reason: "FUTURE_CODE"}},
+	report := &fullcheck.ReportDto{Version: 1, Dns: &fullcheck.DnsDto{
+		Doh: &fullcheck.DnsReportDto{Providers: map[string][]fullcheck.StatusDto{
+			"future reason":  {{Reason: "CHECKERS_DNS_ERR_PROVIDER_TIMEOUT"}, {Reason: "FUTURE_CODE"}},
 			"missing reason": {{Code: "OK", Msg: "ignored"}},
-			"non2xx only":    {{Reason: "CHECKERS_ERR_DNS_DOH_NON_2XX_RESP"}},
-			"non2xx unknown": {{Reason: "CHECKERS_ERR_DNS_DOH_NON_2XX_RESP"}, {Reason: "UNKNOWN"}},
+			"non2xx only":    {{Reason: "CHECKERS_DNS_ERR_DOH_NON_2XX_RESP"}},
+			"non2xx unknown": {{Reason: "CHECKERS_DNS_ERR_DOH_NON_2XX_RESP"}, {Reason: "UNKNOWN"}},
 			"network error":  {{Reason: "INETUTIL_ERR_TCP_CONN_TIMEOUT"}, {Reason: "UNKNOWN"}},
 		}},
 	}}
@@ -212,15 +215,15 @@ func TestImportMissingDnsAndUnknownStatus(t *testing.T) {
 
 func TestImportShowsUnknownForMissingCheckerReason(t *testing.T) {
 	importTestConfig(t)
-	status := checkers.FullCheckStatusDto{Code: "OK", Msg: "ignored"}
-	report := &checkers.FullCheckDto{
+	status := fullcheck.StatusDto{Code: "OK", Msg: "ignored"}
+	report := &fullcheck.ReportDto{
 		Version:       1,
-		Whoami:        &checkers.FullCheckWhoamiDto{Status: status},
-		CidrWhitelist: &checkers.FullCheckCidrwhitelistDto{Status: status},
-		Webhost: map[string]checkers.FullCheckWebhostDto{"saved": {Items: []checkers.FullCheckWebhostItemDto{{
+		Whoami:        &fullcheck.WhoamiDto{Status: status},
+		CidrWhitelist: &fullcheck.CidrWhitelistDto{Status: status},
+		Webhost: map[string]fullcheck.WebhostDto{"saved": {Items: []fullcheck.WebhostItemDto{{
 			Alive: status, Tcp1620: status, Siberian: status,
 		}}}},
-		Dns: &checkers.FullCheckDnsDto{Leak: &checkers.FullCheckDnsLeakDto{
+		Dns: &fullcheck.DnsDto{Leak: &fullcheck.DnsLeakDto{
 			Status: status, Items: []inetlookup.IpInfoStrings{{Ip: "192.0.2.1"}},
 		}},
 	}
@@ -235,22 +238,27 @@ func TestImportShowsUnknownForMissingCheckerReason(t *testing.T) {
 			t.Errorf("tab %q did not show its unknown reasons: %s", tab, view)
 		}
 	}
+	report.Dns.Leak.Items = nil
+	model := openReportTab(t, newRootModel(TuiOpt{Report: report}), dnsTitle)
+	if view := ansi.Strip(model.render()); !strings.Contains(view, "⚠️ Unknown") {
+		t.Errorf("empty DNS Leak table did not show its unknown reason: %s", view)
+	}
 }
 
 func TestImportRendersReportTextLiterally(t *testing.T) {
 	importTestConfig(t)
 	const color = "\x1b[38;5;123m"
 	section := color + "Saved\nwebhost"
-	report := &checkers.FullCheckDto{
+	report := &fullcheck.ReportDto{
 		Version: 1,
-		Whoami: &checkers.FullCheckWhoamiDto{
-			Status: checkers.FullCheckStatusDto{Reason: "NONE"}, Org: color + "Example\rNetwork",
+		Whoami: &fullcheck.WhoamiDto{
+			Status: fullcheck.StatusDto{Reason: "NONE"}, Org: color + "Example\rNetwork",
 		},
-		Webhost: map[string]checkers.FullCheckWebhostDto{section: {Items: []checkers.FullCheckWebhostItemDto{{
+		Webhost: map[string]fullcheck.WebhostDto{section: {Items: []fullcheck.WebhostItemDto{{
 			Group: color + "First\thost",
 		}}}},
-		Dns: &checkers.FullCheckDnsDto{Plain: &checkers.FullCheckDnsReportDto{
-			Providers: map[string][]checkers.FullCheckStatusDto{color + "Test\nprovider": {{Reason: "NONE"}}},
+		Dns: &fullcheck.DnsDto{Plain: &fullcheck.DnsReportDto{
+			Providers: map[string][]fullcheck.StatusDto{color + "Test\nprovider": {{Reason: "NONE"}}},
 		}},
 	}
 	model := newRootModel(TuiOpt{Report: report, ReportPath: color + "reports/test.json"})
@@ -269,19 +277,22 @@ func TestImportRendersReportTextLiterally(t *testing.T) {
 
 func TestLiveModelsKeepTypedErrors(t *testing.T) {
 	importTestConfig(t)
-	joined := errors.Join(checkers.ErrDnsResolveSpoofing, checkers.ErrDnsProviderTimeout)
-	whoami, _ := whoamiUpdate(whoamiModel{}, whoamiResultMsg{err: joined})
-	cidr, _ := cidrwhitelistUpdate(cidrwhitelistModel{}, cidrwhitelistResultMsg{err: checkers.ErrCidrWhitelistNoInetAccess})
-	dns := dnsProcessPlainProvider(dnsProviderPlainMsg{Provider: "example", Verdict: joined}, dnsInitModel())
-	if whoami.err != joined || cidr.err != checkers.ErrCidrWhitelistNoInetAccess || dns.providerRows["example"].plainVerdict != joined {
+	joined := errors.Join(dns.ErrResolveSpoofing, dns.ErrProviderTimeout)
+	whoamiState, _ := whoamiUpdate(whoamiModel{}, whoamiResultMsg{err: joined})
+	cidr, _ := cidrwhitelistUpdate(cidrwhitelistModel{}, cidrwhitelistResultMsg{err: cidrwhitelist.ErrNoInetAccess})
+	dnsState := dnsProcessPlainProvider(dnsProviderPlainMsg{Provider: "example", Verdict: joined}, dnsInitModel())
+	if whoamiState.err != joined || cidr.err != cidrwhitelist.ErrNoInetAccess || dnsState.providerRows["example"].plainVerdict != joined {
 		t.Fatal("live model replaced its original error")
 	}
-	item := webhostItemMsg{Out: checkers.WebhostSingleResult{Alive: inetutil.ErrTlsBadRecordMac}}
-	webhost := webhostProcessItem(item, webhostInitModel())
-	if !strings.HasPrefix(webhost.table.Rows()[0][6], "⚠️ ") {
+	item := webhostItemMsg{Result: webhost.SingleResult{Alive: inetutil.ErrTlsBadRecordMac}}
+	webhostState := webhostProcessItem(item, webhostInitModel())
+	if !strings.HasPrefix(webhostState.table.Rows()[0][6], "⚠️ ") {
 		t.Fatal("live webhost formatter lost a typed TLS warning")
 	}
-	if whoamiView(whoami) != "error when fetching ;(" || !strings.Contains(ansi.Strip(cidrwhitelistView(cidrwhitelistModel{err: joined})), "Internal error ;(") {
+	if got := webhostPrettyAlive(webhost.ErrBlockedBySni); got != "🔴 tls: blocked by sni" {
+		t.Errorf("SNI block message = %q", got)
+	}
+	if whoamiView(whoamiState) != "error when fetching ;(" || !strings.Contains(ansi.Strip(cidrwhitelistView(cidrwhitelistModel{err: joined})), "Internal error ;(") {
 		t.Fatal("live generic errors lost their usual messages")
 	}
 }
@@ -300,26 +311,26 @@ func TestImportSingleDnsTableNavigation(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			leakOnly := tt.leakOnly
-			dns := &checkers.FullCheckDnsDto{}
+			dnsReport := &fullcheck.DnsDto{}
 			wrongDirection := tea.KeyRight
 			if leakOnly {
-				dns.Leak = &checkers.FullCheckDnsLeakDto{Status: checkers.FullCheckStatusDto{Reason: "NONE"}, Items: []inetlookup.IpInfoStrings{
+				dnsReport.Leak = &fullcheck.DnsLeakDto{Status: fullcheck.StatusDto{Reason: "NONE"}, Items: []inetlookup.IpInfoStrings{
 					{Ip: "192.0.2.11invalid", Location: "\u00e9"}, {Ip: "192.0.2.10"}, {Ip: "192.0.2.2"},
 				}}
 				wrongDirection = tea.KeyLeft
 			} else {
-				dns.Plain = &checkers.FullCheckDnsReportDto{Providers: map[string][]checkers.FullCheckStatusDto{
-					"a": {{Reason: "CHECKERS_ERR_DNS_RESOLVE_SPOOFING"}}, "b": {{Reason: "NONE"}},
+				dnsReport.Plain = &fullcheck.DnsReportDto{Providers: map[string][]fullcheck.StatusDto{
+					"a": {{Reason: "CHECKERS_DNS_ERR_RESOLVE_SPOOFING"}}, "b": {{Reason: "NONE"}},
 				}}
 			}
 			if tt.otherPresent {
 				if leakOnly {
-					dns.Plain = &checkers.FullCheckDnsReportDto{Status: checkers.FullCheckStatusDto{Reason: "NONE"}}
+					dnsReport.Plain = &fullcheck.DnsReportDto{Status: fullcheck.StatusDto{Reason: "NONE"}}
 				} else {
-					dns.Leak = &checkers.FullCheckDnsLeakDto{Status: checkers.FullCheckStatusDto{Reason: "UNKNOWN"}}
+					dnsReport.Leak = &fullcheck.DnsLeakDto{Status: fullcheck.StatusDto{Reason: "UNKNOWN"}}
 				}
 			}
-			model := openReportTab(t, newRootModel(TuiOpt{Report: &checkers.FullCheckDto{Version: 1, Dns: dns}}), "DNS")
+			model := openReportTab(t, newRootModel(TuiOpt{Report: &fullcheck.ReportDto{Version: 1, Dns: dnsReport}}), "DNS")
 			for _, code := range []rune{wrongDirection, tea.KeyDown} {
 				next, _ := model.Update(tea.KeyPressMsg{Code: code})
 				model = next.(rootModel)
