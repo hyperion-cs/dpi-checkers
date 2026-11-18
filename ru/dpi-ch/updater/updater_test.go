@@ -2,10 +2,32 @@ package updater
 
 import (
 	"context"
+	"errors"
 	"path"
 	"testing"
 	"time"
+
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
 )
+
+func TestSelfCheckUpdatesContext(t *testing.T) {
+	cfg := &config.Get().Updater
+	previous := *cfg
+	t.Cleanup(func() { *cfg = previous })
+	cfg.Self.Owner, cfg.Self.Repo = "hyperion-cs", "dpi-checkers"
+	cfg.Timeout = time.Minute
+
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	if _, err := SelfCheckUpdates(ctx); !errors.Is(err, context.Canceled) {
+		t.Fatalf("canceled check returned %v", err)
+	}
+
+	cfg.Timeout = 0
+	if _, err := SelfCheckUpdates(t.Context()); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expired check returned %v", err)
+	}
+}
 
 func Test1(t *testing.T) {
 	owner, repo, fn, branch := "Loyalsoldier", "geoip", "GeoLite2-ASN-Blocks-IPv4.csv", "release"

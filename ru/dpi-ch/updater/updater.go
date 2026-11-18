@@ -108,7 +108,13 @@ func SelfUpdate(ctx context.Context, url, filename, version string) error {
 // Checks if there are new versions of itself.
 func SelfCheckUpdates(ctx context.Context) (SelfCheckUpdatesResult, error) {
 	cfg := config.Get().Updater
-	latest, found, err := selfupdate.DetectLatest(context.Background(), selfupdate.NewRepositorySlug(cfg.Self.Owner, cfg.Self.Repo))
+	ctx, cancel := context.WithTimeout(ctx, cfg.Timeout)
+	defer cancel()
+
+	latest, found, err := selfupdate.DetectLatest(ctx, selfupdate.NewRepositorySlug(cfg.Self.Owner, cfg.Self.Repo))
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return SelfCheckUpdatesResult{}, ctxErr
+	}
 	if err != nil {
 		log.Printf("updater/self: %s\n", err)
 		return SelfCheckUpdatesResult{}, ErrInternal
