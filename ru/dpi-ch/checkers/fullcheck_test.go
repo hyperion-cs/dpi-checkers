@@ -2,15 +2,12 @@ package checkers
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
-	yaml "go.yaml.in/yaml/v3"
 )
 
 func TestFullCheckProgressBackpressure(t *testing.T) {
@@ -144,21 +141,13 @@ func TestFullCheckDnsProviderTimeout(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			raw, err := os.ReadFile(file)
-			if err != nil {
-				t.Fatal(err)
-			}
-			var report FullCheckDto
-			if format == "json" {
-				err = json.Unmarshal(raw, &report)
-			} else {
-				err = yaml.Unmarshal(raw, &report)
-			}
+			report, err := FullCheckImport(file)
 			if err != nil {
 				t.Fatal(err)
 			}
 			statuses := report.Dns.Plain.Providers["local"]
-			if len(statuses) != 2 || statuses[0].Code != "NXDOMAIN_SPOOFING" || statuses[1].Code != "PROVIDER_TIMEOUT" {
+			if len(statuses) != 2 || statuses[0].Code != "NXDOMAIN_SPOOFING" || statuses[1].Code != "PROVIDER_TIMEOUT" ||
+				FullCheckErrorFromReason(statuses[0].Reason) != ErrDnsNxdomainSpoofing || FullCheckErrorFromReason(statuses[1].Reason) != ErrDnsProviderTimeout {
 				t.Fatalf("lost DNS findings in report: %v", statuses)
 			}
 		})

@@ -26,6 +26,9 @@ func cmdFor(session *session, cmd tea.Cmd) tea.Cmd {
 }
 
 func (rm rootModel) Init() tea.Cmd {
+	if rm.report != nil {
+		return nil
+	}
 	cfg := config.Get()
 
 	selfTtu, _ := updater.TimeToUpdate(cfg.Updater.SelfTsFile)

@@ -2,6 +2,7 @@ package tui
 
 import (
 	"context"
+	"time"
 
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers"
 
@@ -19,6 +20,7 @@ type rootModel struct {
 	quitting bool
 	router   *router
 	viewport viewport.Model
+	report   *checkers.FullCheckDto
 
 	allModel           allModel
 	whoamiModel        whoamiModel
@@ -74,6 +76,7 @@ type webhostModel struct {
 	progress    string
 	table       table.Model
 	farmTimeout bool
+	farmLimit   time.Duration
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -93,13 +96,15 @@ type dnsVerdictModel struct {
 }
 
 type dnsModel struct {
-	session  *session
-	inited   bool
-	fetching bool
-	spinner  spinner.Model
-	progress string
+	session       *session
+	inited        bool
+	fetching      bool
+	spinner       spinner.Model
+	progress      string
+	showProviders bool
+	showLeak      bool
+	leakErr       error
 
-	tblHeight     int
 	providerRows  map[string]dnsVerdictModel
 	providerTable table.Model
 	leakTable     table.Model

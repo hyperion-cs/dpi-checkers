@@ -260,6 +260,7 @@ The utility has some flags (command-line args) that can sometimes be useful:
 | Flag                        | Description                                  |
 | --------------------------- | -------------------------------------------- |
 | `--all`                     | Run all checks immediately (result to file)  |
+| `--import-all :string`       | View saved ALL results from a json/yaml file |
 | `--cfg :string`             | `.yaml` config path (default: `config.yaml`) |
 | `--force-inetlookup-update` | Force run the `inetlookup` update mechanism  |
 | `--force-update`            | Force run the `dpi-ch` update mechanism      |

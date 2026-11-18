@@ -68,6 +68,37 @@ var (
 const RANDOM_HOSTNAME_ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789"
 const RANDOM_HOSTNAME_LEN = 12
 
+func (t *WebhostTls) VersionString() string {
+	if t == nil {
+		return " — "
+	}
+
+	switch t.V {
+	case tls.VersionTLS10:
+		return "1.0"
+	case tls.VersionTLS11:
+		return "1.1"
+	case tls.VersionTLS12:
+		return "1.2"
+	case tls.VersionTLS13:
+		return "1.3"
+	default:
+		return " — "
+	}
+}
+
+// Kbps returns both rates when both directions were measured.
+func (t WebhostThroughput) Kbps() (*float64, *float64) {
+	if t.TxElapsed <= 0 || t.RxElapsed <= 0 {
+		return nil, nil
+	}
+
+	const bytesToKilobits = 8.0 / 1_000
+	txKbps := float64(t.TxBytes) / t.TxElapsed.Seconds() * bytesToKilobits
+	rxKbps := float64(t.RxBytes) / t.RxElapsed.Seconds() * bytesToKilobits
+	return &txKbps, &rxKbps
+}
+
 func WebhostSingle(opt WebhostSingleOpt) WebhostSingleResult {
 	if opt.RandomHostname {
 		rndHostname, _ := randomHostname()

@@ -4,15 +4,25 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/checkers"
+
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 )
 
-func Tui() {
-	fmt.Print(ansi.EraseEntireScreen, ansi.CursorHomePosition)
+type TuiOpt struct {
+	Report     *checkers.FullCheckDto
+	ReportPath string
+}
 
-	router := NewRouter()
+func newRootModel(opt TuiOpt) rootModel {
+	var route *router
+	if opt.Report != nil {
+		route = &router{Tab: menuTab, Menu: reportMenu(opt.Report, opt.ReportPath), inited: true}
+	} else {
+		route = NewRouter()
+	}
 
 	vp := viewport.New(
 		viewport.WithWidth(80),
@@ -22,12 +32,18 @@ func Tui() {
 	vp.FillHeight = false
 
 	model := rootModel{
-		router:   router,
+		router:   route,
 		viewport: vp,
+		report:   opt.Report,
 	}
 	model.syncViewport()
+	return model
+}
 
-	p := tea.NewProgram(model)
+func Tui(opt TuiOpt) {
+	fmt.Print(ansi.EraseEntireScreen, ansi.CursorHomePosition)
+
+	p := tea.NewProgram(newRootModel(opt))
 	if _, err := p.Run(); err != nil {
 		log.Fatalf("could not start tui: %v", err)
 	}

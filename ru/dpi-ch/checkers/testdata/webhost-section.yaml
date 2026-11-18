@@ -5,9 +5,9 @@ items:
     location: ZZ
     ip: 192.0.2.1
     prefix: 192.0.2.0/24
-    alive: {msg: Ok, code: OK}
+    alive: {msg: Ok, code: OK, reason: NONE}
     tls: {v: "1.3", san: [example.test], cn: example.test}
-    tcp1620: {msg: No, code: OK}
-    siberian: {msg: No, code: OK}
+    tcp1620: {msg: No, code: OK, reason: NONE}
+    siberian: {msg: No, code: OK, reason: NONE}
     bursttxkbps: null
     burstrxkbps: null

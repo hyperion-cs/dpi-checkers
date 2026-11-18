@@ -9,6 +9,7 @@ import (
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/internal/version"
 
+	"charm.land/bubbles/v2/table"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 )
@@ -112,12 +113,14 @@ func whoamiView(model whoamiModel) string {
 	}
 
 	if model.err != nil {
-		return "error when fetching ;("
+		return resultErrorText(model.err, "error when fetching ;(")
 	}
 
 	r := model.result
-	emj := countryIsoToFlagEmoji(r.Location)
-	return fmt.Sprintf("IP: %s\nSubnet: %s\nOrg: %s (%s)\nLocation: %s %s\nTTLB: %d ms", r.Ip, r.Subnet, r.Org, r.Asn, emj, r.Location, r.Ttlb.Milliseconds())
+	location := terminalText(r.Location)
+	return fmt.Sprintf("IP: %s\nSubnet: %s\nOrg: %s (%s)\nLocation: %s %s\nTTLB: %d ms",
+		terminalText(r.Ip), terminalText(r.Subnet), terminalText(r.Org), terminalText(r.Asn),
+		countryIsoToFlagEmoji(location), location, r.Ttlb.Milliseconds())
 }
 
 func allView(model allModel) string {
@@ -198,7 +201,14 @@ func cidrwhitelistView(model cidrwhitelistModel) string {
 		return warningStyle.Render("It seems that there is no Internet access (even to resources from the whitelist).")
 	}
 
-	return warningStyle.Render("Internal error ;(")
+	return warningStyle.Render(resultErrorText(model.err, "Internal error ;("))
+}
+
+func resultErrorText(err error, fallback string) string {
+	if err == checkers.ErrFullCheckUnknownReason {
+		return unknownResultText
+	}
+	return fallback
 }
 
 func webhostView(model webhostModel) string {
@@ -223,7 +233,11 @@ func webhostView(model webhostModel) string {
 		r += fmt.Sprintf("%s %s\n", model.spinner.View(), model.progress)
 	}
 	if model.farmTimeout {
-		r += fmt.Sprintf("⏰ farming timeout exceeded (%s)\n", cfg.FarmTimeout.String())
+		r += "⏰ farming timeout exceeded"
+		if model.farmLimit > 0 {
+			r += " (" + model.farmLimit.String() + ")"
+		}
+		r += "\n"
 	}
 	r += fmt.Sprintf("count: %d pcs.", total)
 	return r
@@ -235,30 +249,26 @@ func dnsView(model dnsModel) string {
 	leakTotal := len(model.leakTable.Rows())
 
 	var providerTbl, leakTbl string
-	if providerTotal > 0 || !model.fetching {
-		cursor := model.providerTable.Cursor() + 1
-		tbl := model.providerTable.View() +
-			"\n " + dnsTableHelpView() +
-			subtleStyle.Render(fmt.Sprintf("; cursor: %d/%d", cursor, providerTotal))
-
-		providerTbl = "> DNS resolvers censorship:\n" +
-			tableOuterBorderStyle().Render(tbl)
+	if model.showProviders && (providerTotal > 0 || !model.fetching) {
+		providerTbl = "> DNS resolvers censorship:\n" + dnsTableView(model.providerTable)
 	}
-	if leakTotal > 0 || !model.fetching {
+	if model.showLeak && (leakTotal > 0 || !model.fetching) {
 		leakTbl = "> Current DNS resolver hijacking test. Actually used:\n"
 		if leakTotal == 0 {
-			leakTbl += tableOuterBorderStyle().Render(" ⚠️ It seems that there is no Internet access  ")
+			text := "No DNS resolver results"
+			if model.leakErr != nil {
+				text = model.leakErr.Error()
+			}
+			leakTbl += tableOuterBorderStyle().Render(" ⚠️ " + text + " ")
 		} else {
-			cursor := model.leakTable.Cursor() + 1
-			tbl := model.leakTable.View() +
-				"\n " + dnsTableHelpView() +
-				subtleStyle.Render(fmt.Sprintf("; cursor: %d/%d", cursor, leakTotal))
-
-			leakTbl += tableOuterBorderStyle().Render(tbl)
+			leakTbl += dnsTableView(model.leakTable)
+			if model.leakErr == checkers.ErrFullCheckUnknownReason {
+				leakTbl += "\n" + warningStyle.Render(unknownResultText)
+			}
 		}
 	}
 
-	if providerTotal > 0 || leakTotal > 0 {
+	if providerTbl != "" || leakTbl != "" {
 		r += lipgloss.JoinHorizontal(
 			lipgloss.Top,
 			providerTbl,
@@ -277,8 +287,11 @@ func dnsView(model dnsModel) string {
 	return r
 }
 
-func dnsTableHelpView() string {
-	return subtleStyle.Render("↑/↓ up/down; ←/→ left/right table")
+func dnsTableView(tbl table.Model) string {
+	total := len(tbl.Rows())
+	cursor := min(tbl.Cursor()+1, total)
+	help := fmt.Sprintf("↑/↓ up/down; ←/→ left/right table; cursor: %d/%d", cursor, total)
+	return tableOuterBorderStyle().Render(tbl.View() + "\n " + subtleStyle.Render(help))
 }
 
 func updaterView(model updaterModel) string {

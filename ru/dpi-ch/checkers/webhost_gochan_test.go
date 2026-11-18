@@ -1,9 +1,11 @@
 package checkers
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"net"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -12,6 +14,7 @@ import (
 	"time"
 
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
+	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/inetlookup"
 	yaml "go.yaml.in/yaml/v3"
 )
 
@@ -144,57 +147,58 @@ func TestFullCheckWebhostTimeout(t *testing.T) {
 			cfg.All.Checkers = []string{"webhost"}
 			cfg.All.Format = format
 			cfg.All.Prefix = filepath.Join(t.TempDir(), "report")
-			cfg.All.TsFormat = ""
-			for range FullCheckGochan(t.Context()) {
+			cfg.All.TsFormat = "-2006-01-02_15-04-05.000000000"
+			var last FullCheckProgress
+			for progress := range FullCheckGochan(t.Context()) {
+				last = progress
 			}
-			body, err := os.ReadFile(cfg.All.Prefix + "." + format)
+			file, ok := strings.CutPrefix(last.Msg, "done; saved to ")
+			if last.State != FullCheckStateOk || !ok {
+				t.Fatalf("missing saved report path: %v", last)
+			}
+			body, err := os.ReadFile(file)
 			if err != nil {
 				t.Fatal(err)
 			}
-			var report map[string]any
-			key, timeoutKey, itemsKey := "Webhost", "FarmTimeout", "Items"
-			if format == "json" {
-				err = json.Unmarshal(body, &report)
-			} else {
-				err = yaml.Unmarshal(body, &report)
-				key, timeoutKey, itemsKey = strings.ToLower(key), strings.ToLower(timeoutKey), strings.ToLower(itemsKey)
+			prefix := "{\n  \"Version\": 1,\n"
+			if format == "yaml" {
+				prefix = "version: 1\n"
 			}
+			if !bytes.HasPrefix(body, []byte(prefix)) {
+				t.Fatalf("report should begin with version 1: %s", body)
+			}
+			report, err := FullCheckImport(file)
 			if err != nil {
 				t.Fatal(err)
 			}
-			sections := report[key].(map[string]any)
-			section, ok := sections["section"].(map[string]any)
-			if !ok || section[timeoutKey] != true {
-				t.Fatalf("missing timeout in report: %s", body)
-			}
-			if items, ok := section[itemsKey].([]any); !ok || len(items) != 0 {
-				t.Fatalf("got items %v, want empty array", section[itemsKey])
+			section, ok := report.Webhost["section"]
+			if !ok || !section.FarmTimeout || !reflect.DeepEqual(section.Items, []FullCheckWebhostItemDto{}) {
+				t.Fatalf("expected a timed-out section with an empty list of items: %s", body)
 			}
 		})
 	}
 }
 
 func TestFullCheckWebhostOutputCompatibility(t *testing.T) {
-	item := FullCheckWebhostItemDto{
-		Group: "example", Org: "Example", AS: "AS64500", Location: "ZZ",
-		IP: "192.0.2.1", Prefix: "192.0.2.0/24",
-		Alive:    FullCheckStatusDto{Msg: "Ok", Code: "OK"},
-		Tls:      &FullCheckWebhostTls{V: "1.3", San: []string{"example.test"}, Cn: "example.test"},
-		Tcp1620:  FullCheckStatusDto{Msg: "No", Code: "OK"},
-		Siberian: FullCheckStatusDto{Msg: "No", Code: "OK"},
-	}
+	item := fullCheckWebhostItemDto(WebhostGochanOut[WebhostGochanBag]{
+		Bag: WebhostGochanBag{Name: "example"},
+		Out: WebhostSingleResult{
+			IpInfo: inetlookup.IpInfo{Org: "Example", Asn: 64500, CountryIso: "ZZ", Ip: netip.MustParseAddr("192.0.2.1"), Subnet: netip.MustParsePrefix("192.0.2.0/24")},
+			Tls:    &WebhostTls{V: 0x0304, San: []string{"example.test"}, Cn: "example.test"},
+		},
+	})
 	for _, format := range []string{"json", "yaml"} {
 		t.Run(format, func(t *testing.T) {
 			marshal, unmarshal, key := json.Marshal, json.Unmarshal, "FarmTimeout"
 			if format == "yaml" {
 				marshal, unmarshal, key = yaml.Marshal, yaml.Unmarshal, "farmtimeout"
 			}
-			legacy, err := os.ReadFile("testdata/webhost-section." + format)
+			fixture, err := os.ReadFile("testdata/webhost-section." + format)
 			if err != nil {
 				t.Fatal(err)
 			}
 			var want map[string]any
-			if err := unmarshal(legacy, &want); err != nil {
+			if err := unmarshal(fixture, &want); err != nil {
 				t.Fatal(err)
 			}
 			for _, timeout := range []bool{false, true} {

@@ -2,99 +2,48 @@ package checkers
 
 import (
 	"context"
-	"crypto/tls"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
 	"net"
-	"os"
-	"path"
 	"slices"
-	"strings"
 	"sync"
-	"time"
 
 	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/config"
-	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/inetlookup"
-	"github.com/hyperion-cs/dpi-checkers/ru/dpi-ch/inetutil"
-	yaml "go.yaml.in/yaml/v3"
 )
 
-var ErrFullCheckInvalidOutputFormat = errors.New("all: invalid output format")
+type FullCheckTask uint8
 
-type FullCheckWhoamiDto struct {
-	Status   FullCheckStatusDto
-	Ip       string
-	Subnet   string
-	Asn      string
-	Org      string
-	Location string
-	TtlbMs   int64
-}
+const (
+	FullCheckTaskNone FullCheckTask = iota
+	FullCheckTaskWhoami
+	FullCheckTaskCidrWhitelist
+	FullCheckTaskDnsLeak
+	FullCheckTaskDnsPlain
+	FullCheckTaskDnsDoh
+	FullCheckTaskWebhost
+)
 
-type FullCheckCidrwhitelistDto struct {
-	Status FullCheckStatusDto
-}
+type FullCheckState uint8
 
-type FullCheckDnsLeakDto struct {
-	Status FullCheckStatusDto
-	Items  []inetlookup.IpInfoStrings
-}
+const (
+	FullCheckStateRunning FullCheckState = iota
+	FullCheckStateOk
+	FullCheckStateError
+	FullCheckStateTimeout
+)
 
-type FullCheckDnsReportDto struct {
-	Status    FullCheckStatusDto
-	Providers map[string][]FullCheckStatusDto
-}
-
-type FullCheckDnsDto struct {
-	Leak  *FullCheckDnsLeakDto
-	Plain *FullCheckDnsReportDto
-	Doh   *FullCheckDnsReportDto
-}
-
-type FullCheckWebhostTls struct {
-	V   string
-	San []string
-	Cn  string
-}
-
-type FullCheckWebhostItemDto struct {
-	Group       string
-	Org         string
-	AS          string
-	Location    string
-	IP          string
-	Prefix      string
-	Alive       FullCheckStatusDto
-	Tls         *FullCheckWebhostTls
-	Tcp1620     FullCheckStatusDto
-	Siberian    FullCheckStatusDto
-	BurstTxKbps *float64
-	BurstRxKbps *float64
-}
-
-type FullCheckWebhostDto struct {
-	Items       []FullCheckWebhostItemDto
-	FarmTimeout bool
-}
-
-type FullCheckStatusDto struct {
-	Msg  string
-	Code string
-}
-
-type FullCheckDto struct {
-	Whoami        *FullCheckWhoamiDto
-	CidrWhitelist *FullCheckCidrwhitelistDto
-	Dns           *FullCheckDnsDto
-	Webhost       map[string]FullCheckWebhostDto
+type FullCheckProgress struct {
+	Task  FullCheckTask
+	Index int
+	State FullCheckState
+	Msg   string
 }
 
 func FullCheckGochan(ctx context.Context) <-chan FullCheckProgress {
 	cfg := config.Get()
 	progressCh := make(chan FullCheckProgress, 16)
-	r := &FullCheckDto{}
+	r := &FullCheckDto{Version: fullCheckVersion}
 
 	go func() {
 		defer close(progressCh)
@@ -235,7 +184,7 @@ func FullCheckGochan(ctx context.Context) <-chan FullCheckProgress {
 			fullCheckSendProgress(ctx, progressCh, FullCheckProgress{State: FullCheckStateError, Msg: "error with the output path; enable debug and check the logs"})
 			return
 		}
-		if err = fullCheckSave(r); err != nil {
+		if err := fullCheckSave(savePath, r); err != nil {
 			log.Println("fullcheck/save:", err)
 			fullCheckSendProgress(ctx, progressCh, FullCheckProgress{State: FullCheckStateError, Msg: "error when saving to a file; enable debug and check the logs"})
 			return
@@ -247,229 +196,43 @@ func FullCheckGochan(ctx context.Context) <-chan FullCheckProgress {
 
 }
 
-func fullCheckSavePath() (string, error) {
-	cfg := config.Get().All
-	reportPath := cfg.Prefix + time.Now().Format(cfg.TsFormat) + "." + cfg.Format
-
-	if !path.IsAbs(reportPath) {
-		binFolder, err := config.BinFolder()
-		if err != nil {
-			return "", err
+func fullCheckDnsState(verdicts []DnsVerdict) FullCheckState {
+	for _, v := range verdicts {
+		if errors.Is(v.Verdict, ErrDnsProviderTimeout) {
+			return FullCheckStateTimeout
 		}
-		reportPath = path.Join(binFolder, reportPath)
 	}
-
-	return path.Clean(reportPath), nil
+	return FullCheckStateOk
 }
 
-func fullCheckSave(dto *FullCheckDto) error {
-	cfg := config.Get().All
-	reportPath, err := fullCheckSavePath()
-	if err != nil {
-		return err
-	}
-
-	var out []byte
-	switch cfg.Format {
-	case "json":
-		out, err = json.MarshalIndent(dto, "", "  ")
-	case "yaml":
-		out, err = yaml.Marshal(dto)
-	default:
-		return ErrFullCheckInvalidOutputFormat
-	}
-
-	if err != nil {
-		return err
-	}
-	if err := os.WriteFile(reportPath, out, 0644); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func fullCheckWhoamiDto(r WhoamiResult, err error) FullCheckWhoamiDto {
-	x := FullCheckWhoamiDto{
-		Ip:       r.Ip,
-		Subnet:   r.Subnet,
-		Asn:      r.Asn,
-		Org:      r.Org,
-		Location: r.Location,
-		TtlbMs:   r.Ttlb.Milliseconds(),
-		Status:   FullCheckStatusDto{Msg: "Ok", Code: "OK"},
-	}
-	if err != nil {
-		x.Status = FullCheckStatusDto{Msg: err.Error(), Code: "ERR"}
-	}
-	return x
-}
-
-func fullCheckCidrwhitelistDto(err error) FullCheckCidrwhitelistDto {
+func fullCheckErrorState(err error) FullCheckState {
 	if err == nil {
-		return FullCheckCidrwhitelistDto{Status: FullCheckStatusDto{Msg: "You're NOT under one", Code: "NOT_DETECTED"}}
+		return FullCheckStateOk
 	}
-
-	if err == ErrCidrWhitelistDetected {
-		return FullCheckCidrwhitelistDto{Status: FullCheckStatusDto{Msg: "You're UNDER one", Code: "DETECTED"}}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return FullCheckStateTimeout
 	}
-
-	if err == ErrCidrWhitelistNoInetAccess {
-		return FullCheckCidrwhitelistDto{Status: FullCheckStatusDto{Msg: "It seems that there is no Internet access (even to resources from the whitelist)", Code: "NO_INTERNET_ACCESS"}}
+	if ne, ok := errors.AsType[net.Error](err); ok && ne.Timeout() {
+		return FullCheckStateTimeout
 	}
-
-	return FullCheckCidrwhitelistDto{Status: FullCheckStatusDto{Msg: "Internal error", Code: "INTERNAL_ERR"}}
+	return FullCheckStateError
 }
 
-func fullCheckDnsLeakDto(outs []DnsLeakWithIpinfoOut) FullCheckDnsLeakDto {
-	items := []inetlookup.IpInfoStrings{}
-	for _, out := range outs {
-		if out.Err != nil {
-			return FullCheckDnsLeakDto{Status: FullCheckStatusDto{Msg: out.Err.Error(), Code: "ERR"}}
+func fullCheckSendProgress(ctx context.Context, ch chan<- FullCheckProgress, p FullCheckProgress) {
+	if p.Task != FullCheckTaskNone || p.State != FullCheckStateRunning {
+		select {
+		case ch <- p:
+		case <-ctx.Done():
+			return
 		}
-		items = append(items, out.Items...)
-	}
-
-	slices.SortFunc(items, func(a, b inetlookup.IpInfoStrings) int {
-		return strings.Compare(a.Ip, b.Ip)
-	})
-	items = slices.CompactFunc(items, func(a, b inetlookup.IpInfoStrings) bool { return a.Ip == b.Ip })
-	return FullCheckDnsLeakDto{Status: FullCheckStatusDto{Msg: "Ok", Code: "OK"}, Items: items}
-}
-
-func fullCheckPrettyDnsVerdict(v error) []FullCheckStatusDto {
-	if v == nil {
-		return []FullCheckStatusDto{{Msg: "Ok", Code: "OK"}}
-	}
-
-	// TODO: disable this when HTTP/2 is supported.
-	// It only works as long as we trust providers that use DoH.
-	if len(DnsErrors(v)) == 1 && errors.Is(v, ErrDnsDohNon2xxResp) {
-		return []FullCheckStatusDto{{Msg: "Ok", Code: "OK"}}
-	}
-
-	items := []FullCheckStatusDto{}
-	for _, err := range DnsErrors(v) {
-		switch err {
-		case ErrDnsProviderHijacking:
-			items = append(items, FullCheckStatusDto{Msg: "Provider hijacking", Code: "PROVIDER_HIJACKING"})
-		case ErrDnsResolveSpoofing:
-			items = append(items, FullCheckStatusDto{Msg: "Response spoofing", Code: "RESPONSE_SPOOFING"})
-		case ErrDnsNxdomainSpoofing:
-			items = append(items, FullCheckStatusDto{Msg: "NXDOMAIN spoofing", Code: "NXDOMAIN_SPOOFING"})
-		case ErrDnsDohBootstrapSpoofing:
-			items = append(items, FullCheckStatusDto{Msg: "Bootstrap spoofing", Code: "BOOTSTRAP_SPOOFING"})
-		case ErrDnsDohBootstrapEmpty:
-			items = append(items, FullCheckStatusDto{Msg: "Empty bootstrap", Code: "EMPTY_BOOTSTRAP"})
-		case ErrDnsDohInsecure:
-			items = append(items, FullCheckStatusDto{Msg: "Invalid https certificate", Code: "INVALID_HTTPS_CERT"})
-		case ErrDnsDohNon2xxResp:
-			items = append(items, FullCheckStatusDto{Msg: "Non-2xx response", Code: "NON_2XX_RESP"})
-		case ErrDnsSkip:
-			items = append(items, FullCheckStatusDto{Msg: "Skip", Code: "SKIP"})
-		case ErrDnsProviderTimeout:
-			items = append(items, FullCheckStatusDto{Msg: "Provider timeout", Code: "PROVIDER_TIMEOUT"})
+	} else {
+		select {
+		case ch <- p:
+		default:
+			return
 		}
 	}
-
-	if len(items) > 0 {
-		return items
-	}
-	if inetutil.IsInetutilErr(v) {
-		return []FullCheckStatusDto{{Msg: v.Error(), Code: "INETUTIL_ERR"}}
-	}
-	if _, ok := errors.AsType[*net.DNSError](v); ok {
-		return []FullCheckStatusDto{{Msg: "Lookup error", Code: "LOOKUP_ERR"}}
-	}
-	return []FullCheckStatusDto{{Msg: "Internal error", Code: "INTERNAL_ERR"}}
-}
-
-func fullCheckDnsReportDto(verdicts []DnsVerdict) FullCheckDnsReportDto {
-	providers := map[string][]FullCheckStatusDto{}
-	for _, x := range verdicts {
-		providers[x.Provider] = fullCheckPrettyDnsVerdict(x.Verdict)
-	}
-	return FullCheckDnsReportDto{Status: FullCheckStatusDto{Msg: "Ok", Code: "OK"}, Providers: providers}
-}
-
-func fullCheckWebhostItemDto(o WebhostGochanOut[WebhostGochanBag]) FullCheckWebhostItemDto {
-	dto := FullCheckWebhostItemDto{
-		Group:    o.Bag.Name,
-		Org:      o.Out.IpInfo.Org,
-		AS:       fmt.Sprintf("AS%d", o.Out.IpInfo.Asn),
-		Location: o.Out.IpInfo.CountryIso,
-		IP:       o.Out.IpInfo.Ip.String(),
-		Prefix:   o.Out.IpInfo.Subnet.String(),
-		Alive:    webhostPrettyAlive(o.Out.Alive),
-		Tcp1620:  webhostPrettyTcp1620(o.Out.Tcp1620),
-		Siberian: webhostPrettySiberian(o.Out.Siberian),
-	}
-
-	if o.Out.Tls != nil {
-		dto.Tls = &FullCheckWebhostTls{V: webhostPrettyTlsV(o.Out.Tls.V), San: o.Out.Tls.San, Cn: o.Out.Tls.Cn}
-	}
-
-	if o.Out.Throughput.TxElapsed > 0 && o.Out.Throughput.RxElapsed > 0 {
-		thp := o.Out.Throughput
-		const bytesToKilobits = 8.0 / 1_000
-		txKbps := float64(o.Out.Throughput.TxBytes) / thp.TxElapsed.Seconds() * bytesToKilobits
-		rxKbps := float64(o.Out.Throughput.RxBytes) / thp.RxElapsed.Seconds() * bytesToKilobits
-		dto.BurstTxKbps = &txKbps
-		dto.BurstRxKbps = &rxKbps
-	}
-
-	return dto
-}
-
-func webhostPrettyAlive(err error) FullCheckStatusDto {
-	switch err {
-	case nil:
-		return FullCheckStatusDto{Msg: "Ok", Code: "OK"}
-	case inetutil.ErrHttpMalformedResponse:
-		return FullCheckStatusDto{Msg: "Ok, custom HTTP", Code: "OK_CUSTOM_HTTP"}
-	}
-	return FullCheckStatusDto{Msg: err.Error(), Code: "ERR"}
-}
-
-func webhostPrettyTlsV(v uint16) string {
-	switch v {
-	case tls.VersionTLS10:
-		return "1.0"
-	case tls.VersionTLS11:
-		return "1.1"
-	case tls.VersionTLS12:
-		return "1.2"
-	case tls.VersionTLS13:
-		return "1.3"
-	default:
-		return " — "
-	}
-}
-
-func webhostPrettyTcp1620(err error) FullCheckStatusDto {
-	switch err {
-	case nil:
-		return FullCheckStatusDto{Msg: "No", Code: "OK"}
-	case inetutil.ErrTcpWriteTimeout, inetutil.ErrTcpReadTimeout:
-		return FullCheckStatusDto{Msg: "Detected", Code: "DETECTED"}
-	case ErrWebhostSkip:
-		return FullCheckStatusDto{Msg: "Skipped", Code: "SKIP"}
-	case inetutil.ErrTlsWriteBrokenPipe:
-		return FullCheckStatusDto{Msg: "Not supported by host", Code: "NOT_SUPPORTED_BY_HOST"}
-	default:
-		return FullCheckStatusDto{Msg: err.Error(), Code: "ERR"}
-	}
-}
-
-func webhostPrettySiberian(err error) FullCheckStatusDto {
-	switch err {
-	case nil:
-		return FullCheckStatusDto{Msg: "No", Code: "OK"}
-	case inetutil.ErrTlsHandshakeTimeout, inetutil.ErrTlsHandshakeFail:
-		return FullCheckStatusDto{Msg: "Detected", Code: "DETECTED"}
-	case ErrWebhostSkip:
-		return FullCheckStatusDto{Msg: "Skipped", Code: "SKIP"}
-	default:
-		return FullCheckStatusDto{Msg: err.Error(), Code: "ERR"}
+	if config.Get().Debug {
+		log.Println(p)
 	}
 }

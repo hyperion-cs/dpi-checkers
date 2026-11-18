@@ -21,6 +21,12 @@ const (
 	updaterTab
 )
 
+const (
+	whoamiTitle        = "Who am I?"
+	cidrwhitelistTitle = "Am I under the CIDR whitelist?"
+	dnsTitle           = "DNS"
+)
+
 type router struct {
 	Tab  tab
 	Menu *MenuState
@@ -31,8 +37,9 @@ type router struct {
 }
 
 type MenuState struct {
-	pos   int
-	items []MenuItem
+	pos    int
+	items  []MenuItem
+	header string
 }
 
 type MenuItem struct {
@@ -52,11 +59,11 @@ func NewRouter() *router {
 
 func NewMenu() *MenuState {
 	webhostCfg := config.Get().Checkers.Webhost
-	m := &MenuState{items: []MenuItem{}}
+	m := &MenuState{header: "Select what you want to check."}
 
 	m.Add("ALL", "long exec warn: run all checks specified in the config", allTab, true, allInitMsg{})
-	m.Add("Who am I?", "about your internet connection", whoamiTab, true, whoamiInitMsg{})
-	m.Add("Am I under the CIDR whitelist?",
+	m.Add(whoamiTitle, "about your internet connection", whoamiTab, true, whoamiInitMsg{})
+	m.Add(cidrwhitelistTitle,
 		"checks if a censor restricts tcp/udp connections by ip subnets", cidrwhitelistTab, true, cidrwhitelistInitMsg{})
 
 	// webhost checker is split into sections (separate tabs), which are defined in config
@@ -64,7 +71,7 @@ func NewMenu() *MenuState {
 		m.Add(x.Name, x.Desc, webhostTab, x.Default, webhostInitMsg{Targets: x.Targets})
 	}
 
-	m.Add("DNS", "checks if a censor is spoofing dns responses, hijacking servers, DoH blocking, etc", dnsTab, true, dnsInitMsg{})
+	m.Add(dnsTitle, "checks if a censor is spoofing dns responses, hijacking servers, DoH blocking, etc", dnsTab, true, dnsInitMsg{})
 	return m
 }
 
@@ -72,7 +79,7 @@ func (r *router) TabName() string {
 	menuCurr := r.Menu.Curr()
 	switch r.Tab {
 	case menuCurr.Tab:
-		return menuCurr.Name
+		return terminalText(menuCurr.Name)
 	case updaterTab:
 		return "Updater"
 	case menuTab:
@@ -84,14 +91,13 @@ func (r *router) TabName() string {
 
 func (m *MenuState) View() string {
 	var tpl strings.Builder
-	tpl.WriteString("Select what you want to check.\n\n")
+	tpl.WriteString(m.header + "\n\n")
 	for i, x := range m.items {
+		name := terminalText(x.Name)
 		if !x.Default && i != m.pos {
-			tpl.WriteString(checkbox(infoStyle.Render(x.Name)+" "+subtleStyle.Render(x.Desc), i == m.pos))
-		} else {
-			tpl.WriteString(checkbox(x.Name+" "+subtleStyle.Render(x.Desc), i == m.pos))
-
+			name = infoStyle.Render(name)
 		}
+		tpl.WriteString(checkbox(name+" "+subtleStyle.Render(x.Desc), i == m.pos))
 		tpl.WriteString("\n")
 	}
 	tpl.WriteString("\n\n")

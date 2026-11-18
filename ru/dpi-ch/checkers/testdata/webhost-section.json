@@ -7,10 +7,10 @@
       "Location": "ZZ",
       "IP": "192.0.2.1",
       "Prefix": "192.0.2.0/24",
-      "Alive": {"Msg": "Ok", "Code": "OK"},
+      "Alive": {"Msg": "Ok", "Code": "OK", "Reason": "NONE"},
       "Tls": {"V": "1.3", "San": ["example.test"], "Cn": "example.test"},
-      "Tcp1620": {"Msg": "No", "Code": "OK"},
-      "Siberian": {"Msg": "No", "Code": "OK"},
+      "Tcp1620": {"Msg": "No", "Code": "OK", "Reason": "NONE"},
+      "Siberian": {"Msg": "No", "Code": "OK", "Reason": "NONE"},
       "BurstTxKbps": null,
       "BurstRxKbps": null
     }
